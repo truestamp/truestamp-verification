@@ -79,6 +79,32 @@ tasks:
     cmds:
       - mix test --warnings-as-errors {{.CLI_ARGS}}
 
+  style:
+    desc: "Fail on a house-style slip: an em dash, a retired term, a versioned format name, or a BCP 14 key word outside SPEC.md"
+    silent: true
+    cmds:
+      # The files git tracks or would track, so .gitignore alone decides what is skipped.
+      # A check fails when grep prints a line, whatever its exit status. Each pattern hides
+      # one letter in brackets so it cannot match its own line.
+      - |
+        rc=0
+        if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+          echo "style: not inside a git working tree, so no file was checked"; exit 1
+        fi
+        files() { git ls-files -z --cached --others --exclude-standard -- "$@"; }
+        report() {
+          if [ -n "$1" ]; then echo "$1"; echo "style: $2"; rc=1; fi
+        }
+        report "$(files . | xargs -0 grep -s -H -n -I -F "$(printf '\342\200\224')" -- || true)" \
+          "an em dash; use a hyphen or rewrite the sentence"
+        report "$(files . | xargs -0 grep -s -H -n -I -i -E '\banch[o]r|temporal[ -]?(br[a]cket|w[i]ndow|b[o]und)|(verified|forensic)[ -]time[ -]w[i]ndow' -- || true)" \
+          "a retired term; say commit or commitment, and submission window"
+        report "$(files . | xargs -0 grep -s -H -n -I -i -E '\b[a-z0-9]+(-[a-z0-9]+)*-v[0-9]+\b|\b(proof|format|bundle|envelope|specification)[ _-]?v[0-9]+\b' -- || true)" \
+          "a version-numbered format name"
+        report "$(files . ':!:SPEC.md' | xargs -0 grep -s -H -n -I -E '\b(M[U]ST|REQ[U]IRED|SH[A]LL|SH[O]ULD|RECOMM[E]NDED|M[A]Y|OPT[I]ONAL)\b' -- || true)" \
+          "a BCP 14 key word outside SPEC.md"
+        exit $rc
+
   # ===========================================================================
   # Gates
   # ===========================================================================
@@ -98,6 +124,7 @@ tasks:
   gates:
     internal: true
     cmds:
+      - task: style
       - task: compile
       - task: credo
       - cd elixir && mix deps.unlock --check-unused

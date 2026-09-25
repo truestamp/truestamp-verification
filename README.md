@@ -9,8 +9,7 @@ The canonical definition of a Truestamp proof and how to verify one: what a proo
 holds, every check a verifier makes, and the known answers a verifier reproduces. Anyone
 who writes or audits a verifier, Truestamp's own included, works from this repository.
 
-**Status:** under construction. `SPEC.md` is an outline, and nothing here is normative
-yet.
+**Status:** under construction. `SPEC.md` is a draft, and nothing here is normative yet.
 
 ## Layout
 
@@ -44,7 +43,7 @@ install them (prebuilt Erlang only), then fetch the dependencies:
 
 Then:
 
-    task check       # the CI gate: formatting, compile, credo, unused dependencies, tests
+    task check       # the CI gate: house style, formatting, compile, credo, unused dependencies, tests
     task precommit   # format the sources, then run the same gates
 
 ## License
