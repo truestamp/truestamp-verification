@@ -4,7 +4,7 @@
 defmodule Truestamp.Verifier.SpecFilesTest do
   # The files under spec/ are SPEC.md's data. These tests hold each one to the text: every file
   # reads under the parsing rules and is in canonical form, every table agrees with SPEC.md's,
-  # the key and proof-of-work values are recomputed, and schema.json and value-classes.json are
+  # the key values are recomputed, and schema.json and value-classes.json are
   # run over well-formed sample proofs and their mutations.
   use ExUnit.Case, async: true
 
@@ -151,7 +151,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
   end
 
   describe "constants.json" do
-    test "holds every constant of section 9 but the two with files of their own, with its value" do
+    test "holds every constant of section 9 but SMALL_ORDER_KEYS, with its value" do
       rows = table_after("| Constant | Value |")
 
       from_spec =
@@ -163,7 +163,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
 
       constants = read("constants.json")
 
-      assert Map.keys(from_spec) -- ["BITCOIN_POW_FLOOR", "SMALL_ORDER_KEYS"] ==
+      assert Map.keys(from_spec) -- ["SMALL_ORDER_KEYS"] ==
                Enum.sort(Map.keys(constants))
 
       for {name, value} <- constants do
@@ -178,7 +178,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
   end
 
   # The values a section 9 row gives its names: numbers with thousands separators, the hex
-  # after `=` for MAX_INTEGER, a backticked hex key, or nil for the rows that name a file.
+  # after `=` for MAX_INTEGER, a backticked hex key, or nil for the row that names a file.
   defp spec_values([_name], value) do
     cond do
       value =~ ~r/= (\d+)/ ->
@@ -210,76 +210,6 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     assert length(numbers) == length(names)
     numbers
   end
-
-  describe "pow-floor.json" do
-    test "every network's compact form is the canonical encoding of its target" do
-      floors = read("pow-floor.json")
-      assert Map.keys(floors) |> Enum.sort() == Enum.sort(read("networks.json")["bitcoin"])
-
-      for {network, entry} <- floors do
-        assert %{"compact" => "0x" <> compact, "target" => target} = entry
-        assert map_size(entry) == 2, network
-        assert target =~ ~r/\A[0-9a-f]{64}\z/, network
-
-        assert compact |> String.to_integer(16) |> decode_compact() ==
-                 String.to_integer(target, 16)
-
-        assert entry["compact"] == "0x" <> hex32(compact(String.to_integer(target, 16))), network
-      end
-
-      assert floors["mainnet"]["target"] |> String.to_integer(16) == Integer.pow(2, 187)
-    end
-
-    test "every floor is the one section 9 gives" do
-      [[_, row]] =
-        Enum.filter(table_after("| Constant | Value |"), &(hd(&1) == "BITCOIN_POW_FLOOR"))
-
-      [mainnet | rest] = row |> backticked() |> Enum.reject(&String.starts_with?(&1, "0x"))
-      compacts = row |> backticked() |> Enum.filter(&String.starts_with?(&1, "0x"))
-      floors = read("pow-floor.json")
-
-      assert Map.new(Enum.zip([mainnet | rest], compacts), fn {network, compact} ->
-               {network, compact}
-             end) ==
-               Map.new(floors, fn {network, entry} -> {network, entry["compact"]} end)
-    end
-
-    test "the test networks' floors are their consensus proof-of-work limits" do
-      # Bitcoin Core chainparams: powLimit of main, testnet3 and testnet4, and of regtest.
-      limit = String.duplicate("0", 8) <> String.duplicate("f", 56)
-      regtest = "7" <> String.duplicate("f", 63)
-      floors = read("pow-floor.json")
-
-      for {network, pow_limit} <- [{"testnet3", limit}, {"testnet4", limit}, {"regtest", regtest}] do
-        assert floors[network]["compact"] ==
-                 "0x" <> hex32(compact(String.to_integer(pow_limit, 16))),
-               network
-      end
-    end
-  end
-
-  defp decode_compact(bits) do
-    exponent = bits >>> 24
-    mantissa = bits &&& 0x007FFFFF
-    assert (bits &&& 0x00800000) == 0
-
-    if exponent <= 3,
-      do: mantissa >>> (8 * (3 - exponent)),
-      else: mantissa <<< (8 * (exponent - 3))
-  end
-
-  # Bitcoin Core's arith_uint256::GetCompact.
-  defp compact(value) do
-    size = value |> :binary.encode_unsigned() |> byte_size()
-    mantissa = if size <= 3, do: value <<< (8 * (3 - size)), else: value >>> (8 * (size - 3))
-
-    {mantissa, size} =
-      if (mantissa &&& 0x00800000) != 0, do: {mantissa >>> 8, size + 1}, else: {mantissa, size}
-
-    mantissa ||| size <<< 24
-  end
-
-  defp hex32(n), do: n |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(8, "0")
 
   @p Integer.pow(2, 255) - 19
 

@@ -683,7 +683,6 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 | RAW_TX_MAX_OCTETS, TXOUTPROOF_MAX_OCTETS | 1,000, 1,024 |
 | BITCOIN_MAX_TOTAL_TXS | 16,666 (4,000,000 weight units / (a 60-octet minimum transaction x 4)) |
 | BITCOIN_FINALITY, BITCOIN_MEDIAN_SPAN | 10, 11 |
-| BITCOIN_POW_FLOOR | per network, the largest target a commitment header's nBits may encode. `mainnet` (*Proposed*): 2^187, compact `0x18080000`, a difficulty of about 1.37 x 10^11, about a thousandth of the 1.33 x 10^14 at height 968,496 (September 2026). `testnet3`, `testnet4` and `regtest`: their consensus proof-of-work limits, `0x1d00ffff`, `0x1d00ffff` and `0x207fffff` |
 | STELLAR_INDEX_MARGIN | 60 ledgers |
 | SMALL_ORDER_KEYS | the ten encodings of section 6.2 |
 | VECTOR_KEY | `2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12`, from the seed of 32 bytes of 0x42; valid only when the verifier's environment is `test` |
@@ -696,8 +695,7 @@ and the constructions texts named above are still to come:
 | File | Holds |
 |---|---|
 | `prefixes.json` | the table of section 4.3, keyed by construction name |
-| `constants.json` | the constants above, except the two that have files of their own |
-| `pow-floor.json` | BITCOIN_POW_FLOOR for each network, as compact nBits and as the 256-bit target in hex |
+| `constants.json` | the constants above, except SMALL_ORDER_KEYS, which has a file of its own |
 | `small-order-keys.json` | SMALL_ORDER_KEYS in hex, with each point's order |
 | `encodings.json` | the pattern classes of section 2.4 |
 | `networks.json` | the network names of each chain |

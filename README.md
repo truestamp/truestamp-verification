@@ -16,7 +16,7 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 | Path | What it holds |
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
-| `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, proof-of-work floors, small-order keys, and the JSON Schema of a proof. |
+| `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, and the JSON Schema of a proof. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
 | `generator/` | The scripts that write derived files; today, the manifest. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
