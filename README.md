@@ -15,23 +15,37 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 
 | Path | What it holds |
 |---|---|
-| `SPEC.md` | The specification, and the only normative document in the repository. |
-| `elixir/` | The Elixir reference verifier, a Mix project. Today it holds one test of the Merkle library it depends on. |
+| `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
+| `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, proof-of-work floors, small-order keys, and the JSON Schema of a proof. |
+| `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
+| `generator/` | The scripts that write derived files; today, the manifest. |
+| `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
 | `Taskfile.yml` | The checks, run with [Task](https://taskfile.dev). |
 
-Still to come: `spec/`, the data files `SPEC.md` defines (the byte-prefix registry,
-constants, schema, reason codes and keyrings); `vectors/`, the conformance cases and
-their inputs; `MANIFEST.sha256`, the digest of every file under both; the generator that
-writes the vectors; and reference verifiers in Go and TypeScript beside the Elixir one.
+Still to come: the keyrings (`spec/keyring.production.json`,
+`spec/keys.nonproduction.json`), the reason and exit codes, and the accepted constructions
+texts under `spec/`; `vectors/`, the conformance cases and their inputs, with known
+answers for JCS, Ed25519 and base64url; the generator that writes them; and reference
+verifiers in Go and TypeScript beside the Elixir one.
 
-## Merkle trees
+## Standards and dependencies
+
+A verifier needs these standards and this repository's data: JSON (RFC 8259), the JSON
+Canonicalization Scheme (RFC 8785), SHA-256 (FIPS 180-4), pure Ed25519 (RFC 8032), unpadded
+base64url (RFC 4648 section 5), the Merkle Tree Hash and inclusion proofs of RFC 9162
+section 2.1, JSON Pointer (RFC 6901), RFC 3339 times, JSON Schema draft 2020-12, BIP 37
+merkleblocks and the transaction serialization without witness data of BIP 144, and, for
+the online checks, the Bitcoin and Stellar protocols and NIST's Randomness Beacon.
+`SPEC.md` section 2.5 lists them with what each is used for. Any conforming implementation
+of each will do; none of them requires a particular library.
 
 A Truestamp Merkle tree is RFC 9162 section 2.1's Merkle Tree Hash over entries sorted by
-key. Its known answers live with the library that builds it,
-[truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir), in its
-`vectors/merkle.json`. This repository keeps no Merkle vectors of its own: its one Merkle
-test borrows a single case from that file and recomputes it. The Elixir reference verifier
-depends on that library, pinned to a commit.
+key. It is the one construction with a Truestamp library, and using that library is
+optional: [truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir)
+builds the trees, and its `vectors/merkle.json` holds their known answers. This repository
+keeps no Merkle vectors of its own: its one Merkle test borrows a single case from that file
+and recomputes it. The Elixir reference verifier depends on that library, pinned to a
+commit.
 
 ## Running the checks
 
@@ -43,7 +57,8 @@ install them (prebuilt Erlang only), then fetch the dependencies:
 
 Then:
 
-    task check       # the CI gate: house style, formatting, compile, credo, unused dependencies, tests
+    task check       # the CI gate: house style, the manifest, formatting, compile, credo,
+                     # unused dependencies, tests
     task precommit   # format the sources, then run the same gates
 
 ## License

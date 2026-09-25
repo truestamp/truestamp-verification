@@ -96,6 +96,31 @@ and Go's `RawURLEncoding.Strict()` skips CR and LF. So an implementation MUST ma
 value against its class before it decodes it. The round trip of TIME and NISTTIME rejects
 `24:00:00`, February 30 and a seconds value of 60.
 
+### 2.5 Normative references
+
+A verifier depends on these standards, and on nothing of Truestamp's beyond this document
+and its data:
+
+| Standard | Used for |
+|---|---|
+| RFC 8259, JSON | the document, and every file under `spec/` and `vectors/` |
+| RFC 8785, the JSON Canonicalization Scheme (JCS) | every record hash and the signed digest |
+| FIPS 180-4, SHA-256 | every hash, and SHA-256d for Bitcoin |
+| RFC 8032, Ed25519 (the pure variant) | the proof's signature and every handover signature, checked as section 6.2 says |
+| RFC 4648 section 5, base64url without padding | keys and signatures |
+| RFC 9162 section 2.1, the Merkle Tree Hash and its inclusion proofs | block and epoch trees (section 5) |
+| RFC 6901, JSON Pointer | pointers into the proof, in this document, in reports and in `spec/value-classes.json` |
+| RFC 3339, date and time in UTC | TIME and NISTTIME |
+| JSON Schema, draft 2020-12 | `spec/schema.json` (section 9) |
+| BCP 14 (RFC 2119, RFC 8174) | requirements language (section 2.1) |
+| BIP 37 and BIP 144 | the Bitcoin merkleblock, and the transaction serialized without witness data |
+| the Bitcoin and Stellar protocols, and NIST's Randomness Beacon | commitments, chain reads and entropy sources |
+
+Any conforming implementation of each standard will do; none of them requires a particular
+library. Known answers for JCS, Ed25519 and base64url are among the conformance vectors
+(section 13), and those for the Merkle tree live with Truestamp's Merkle library (section
+5.1).
+
 ## 3. The proof document
 
 ### 3.1 The envelope
@@ -185,6 +210,8 @@ A KEY_EVENT is one of these, by its `type`:
 - **GENESIS** is `{"bitcoin": {"header_hash": HEX64, "height": INT, "network": NETWORK}}`,
   present only on the genesis block. It names a Bitcoin block that was at least 10 deep on
   the best chain of Truestamp's configured source when the genesis block was made.
+- `metadata.genesis` MUST be present exactly when `metadata.key_event` is a `genesis`
+  event.
 
 ### 3.4 Commitments
 
@@ -283,9 +310,9 @@ A verifier MUST treat each value as its class says.
 | Class | Members | Treatment |
 |---|---|---|
 | PINNED | `format`, `version`, `type`, `environment`, `signature.alg`, `constructions` | compared with pinned values before anything uses them |
-| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; key ids and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature` | recomputed and compared |
+| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature` | recomputed and compared |
 | PATH INPUT | every MERKLE_PROOF `path` node and `leaf_index` | bound by the walk |
-| PREIMAGE | `/block/record/leaf_count` and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations; the key-event `public_key`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
+| PREIMAGE | `/block/record/leaf_count` and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations; the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
 | CHAIN POINTER | Stellar `transaction_hash`, `ledger`; Bitcoin commitment `height`; every `network`; NIST `chainIndex`, `pulseIndex`; Stellar `sequence`; Bitcoin entropy `hash`; `genesis.bitcoin` | may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification |
 | BLOCK HEIGHT | every `record.height` | 0 at genesis (CHECKED); otherwise used only by LINK_HEAD |
 | SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with bidirectional and zero-width characters escaped |
@@ -662,6 +689,47 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 | VECTOR_KEY | `2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12`, from the seed of 32 bytes of 0x42; valid only when the verifier's environment is `test` |
 
 There are no clock tolerances.
+
+**The data files.** These files under `spec/` hold the pins defined so far; the keyrings
+and the constructions texts named above are still to come:
+
+| File | Holds |
+|---|---|
+| `prefixes.json` | the table of section 4.3, keyed by construction name |
+| `constants.json` | the constants above, except the two that have files of their own |
+| `pow-floor.json` | BITCOIN_POW_FLOOR for each network, as compact nBits and as the 256-bit target in hex |
+| `small-order-keys.json` | SMALL_ORDER_KEYS in hex, with each point's order |
+| `encodings.json` | the pattern classes of section 2.4 |
+| `networks.json` | the network names of each chain |
+| `value-classes.json` | the value classes of section 3.7, by JSON Pointer pattern |
+| `schema.json` | the closed schema of the envelope and of every type |
+
+Every file satisfies the parsing rules of section 10.1 and has one canonical form: ASCII,
+members in JCS order, two-space indentation, LF line ends and a final newline.
+`MANIFEST.sha256` lists the SHA-256 of every file under `spec/` and `vectors/`, one line per
+file in the format `sha256sum` reads, sorted by path.
+
+**The schema.** `spec/schema.json` is a JSON Schema (draft 2020-12) of the envelope. It
+uses only these keywords, so a verifier can use any conforming validator or interpret the
+subset itself: `$schema`, `$defs`, `$ref` (to `#/$defs` only), `allOf`, `if`, `then`,
+`else`, `not`, `type`, `const`, `enum`, `properties`, `required`, `additionalProperties`
+(only `false`), `minProperties`, `pattern`, `minLength`, `maxLength`, `minimum`,
+`maximum`, `items` and `maxItems`, and the boolean schemas `true` and `false`. Each
+pattern other than the newline guard `\n`, which appears only under `not`, begins with
+`^`, ends with `$`, and is paired with an exact length or with that guard, so a validator
+whose `$` also matches before a final newline gives the same answer. Every document this
+specification allows satisfies the schema. Three checks of SHAPE are beyond it and are
+made in code: `witnesses` has exactly the names of `witness_hashes`, each TIME and
+NISTTIME value equals the formatting of its own parse, and the constructions digest is in
+CONSTRUCTIONS_ACCEPTED (section 7.2).
+
+**Value classes.** In `spec/value-classes.json`, each member rule maps a JSON Pointer
+pattern into the proof, or into the envelope where it says `"document": "envelope"`, to a
+class. A segment `*` matches any name, and a segment ending in `*` matches any name that
+begins with the rest. A rule applies to the value at its pointer and to everything inside
+it; no rule's pointer lies inside another's, and each value meets at most one rule. A rule
+with `when` takes its class only where the named condition holds, and otherwise the class
+that `otherwise` names.
 
 ## 10. The verification algorithm
 

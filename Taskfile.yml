@@ -106,6 +106,20 @@ tasks:
         exit $rc
 
   # ===========================================================================
+  # The manifest
+  # ===========================================================================
+
+  manifest:
+    desc: Rewrite MANIFEST.sha256, the SHA-256 of every file under spec/ and vectors/
+    cmds:
+      - elixir generator/manifest.exs
+
+  manifest-check:
+    desc: Fail if MANIFEST.sha256 differs from what task manifest writes
+    cmds:
+      - elixir generator/manifest.exs --check
+
+  # ===========================================================================
   # Gates
   # ===========================================================================
 
@@ -125,6 +139,7 @@ tasks:
     internal: true
     cmds:
       - task: style
+      - task: manifest-check
       - task: compile
       - task: credo
       - cd elixir && mix deps.unlock --check-unused
