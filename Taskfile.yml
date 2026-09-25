@@ -1,0 +1,104 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# https://taskfile.dev
+#
+# Tool versions come from .tool-versions, which mise reads: Erlang, Elixir and this
+# runner. `task bootstrap` installs them. The Elixir reference verifier is the Mix
+# project in elixir/, so its tasks run there.
+
+version: "3"
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list-all
+
+  # ===========================================================================
+  # Setup
+  # ===========================================================================
+
+  bootstrap:
+    desc: First-time setup. Installs the tools in .tool-versions with mise, then runs setup.
+    cmds:
+      - task: mise-install
+      - task: setup
+
+  mise-install:
+    desc: Install the tool versions in .tool-versions (Erlang, Elixir, task), prebuilt only
+    env:
+      # Fail rather than compile Erlang from source when no prebuilt build exists.
+      MISE_ERLANG_COMPILE: "false"
+    cmds:
+      - mise install
+      - mise ls --current
+
+  setup:
+    desc: Fetch the reference verifier's dependencies
+    aliases: [deps]
+    dir: elixir
+    cmds:
+      - mix local.hex --force --if-missing
+      - mix local.rebar --force --if-missing
+      - mix deps.get
+
+  # ===========================================================================
+  # Everyday
+  # ===========================================================================
+
+  compile:
+    desc: Compile the reference verifier, with warnings as errors
+    dir: elixir
+    env:
+      MIX_ENV: test
+    cmds:
+      - mix compile --warnings-as-errors
+
+  format:
+    desc: Format the Elixir sources
+    dir: elixir
+    cmds:
+      - mix format
+
+  format-check:
+    desc: Fail if any Elixir source is not formatted, without changing it
+    dir: elixir
+    cmds:
+      - mix format --check-formatted
+
+  credo:
+    desc: Run credo in strict mode
+    dir: elixir
+    cmds:
+      - mix credo --strict
+
+  test:
+    desc: Run the reference verifier's tests
+    dir: elixir
+    cmds:
+      - mix test --warnings-as-errors {{.CLI_ARGS}}
+
+  # ===========================================================================
+  # Gates
+  # ===========================================================================
+
+  precommit:
+    desc: "Format, then every gate `task check` runs"
+    cmds:
+      - task: format
+      - task: gates
+
+  check:
+    desc: The CI gate. Like precommit, but checks formatting instead of changing files.
+    cmds:
+      - task: format-check
+      - task: gates
+
+  gates:
+    internal: true
+    cmds:
+      - task: compile
+      - task: credo
+      - cd elixir && mix deps.unlock --check-unused
+      - task: test

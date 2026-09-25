@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+defmodule Truestamp.Verifier.MixProject do
+  use Mix.Project
+
+  def project do
+    [
+      app: :truestamp_verifier,
+      version: "0.1.0",
+      elixir: "~> 1.20",
+      start_permanent: Mix.env() == :prod,
+      deps: deps()
+    ]
+  end
+
+  def application do
+    [extra_applications: [:crypto]]
+  end
+
+  defp deps do
+    [
+      # The Merkle tree and inclusion proofs of RFC 9162 section 2.1. Pinned to a full
+      # commit id until the library is published to Hex.
+      {:truestamp_merkle,
+       github: "truestamp/truestamp-merkle-elixir",
+       ref: "2ba4a58089c289ca0dfcbce8a893260509b41ab1",
+       depth: 1},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+    ]
+  end
+end

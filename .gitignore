@@ -1,0 +1,11 @@
+# Build output of every Mix project in the repository (elixir/ today).
+_build/
+deps/
+cover/
+doc/
+.elixir_ls/
+erl_crash.dump
+*.ez
+
+# Scratch files.
+/tmp/
