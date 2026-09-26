@@ -1000,8 +1000,9 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   `spec/keyring.production.json` is compiled into the CLI and the reference verifiers in
   this repository, and the keyring downloaded from www.truestamp.com replaces it online
   (section 10.2, step 0).
-  `spec/keys.nonproduction.json` holds the staging key and the checked-in dev and test
-  keys, and a production keyring MUST NOT contain any of them (section 6.4). A verifier
+  `spec/keys.nonproduction.json` lists the public keys of the dev, test and staging
+  environments, VECTOR_KEY among the test keys, and a production keyring MUST NOT contain
+  any of them (section 6.4). A verifier
   MUST validate every keyring when it loads it.
 - **Literals:** `format`, `version` 1, `signature.alg`, CONSTRUCTIONS_ACCEPTED (the digests
   of the texts under `spec/constructions/`), and `spec/schema.json`: the type registry,
@@ -1030,8 +1031,7 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 
 There are no clock tolerances.
 
-**The data files.** These files under `spec/` hold the pins defined so far; the keyrings
-and the constructions texts named above are still to come:
+**The data files.** These files under `spec/` hold the pins:
 
 | File | Holds |
 |---|---|
@@ -1042,9 +1042,16 @@ and the constructions texts named above are still to come:
 | `networks.json` | the network names of each chain |
 | `value-classes.json` | the value classes of section 3.7, by JSON Pointer pattern |
 | `schema.json` | the closed schema of the envelope and of every type |
+| `constructions/c4cf75328f76a30992da2f3449e2df28b4197f819d785d2a18aa62a33284f969.json` | the text of section 7.3, as its exact JCS bytes |
+| `keyring.production.json` | the compiled pin of section 8.3, a keyring in the form of section 10.2, step 0 |
+| `keys.nonproduction.json` | the public keys of the dev, test and staging environments, as `{keys}`, one object per key: `{environment, key_id, public_key}`, with `public_key` a B64U32 and `key_id` its key id |
+| `reason-codes.json` | the table of section 12.1, one object per row, in the table's order |
+| `exit-codes.json` | the table of section 12.2, one object per row |
 
-Every file satisfies the parsing rules of section 10.1 and has one canonical form: ASCII,
-members in JCS order, two-space indentation, LF line ends and a final newline.
+Every file satisfies the parsing rules of section 10.1 and has one canonical form. A
+constructions text is its exact JCS bytes, with no final newline, so the SHA-256 of the
+file is the hex in its name (section 7.2). Every other file is ASCII, with members in JCS
+order, two-space indentation, LF line ends and a final newline.
 `MANIFEST.sha256` lists the SHA-256 of every file under `spec/` and `vectors/`, one line per
 file in the format `sha256sum` reads, sorted by path.
 
@@ -2091,7 +2098,6 @@ The table lists the codes in step order. 34 codes.
 | `unsupported_version` | SHAPE | fail | `version` is not 1; the only signal of a later format |
 | `shape_invalid` | SHAPE | fail | the proof fails a check of SHAPE other than those of `format`, `version` and the constructions digest (section 10.2, step 7) |
 | `construction_mismatch` | SHAPE | fail | the constructions digest is not in CONSTRUCTIONS_ACCEPTED |
-| `prior_failure` | any step after a failure | skip | a row it depends on failed: every later step up to EXPECTED_HASH after a failure at steps 4 to 7 (section 10.2); a CHAIN or SOURCES row, KEY_EVENT_COMMITMENT included, after a failed row before CHAIN (the external gate of section 10.2); and the WINDOW row after any failed row (section 11.3) |
 | `network_mismatch` | POLICY | fail | a `network` differs from the verifier's pin for that chain or source |
 | `derivation_mismatch` | DERIVE | fail | a CHECKED value that no key-event check of section 10.3 covers differs from its recomputation (section 10.2, step 9): a record hash; a walk that fails or reaches another root; a `tree_size` that differs from its record's `leaf_count`; an `epoch_hash` that differs from the copy in the carried Bitcoin transaction; the hash a txoutproof matches, or a Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root` or `header_time`; a LINK_WITNESS link |
 | `bitcoin_evidence_invalid` | DERIVE | fail | a `raw_transaction` or `txoutproof` that is not well formed, including a header hash above the target its own nBits encodes (section 10.2, step 9) |
@@ -2100,17 +2106,18 @@ The table lists the codes in step order. 34 codes.
 | `not_attributable` | DERIVE, CHAIN | info | on LINK_KEY_EVENT or KEY_EVENT_COMMITMENT, in place of `pass` when the attribution is not `truestamp` |
 | `offline` | CHAIN, SOURCES | skip | no read was made in this run; the message names the read that would confirm the row |
 | `chain_mismatch` | CHAIN | fail | a chain read contradicts the proof (section 10.4) |
-| `entropy_mismatch` | SOURCES | fail | the pulse, ledger or block read differs from the entropy object |
 | `source_unreachable` | CHAIN, SOURCES | skip | the source gave no usable answer (section 10.4) |
 | `not_held_by_source` | CHAIN, SOURCES | skip | the source does not hold the value, and its absence is no contradiction |
 | `not_yet_indexed` | CHAIN, SOURCES | skip | the value lies beyond the source's indexed tip, or within STELLAR_INDEX_MARGIN of it |
 | `chain_not_final` | CHAIN | skip | the Bitcoin tip is below `height` + BITCOIN_FINALITY |
+| `entropy_mismatch` | SOURCES | fail | the pulse, ledger or block read differs from the entropy object |
 | `window_not_established` | WINDOW | info | no submitted-before edge was drawn; `values` give the reason for each absent edge |
 | `window_inverted` | WINDOW | fail | the submitted-after edge is later than the submitted-before edge |
 | `recorded_time_outside_window` | WINDOW | info | the time in a subject's id lies outside an established window |
 | `expected_hash_mismatch` | EXPECTED_HASH | fail | the caller gave a hash, and the proof has no `claims.hash` of a listed type to compare it with, or the caller's hash is not hex of that type's length, or it differs from `claims.hash` (section 10.2, step 13) |
 | `expected_hash_weak_algorithm` | EXPECTED_HASH | warn | the caller's hash matched, and `claims.hash_type` is `md5` or `sha1`, whose collisions are practical |
 | `expected_hash_not_checked` | EXPECTED_HASH | skip | no expected hash was given |
+| `prior_failure` | any step after a failure | skip | a row it depends on failed: every later step up to EXPECTED_HASH after a failure at steps 4 to 7 (section 10.2); a CHAIN or SOURCES row, KEY_EVENT_COMMITMENT included, after a failed row before CHAIN (the external gate of section 10.2); and the WINDOW row after any failed row (section 11.3) |
 | `internal_error` | any step from ENVIRONMENT on | fail | a fault in the verifier (section 10.5) |
 
 ### 12.2 Exit codes

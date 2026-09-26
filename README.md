@@ -16,17 +16,15 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 | Path | What it holds |
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
-| `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, and the JSON Schema of a proof. |
+| `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
 | `generator/` | The scripts that write derived files; today, the manifest. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
 | `Taskfile.yml` | The checks, run with [Task](https://taskfile.dev). |
 
-Still to come: the keyrings (`spec/keyring.production.json`,
-`spec/keys.nonproduction.json`), the reason and exit codes, and the accepted constructions
-texts under `spec/`; `vectors/`, the conformance cases and their inputs, with known
-answers for JCS, Ed25519 and base64url; the generator that writes them; and reference
-verifiers in Go and TypeScript beside the Elixir one.
+Still to come: the production key and the staging key; `vectors/`, the conformance cases and their inputs, with known answers for JCS,
+Ed25519 and base64url; the generator that writes them; and reference verifiers in Go and
+TypeScript beside the Elixir one.
 
 ## Standards and dependencies
 

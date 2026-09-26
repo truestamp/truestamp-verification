@@ -14,7 +14,13 @@ defmodule Truestamp.Verifier.SpecFilesTest do
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")
-  @spec_files @root |> Path.join("spec/*.json") |> Path.wildcard() |> Enum.sort()
+  @spec_dir Path.join(@root, "spec")
+  @constructions_dir Path.join(@spec_dir, "constructions")
+  @spec_files @spec_dir
+              |> Path.join("**/*")
+              |> Path.wildcard(match_dot: true)
+              |> Enum.filter(&File.regular?/1)
+              |> Enum.sort()
   @external_resource @spec_md
 
   # The root of the empty tree, SHA-256 of zero bytes (SPEC.md 5.4).
@@ -78,6 +84,22 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       assert StrictJSON.decode(~s({"n":1e-400})) == {:ok, %{"n" => 0.0}}
       assert {:ok, _} = StrictJSON.decode(String.duplicate("[", 32) <> String.duplicate("]", 32))
     end
+
+    test "writes JCS for an object of printable ASCII strings, and refuses any other value" do
+      assert StrictJSON.jcs(%{"b" => ~s(x"y), "a" => "\\", "B" => ""}) ==
+               ~S({"B":"","a":"\\","b":"x\"y"})
+
+      assert StrictJSON.jcs(%{}) == "{}"
+
+      for value <- [1, %{}] do
+        assert_raise FunctionClauseError, fn -> StrictJSON.jcs(%{"a" => value}) end
+      end
+
+      for value <- ["caf\u00e9", "a\nb"] do
+        assert_raise ArgumentError, fn -> StrictJSON.jcs(%{"a" => value}) end
+        assert_raise ArgumentError, fn -> StrictJSON.jcs(%{value => "a"}) end
+      end
+    end
   end
 
   describe "every file under spec/" do
@@ -85,18 +107,25 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       listed =
         "| File | Holds |" |> table_after() |> Enum.map(fn [file, _holds] -> unmark(file) end)
 
-      assert Enum.map(@spec_files, &Path.basename/1) == Enum.sort(listed)
+      assert Enum.map(@spec_files, &Path.relative_to(&1, @spec_dir)) == Enum.sort(listed)
     end
 
     for file <- @spec_files do
       @file_path file
-      test "#{Path.basename(file)} reads under the parsing rules, in canonical ASCII form" do
+      test "#{Path.relative_to(file, @spec_dir)} reads under the parsing rules, in canonical ASCII form" do
         bytes = File.read!(@file_path)
         assert {:ok, value} = StrictJSON.decode(bytes)
         assert bytes =~ ~r/\A[\x20-\x7e\n]*\z/
-        assert StrictJSON.canonical(value) == bytes
+        assert canonical(@file_path, value) == bytes
       end
     end
+  end
+
+  # Section 9: a constructions text is its exact JCS bytes, and every other file is indented.
+  defp canonical(path, value) do
+    if Path.dirname(path) == @constructions_dir,
+      do: StrictJSON.jcs(value),
+      else: StrictJSON.canonical(value)
   end
 
   describe "prefixes.json" do
@@ -245,6 +274,203 @@ defmodule Truestamp.Verifier.SpecFilesTest do
 
     assert length(numbers) == length(names)
     numbers
+  end
+
+  describe "reason-codes.json" do
+    test "is the table of section 12.1, row for row and in its order, with the count 12.1 states" do
+      rows =
+        "| Code | Step | Status | Meaning |"
+        |> table_after()
+        |> Enum.map(fn [code, step, status, meaning] ->
+          %{
+            "code" => unmark(code),
+            "meaning" => unmark(meaning),
+            "status" => status,
+            "step" => step
+          }
+        end)
+
+      [count] =
+        Regex.run(~r/The table lists the codes in step order\. (\d+) codes\./, spec_md(),
+          capture: :all_but_first
+        )
+
+      assert length(rows) == String.to_integer(count)
+      assert read("reason-codes.json") == rows
+
+      codes = Enum.map(rows, & &1["code"])
+      assert codes == Enum.uniq(codes)
+      for code <- codes, do: assert(code =~ ~r/\A[a-z]+(?:_[a-z]+)*\z/, code)
+    end
+
+    test "lists the codes in step order, by the first step each names, with the codes of any step last" do
+      steps = steps()
+
+      positions =
+        for %{"step" => step} <- read("reason-codes.json") do
+          if String.starts_with?(step, "any step"),
+            do: map_size(steps),
+            else: Map.fetch!(steps, step |> step_names() |> hd())
+        end
+
+      assert positions == Enum.sort(positions)
+    end
+
+    test "names only the steps of section 10.2, and gives each step of the bare rejection one bare code" do
+      steps = steps()
+      codes = read("reason-codes.json")
+
+      for %{"code" => code, "step" => step} <- codes do
+        names = step_names(step)
+        assert names -- Map.keys(steps) == [], "#{code}: #{step}"
+      end
+
+      [first, last] =
+        Regex.run(~r/A failure at steps (\d+) to (\d+) is a bare rejection\./, spec_md(),
+          capture: :all_but_first
+        )
+
+      bare = for %{"status" => "bare", "step" => step} <- codes, do: Map.fetch!(steps, step)
+      assert bare == Enum.to_list(String.to_integer(first)..String.to_integer(last))
+
+      # A row with the status `pass` carries no code (section 10.5), so no code has it.
+      statuses =
+        "| Status | Meaning |"
+        |> table_after()
+        |> Enum.map(fn [status, _meaning] -> unmark(status) end)
+
+      assert "pass" in statuses
+
+      for %{"code" => code, "status" => status} <- codes, status != "bare" do
+        assert status in (statuses -- ["pass"]), code
+      end
+    end
+
+    test "gives each code a step of section 10.2 names with `else` that step" do
+      steps = steps()
+      steps_of = Map.new(read("reason-codes.json"), &{&1["code"], step_names(&1["step"])})
+      [_before, section] = String.split(spec_md(), "\n### 10.2 Steps\n", parts: 2)
+      [section, _after] = String.split(section, "\n### 10.3 ", parts: 2)
+
+      paragraphs =
+        Regex.scan(~r/^\*\*(\d+)\. ([A-Z_]+)\b(.*?)(?=^\*\*\d+\. |\z)/ms, section,
+          capture: :all_but_first
+        )
+
+      assert Enum.map(paragraphs, &Enum.at(&1, 1)) ==
+               steps |> Enum.sort_by(&elem(&1, 1)) |> Enum.map(&elem(&1, 0))
+
+      named =
+        for [number, name, body] <- paragraphs,
+            [code] <- Regex.scan(~r/else `([a-z_]+)`/, body, capture: :all_but_first) do
+          assert Map.fetch!(steps, name) == String.to_integer(number), name
+          assert name in Map.fetch!(steps_of, code), "#{code} at #{name}"
+          code
+        end
+
+      assert length(Enum.uniq(named)) >= 5
+    end
+
+    test "agrees with every status and code SPEC.md writes together" do
+      status_of = Map.new(read("reason-codes.json"), &{&1["code"], &1["status"]})
+
+      pairs =
+        ~r/`(pass|fail|skip|warn|info) ([a-z_]+)`/
+        |> Regex.scan(spec_md(), capture: :all_but_first)
+        |> Enum.uniq()
+
+      assert length(pairs) >= 10
+
+      for [status, code] <- pairs do
+        assert Map.fetch!(status_of, code) == status, "#{status} #{code}"
+      end
+    end
+
+    test "mentions sub_reason in exactly the meanings of the codes that 12.1 and the gate give one" do
+      md = spec_md()
+
+      [bullet] =
+        Regex.run(~r/`sub_reason` is present for (.*?), and absent otherwise/s, md,
+          capture: :all_but_first
+        )
+
+      [gate] =
+        Regex.run(~r/with `sub_reason` only for (.*?), and no report/s, md,
+          capture: :all_but_first
+        )
+
+      with_sub_reason =
+        for %{"code" => code, "meaning" => meaning} <- read("reason-codes.json"),
+            meaning =~ "sub_reason",
+            do: code
+
+      assert with_sub_reason == backticked(bullet)
+      assert with_sub_reason == backticked(gate)
+    end
+  end
+
+  # The steps of section 10.2's table, by name.
+  defp steps do
+    "| Step | Name | What it checks |"
+    |> table_after()
+    |> Map.new(fn [number, name, _checks] -> {name, String.to_integer(number)} end)
+  end
+
+  # The step names a cell of 12.1's Step column gives: step names, or one of its two phrases.
+  defp step_names("any step after a failure"), do: []
+
+  defp step_names("any step from " <> _ = cell) do
+    [name] = Regex.run(~r/\Aany step from ([A-Z_]+) on\z/, cell, capture: :all_but_first)
+    [name]
+  end
+
+  defp step_names(cell), do: String.split(cell, ", ")
+
+  describe "exit-codes.json" do
+    test "is the table of section 12.2, row for row, numbered from 0 with no gap" do
+      rows =
+        "| Code | The run |"
+        |> table_after()
+        |> Enum.map(fn [code, run] ->
+          %{"code" => String.to_integer(code), "run" => unmark(run)}
+        end)
+
+      assert read("exit-codes.json") == rows
+      assert Enum.map(rows, & &1["code"]) == Enum.to_list(0..(length(rows) - 1))
+    end
+
+    test "gives each label of section 10.5 one code, and each bare code of reason-codes.json one" do
+      runs = table_after("| Code | The run |")
+
+      labels =
+        "| `label` | When | What it says |"
+        |> table_after()
+        |> Enum.map(fn [label, _when, _says] -> unmark(label) end)
+
+      labelled = for [_code, "label `" <> label] <- runs, do: String.trim_trailing(label, "`")
+      assert Enum.sort(labelled) == Enum.sort(labels)
+
+      bare = for %{"code" => code, "status" => "bare"} <- read("reason-codes.json"), do: code
+
+      # A run names a bare code by itself, or as the one exception of "a bare rejection other
+      # than ...". Every code a run names is bare.
+      assert runs
+             |> Enum.flat_map(fn [_code, run] -> backticked(run) end)
+             |> Enum.uniq()
+             |> Kernel.--(labels)
+             |> Kernel.--(bare) == []
+
+      for code <- bare do
+        exits =
+          for [exit, run] <- runs,
+              run == "`#{code}`" or
+                (String.starts_with?(run, "a bare rejection other than") and
+                   code not in backticked(run)),
+              do: exit
+
+        assert length(exits) == 1, "#{code}: #{inspect(exits)}"
+      end
+    end
   end
 
   @p Integer.pow(2, 255) - 19

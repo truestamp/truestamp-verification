@@ -1,0 +1,24 @@
+{
+  "keys": [
+    {
+      "environment": "dev",
+      "key_id": "1270d791",
+      "public_key": "F-HsbiHAMtfETVypiSLoJfAuKwt19_QMr16rr5h8OLk"
+    },
+    {
+      "environment": "dev",
+      "key_id": "97223329",
+      "public_key": "CTwMqDZnPd_QTLSq8aTeSD3a-j2DQxKcGfhhIYJQ65Y"
+    },
+    {
+      "environment": "test",
+      "key_id": "04a76bfd",
+      "public_key": "krcqBwjUBsOjj10-7DuxK5VussLbOau7X56e2PVgyyE"
+    },
+    {
+      "environment": "test",
+      "key_id": "fbd680e8",
+      "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 defmodule Truestamp.Verifier.Test.StrictJSON do
   @moduledoc """
   Reads a JSON text under the parsing rules J1 to J6 of SPEC.md section 10.1, for the tests
-  of the files under `spec/`, and prints a value in the canonical form those files use.
+  of the files under `spec/`, and prints a value in the canonical forms those files use.
   """
 
   @max_read_octets 262_144
@@ -117,4 +117,27 @@ defmodule Truestamp.Verifier.Test.StrictJSON do
   defp pretty(scalar, _level), do: JSON.encode!(scalar)
 
   defp indent(level), do: String.duplicate("  ", level)
+
+  @doc """
+  The JCS (RFC 8785) bytes of an object whose names and values are all printable ASCII
+  strings, as a constructions text's are: members sorted, no whitespace. For such strings,
+  sorting by bytes is JCS's sort by UTF-16 code units, and `JSON.encode!/1` escapes exactly
+  what JCS escapes, `"` and `\\`. Any other value raises rather than meet the number
+  formatting and escaping JCS gives it.
+  """
+  @spec jcs(%{optional(String.t()) => String.t()}) :: binary()
+  def jcs(object) when is_map(object) do
+    members =
+      object
+      |> Enum.sort_by(fn {name, _value} -> name end)
+      |> Enum.map(fn {name, value} -> [ascii_string(name), ":", ascii_string(value)] end)
+
+    IO.iodata_to_binary(["{", Enum.intersperse(members, ","), "}"])
+  end
+
+  defp ascii_string(string) when is_binary(string) do
+    if string =~ ~r/\A[\x20-\x7e]*\z/,
+      do: JSON.encode!(string),
+      else: raise(ArgumentError, "not a printable ASCII string: #{inspect(string)}")
+  end
 end
