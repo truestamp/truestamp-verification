@@ -5,7 +5,8 @@
 #
 # Tool versions come from .tool-versions, which mise reads: Erlang, Elixir and this
 # runner. `task bootstrap` installs them. The Elixir reference verifier is the Mix
-# project in elixir/, so its tasks run there.
+# project in elixir/, so its tasks run there. Its .formatter.exs and .credo.exs also take in
+# the scripts in generator/, so format, format-check and credo cover them.
 
 version: "3"
 
@@ -56,19 +57,19 @@ tasks:
       - mix compile --warnings-as-errors
 
   format:
-    desc: Format the Elixir sources
+    desc: Format the Elixir sources, the scripts in generator/ included
     dir: elixir
     cmds:
       - mix format
 
   format-check:
-    desc: Fail if any Elixir source is not formatted, without changing it
+    desc: Fail if any Elixir source, generator/ included, is not formatted, without changing it
     dir: elixir
     cmds:
       - mix format --check-formatted
 
   credo:
-    desc: Run credo in strict mode
+    desc: Run credo in strict mode over the Elixir sources, generator/ included
     dir: elixir
     cmds:
       - mix credo --strict
@@ -106,6 +107,21 @@ tasks:
         exit $rc
 
   # ===========================================================================
+  # The vectors
+  # ===========================================================================
+
+  generate:
+    desc: Write the files under vectors/ with the generator, then MANIFEST.sha256
+    cmds:
+      - elixir generator/generate.exs
+      - task: manifest
+
+  generate-check:
+    desc: Run the generator's checks, and fail if vectors/ differs from what task generate writes
+    cmds:
+      - elixir generator/generate.exs --check
+
+  # ===========================================================================
   # The manifest
   # ===========================================================================
 
@@ -139,6 +155,7 @@ tasks:
     internal: true
     cmds:
       - task: style
+      - task: generate-check
       - task: manifest-check
       - task: compile
       - task: credo

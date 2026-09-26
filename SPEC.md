@@ -2187,8 +2187,8 @@ These files are under `vectors/`, and `MANIFEST.sha256` holds the digest of each
 | Path | Holds |
 |---|---|
 | `cases.json` | every case: its proof, its configuration and its expected output |
-| `keyring.test.json` | a keyring holding VECTOR_KEY, valid only when the verifier's environment is `test` |
-| `worked-example.json` | the quantities of section 6.3: M, `proof_hash`, K, S and V |
+| `keyring.test.json` | a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY, so it is valid only when the verifier's environment is `test` |
+| `worked-example.json` | the values of section 6.3, one member each: `proof` (the input), `M`, `proof_hash`, `sk` (in hex), `A`, `K`, `key_id` (the key id of A), `S`, `V` and `document` (the served document) |
 | `positive/` | the sound proofs, each with its trace |
 | `negative/` | the proofs of the single-defect cases |
 | `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the recorded chain, source and keyring responses that online cases replay |
@@ -2215,10 +2215,11 @@ A case in `cases.json` holds:
   `vectors/merkle.json` (section 5.1), and the proofs here exercise inclusion proofs inside
   real proofs.
 - `generator/generate.exs` writes the vectors. It shares no code with any verifier and has
-  its own Merkle walk, so a defect in one cannot hide in both. With `--check` it rewrites
-  every file and compares bytes, asserts that section 6.3's worked example equals
-  `worked-example.json`, and runs the reference verifiers in this repository over
-  `cases.json`.
+  its own Merkle walk, so a defect in one cannot hide in both. With `--check` it writes
+  nothing: it regenerates every file in memory and compares bytes with the files on disk,
+  fails on any file under `vectors/` it does not write, and asserts that section 6.3's
+  worked example equals `worked-example.json`. Once `cases.json` exists, `--check` also runs
+  the reference verifiers in this repository over it.
 
 ### 13.3 The cases
 

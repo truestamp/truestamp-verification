@@ -17,14 +17,15 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
 | `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
+| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3 and the test keyring. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
-| `generator/` | The scripts that write derived files; today, the manifest. |
+| `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors, and `manifest.exs` writes the manifest. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
 | `Taskfile.yml` | The checks, run with [Task](https://taskfile.dev). |
 
-Still to come: the production key and the staging key; `vectors/`, the conformance cases and their inputs, with known answers for JCS,
-Ed25519 and base64url; the generator that writes them; and reference verifiers in Go and
-TypeScript beside the Elixir one.
+Still to come: the production key and the staging key; the rest of `vectors/`, the
+conformance cases and their inputs, with known answers for JCS, Ed25519 and base64url; and
+reference verifiers in Go and TypeScript beside the Elixir one.
 
 ## Standards and dependencies
 
@@ -41,9 +42,9 @@ A Truestamp Merkle tree is RFC 9162 section 2.1's Merkle Tree Hash over entries 
 key. It is the one construction with a Truestamp library, and using that library is
 optional: [truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir)
 builds the trees, and its `vectors/merkle.json` holds their known answers. This repository
-keeps no Merkle vectors of its own: its one Merkle test borrows a single case from that file
-and recomputes it. The Elixir reference verifier depends on that library, pinned to a
-commit.
+keeps no Merkle vectors of its own: its one Merkle test, and the generator's known answers,
+borrow cases from that file and recompute them. The Elixir reference verifier depends on
+that library, pinned to a commit.
 
 ## Running the checks
 
@@ -55,9 +56,10 @@ install them (prebuilt Erlang only), then fetch the dependencies:
 
 Then:
 
-    task check       # the CI gate: house style, the manifest, formatting, compile, credo,
-                     # unused dependencies, tests
+    task check       # the CI gate: house style, the vectors, the manifest, formatting,
+                     # compile, credo, unused dependencies, tests
     task precommit   # format the sources, then run the same gates
+    task generate    # rewrite vectors/ with the generator, then the manifest
 
 ## License
 
