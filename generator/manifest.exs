@@ -3,19 +3,32 @@
 
 # Writes MANIFEST.sha256: the SHA-256 of every file under spec/ and vectors/, one line per
 # file in the format sha256sum reads ("<hex>  <path>"), sorted by path. With --check, it
-# changes nothing and fails unless the file already says exactly that.
+# changes nothing and fails unless the file already says exactly that. Either form fails,
+# and writes nothing, when spec/ or vectors/ holds an entry that is neither a regular file
+# nor a directory, such as a symbolic link, since the manifest could not say what it holds.
 #
 #     elixir generator/manifest.exs
 #     elixir generator/manifest.exs --check
 
+Code.require_file("lib/base.exs", __DIR__)
+
 root = Path.expand("..", __DIR__)
 manifest = Path.join(root, "MANIFEST.sha256")
+listed = for dir <- ~w(spec vectors), do: Generator.Files.entries(root, dir)
+paths = Enum.flat_map(listed, &elem(&1, 0))
 
-paths =
-  for dir <- ~w(spec vectors),
-      path <- Path.wildcard(Path.join([root, dir, "**", "*"]), match_dot: true),
-      File.regular?(path),
-      do: Path.relative_to(path, root)
+case Enum.flat_map(listed, &elem(&1, 1)) do
+  [] ->
+    :ok
+
+  others ->
+    for {path, type} <- others do
+      IO.puts(:stderr, "manifest: #{path} is not a regular file or a directory (#{type})")
+    end
+
+    IO.puts(:stderr, "manifest: replace each with a regular file, or delete it.")
+    System.halt(1)
+end
 
 expected =
   paths

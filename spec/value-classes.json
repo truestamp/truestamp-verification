@@ -1,6 +1,6 @@
 {
   "classes": {
-    "BLOCK HEIGHT": "0 at genesis (CHECKED); otherwise used only by LINK_HEAD and by a rotation's height check",
+    "BLOCK HEIGHT": "used only by LINK_HEAD and by a rotation's height check",
     "CHAIN POINTER": "may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification",
     "CHECKED": "recomputed and compared",
     "PATH INPUT": "bound by the walk",
@@ -26,8 +26,10 @@
       "pointer": "/block/block_hash"
     },
     {
-      "class": "BLOCK HEIGHT",
-      "pointer": "/block/record/height"
+      "class": "CHECKED",
+      "otherwise": "BLOCK HEIGHT",
+      "pointer": "/block/record/height",
+      "when": "genesis_block"
     },
     {
       "class": "RECORDED",
@@ -276,8 +278,10 @@
       "pointer": "/signing_key_event/block/block_hash"
     },
     {
-      "class": "BLOCK HEIGHT",
-      "pointer": "/signing_key_event/block/record/height"
+      "class": "CHECKED",
+      "otherwise": "BLOCK HEIGHT",
+      "pointer": "/signing_key_event/block/record/height",
+      "when": "genesis_block"
     },
     {
       "class": "RECORDED",
@@ -526,8 +530,10 @@
       "pointer": "/witnesses/block/block_hash"
     },
     {
-      "class": "BLOCK HEIGHT",
-      "pointer": "/witnesses/block/record/height"
+      "class": "CHECKED",
+      "otherwise": "BLOCK HEIGHT",
+      "pointer": "/witnesses/block/record/height",
+      "when": "genesis_block"
     },
     {
       "class": "RECORDED",

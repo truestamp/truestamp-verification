@@ -105,6 +105,36 @@ defmodule Truestamp.Verifier.KeyringTest do
                  hex(decode(key["public_key"])) == vector
                end)
     end
+
+    # Section 9 publishes the seed of each key the vectors use, and the key id of each but
+    # VECTOR_KEY, whose value the constants table gives.
+    test "holds the key of every seed SPEC.md publishes among the test keys" do
+      text = String.replace(spec_md(), ~r/\s+/, " ")
+
+      seeds =
+        ~r/the seed of 32 bytes of 0x([0-9A-F]{2})/
+        |> Regex.scan(text, capture: :all_but_first)
+        |> Enum.map(fn [byte] -> String.to_integer(byte, 16) end)
+        |> Enum.uniq()
+
+      ids =
+        ~r/the seed of 32 bytes of 0x([0-9A-F]{2}), whose key id is `([0-9a-f]{8})`/
+        |> Regex.scan(text, capture: :all_but_first)
+        |> Map.new(fn [byte, key_id] -> {String.to_integer(byte, 16), key_id} end)
+
+      assert Enum.sort(seeds) == [0x41, 0x42, 0x43]
+      assert Enum.sort(Map.keys(ids)) == [0x41, 0x43]
+
+      test_keys =
+        for %{"environment" => "test"} = key <- read("keys.nonproduction.json")["keys"], do: key
+
+      for seed <- seeds do
+        {public, _secret} = :crypto.generate_key(:eddsa, :ed25519, :binary.copy(<<seed>>, 32))
+        listed = Enum.find(test_keys, &(&1["public_key"] == b64u(public)))
+        assert listed, "the key of the seed of 0x#{Integer.to_string(seed, 16)}"
+        assert listed["key_id"] == Map.get(ids, seed, key_id(public))
+      end
+    end
   end
 
   describe "the load checks of section 10.2, step 0" do

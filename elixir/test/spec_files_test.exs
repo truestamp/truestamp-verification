@@ -1118,7 +1118,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     {["record", "leaf_count"], "PREIMAGE"},
     {["record", "previous_block_hash"], {"CHECKED", "genesis_block", "RECORDED"}},
     {["record", "signing_key_id"], {"CHECKED", "introduces_key_or_prerotation", "RECORDED"}},
-    {["record", "height"], "BLOCK HEIGHT"},
+    {["record", "height"], {"CHECKED", "genesis_block", "BLOCK HEIGHT"}},
     {["record", "id"], "RECORDED"},
     {["inclusion_proof", "tree_size"], "CHECKED"},
     {["inclusion_proof", "path"], "PATH INPUT"},

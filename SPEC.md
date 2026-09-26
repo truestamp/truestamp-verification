@@ -312,11 +312,11 @@ A verifier MUST treat each value as its class says.
 | Class | Members | Treatment |
 |---|---|---|
 | PINNED | `format`, `version`, `type`, `environment`, `signature.alg`, `constructions` | compared with pinned values before anything uses them |
-| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature`; a rotation's `height` and `previous_block_hash`, against the block record that carries it | recomputed and compared |
+| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `height` and `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature`; a rotation's `height` and `previous_block_hash`, against the block record that carries it | recomputed and compared |
 | PATH INPUT | every MERKLE_PROOF `path` node and `leaf_index` | bound by the walk |
 | PREIMAGE | every block record's `leaf_count`, and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations, and the `merkle_root` at `/witnesses/block` and `/signing_key_event/block` (the empty-root rule of section 5.4); the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
 | CHAIN POINTER | Stellar `transaction_hash`, `ledger`; Bitcoin commitment `height`; every `network`; NIST `chainIndex`, `pulseIndex`; Stellar `sequence`; Bitcoin entropy `hash`; `genesis.bitcoin` | may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification |
-| BLOCK HEIGHT | every `record.height` | 0 at genesis (CHECKED); otherwise used only by LINK_HEAD and by a rotation's `height` check |
+| BLOCK HEIGHT | every other `record.height` | used only by LINK_HEAD and by a rotation's `height` check |
 | SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with bidirectional and zero-width characters escaped |
 | RECORDED | ids and their times; the other `previous_block_hash` and `signing_key_id` values; `prerotation_commitment`, `previous_public_key` (only an input to the handover check), `sequence`, `reason`, `revoked_key_id`; NIST `version`; which observation a beacon carries | never a verdict input except where a row above uses it; shown under a provenance heading chosen by attribution |
 
@@ -1001,9 +1001,9 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   this repository, and the keyring downloaded from www.truestamp.com replaces it online
   (section 10.2, step 0).
   `spec/keys.nonproduction.json` lists the public keys of the dev, test and staging
-  environments, VECTOR_KEY among the test keys, and a production keyring MUST NOT contain
-  any of them (section 6.4). A verifier
-  MUST validate every keyring when it loads it.
+  environments, with VECTOR_KEY and every other key whose seed this section or the
+  generator publishes among the test keys, and a production keyring MUST NOT contain any of
+  them (section 6.4). A verifier MUST validate every keyring when it loads it.
 - **Literals:** `format`, `version` 1, `signature.alg`, CONSTRUCTIONS_ACCEPTED (the digests
   of the texts under `spec/constructions/`), and `spec/schema.json`: the type registry,
   closed member sets, presence by type and patterns.
@@ -1029,6 +1029,13 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 | SMALL_ORDER_KEYS | the ten encodings of section 6.2 |
 | VECTOR_KEY | `2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12`, from the seed of 32 bytes of 0x42; valid only when the verifier's environment is `test` |
 
+VECTOR_KEY signs every sound proof (section 13.3), and every other proof in the vectors
+unless its case says otherwise (section 13.2). Two more keys come from published seeds and
+sign no proof, only blocks and handovers of the chains the sound proofs are cut from: the
+key of the seed of 32 bytes of 0x41, whose key id is `f12cfabb`, and the key of the seed of
+32 bytes of 0x43, whose key id is `9602c03e`. All three are test keys in
+`spec/keys.nonproduction.json`, so no production keyring can hold them.
+
 There are no clock tolerances.
 
 **The data files.** These files under `spec/` hold the pins:
@@ -1051,7 +1058,12 @@ There are no clock tolerances.
 Every file satisfies the parsing rules of section 10.1 and has one canonical form. A
 constructions text is its exact JCS bytes, with no final newline, so the SHA-256 of the
 file is the hex in its name (section 7.2). Every other file is ASCII, with members in JCS
-order, two-space indentation, LF line ends and a final newline.
+order, two-space indentation, LF line ends and a final newline. In that form a member is
+its name, a colon, one space and its value; an object or array that is not empty puts each
+member or element on a line of its own, one level deeper and followed by a comma unless it
+is the last, and closes on a line of its own at the indentation of the line that opens it,
+while an empty one is `{}` or `[]`; and every name and scalar is written as JCS writes it,
+which escapes no character above U+007E, so a value that holds one has no file in this form.
 `MANIFEST.sha256` lists the SHA-256 of every file under `spec/` and `vectors/`, one line per
 file in the format `sha256sum` reads, sorted by path.
 
@@ -1327,8 +1339,9 @@ constructions text (section 7.3) defines from the preimage P carries, compares i
 value P carries for it, and checks every link (section 10.3). It makes every check and
 does not stop at a failure. A mismatch is `derivation_mismatch` unless its check names
 another code. A failing row's `values` hold the constructions row that defines the value,
-the declared value and the recomputed value, and each row whose part is a CHECKED value
-also gives a trace row (section 10.6).
+the declared value and the recomputed value, and each row whose part is a CHECKED value,
+other than a row of LINK_HEAD, LINK_KEY_EVENT or LINK_CHAIN_ORDER, also gives a trace row
+(section 10.6).
 
 Below, B is each block node P carries (`/block`, `/witnesses/block`,
 `/signing_key_event/block`); N is each commitment entry (`/commitments/C` and
@@ -1539,6 +1552,9 @@ is `entropy_X`. `/witnesses/block/block_hash` is checked on its own, as a block 
 
 **LINK_HEAD**, in an item. The witness block was the head of Truestamp's chain when the
 item was submitted, so its height MUST be below that of the block that includes the item.
+Like every link, it never uses a declared value in place of its recomputation (section
+10.6, rule 4): the height of a block record that carries `metadata.genesis`, as a genesis
+`/witnesses/block` does, is 0 here (section 10.2, step 9 (b)), whatever height it declares.
 
 **LINK_CHAIN_ORDER** pairs each Stellar or Bitcoin entropy object E that P carries, at
 `/subject/entropy`, `/witnesses/entropy_X` or `/observations/entropy_X/entropy`, with the
@@ -1807,7 +1823,7 @@ Section 10.2 fixes which rows a run reports, their parts and their order.
 has passed, every commitment entry, `genesis.bitcoin` and entropy object the proof carries
 has its own CHAIN or SOURCES row (section 10.4): a read that was not made is a `skip` row
 with its code, never a missing row. The trace holds a row for each DERIVE row whose part
-is a CHECKED value (section 10.6).
+is a CHECKED value, other than the link rows section 10.6 leaves out.
 
 **Attribution.** A report's `attribution` says whose key signed the proof, as far as this
 run can tell (section 8):
@@ -1899,9 +1915,11 @@ test for each:
    when `attribution` is `truestamp`.
 
 **One engine and its trace.** Each verifier derives through one engine. Its trace has one
-row for each DERIVE row whose part is a CHECKED value, the genesis `height` included, in
-DERIVE's order (section 10.2), so a root that three beacon walks reach has three trace
-rows:
+row for each DERIVE row whose part is a CHECKED value, other than a row of LINK_HEAD,
+LINK_KEY_EVENT or LINK_CHAIN_ORDER, in DERIVE's order (section 10.2), so a root that three
+beacon walks reach has three trace rows. Membership is fixed by check: the genesis
+`height` row of step 9 (b) is a trace row, and LINK_HEAD's row is not, even though its part
+is CHECKED when `/witnesses/block` is the genesis block. A trace row is:
 
 ```
 {"construction": NAME, "declared": VALUE, "inputs": [POINTER, ...], "part": POINTER,
@@ -2189,9 +2207,11 @@ These files are under `vectors/`, and `MANIFEST.sha256` holds the digest of each
 | `cases.json` | every case: its proof, its configuration and its expected output |
 | `keyring.test.json` | a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY, so it is valid only when the verifier's environment is `test` |
 | `worked-example.json` | the values of section 6.3, one member each: `proof` (the input), `M`, `proof_hash`, `sk` (in hex), `A`, `K`, `key_id` (the key id of A), `S`, `V` and `document` (the served document) |
-| `positive/` | the sound proofs, each with its trace |
+| `positive/` | the sound proofs of section 13.3, each as `<name>.proof.json` with its trace as `<name>.trace.json`, where `<name>` is the proof's type, or its type, a hyphen and a variant, such as `beacon-empty`, `block-rotation` or `item-genesis-witness`; a proof file is in the served form of section 3.1, JCS(envelope) in UTF-8 with no final newline, so it is not always ASCII; a trace file is in the canonical form of section 9 |
 | `negative/` | the proofs of the single-defect cases |
 | `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the recorded chain, source and keyring responses that online cases replay |
+
+`cases.json`, `keyring.test.json` and `worked-example.json` are in that canonical form too.
 
 A case in `cases.json` holds:
 
@@ -2204,7 +2224,9 @@ A case in `cases.json` holds:
 
 - A case without `online` runs with the verifier asked to be offline. An online case
   answers each read its replay file holds, of a chain, a source or a keyring, from that
-  file in place of the network.
+  file in place of the network. The replay file stands as the operator-pinned source for
+  each chain and network it answers, so a case that pins such a network, `regtest`
+  included, has a source for it (section 10.2, step 0).
 - A case whose keyring is `unavailable` is online and runs under `prod`, on an unmarked
   proof signed by VECTOR_KEY. The verifier is given no keyring option, and the replay fails
   its default keyring read at www.truestamp.com. For Truestamp's own verifier, `unavailable`
@@ -2217,7 +2239,8 @@ A case in `cases.json` holds:
 - `generator/generate.exs` writes the vectors. It shares no code with any verifier and has
   its own Merkle walk, so a defect in one cannot hide in both. With `--check` it writes
   nothing: it regenerates every file in memory and compares bytes with the files on disk,
-  fails on any file under `vectors/` it does not write, and asserts that section 6.3's
+  fails on any file under `vectors/` it does not write and on any entry there that is
+  neither a regular file nor a directory, and asserts that section 6.3's
   worked example equals `worked-example.json`. Once `cases.json` exists, `--check` also runs
   the reference verifiers in this repository over it.
 
@@ -2228,8 +2251,8 @@ sound proof, adjusts every other value so that no other check fails, and signs t
 again with its key, unless the case says it is not signed again. Its part is where
 section 10 reports that check. Each class below says what its cases assert.
 
-- **Sound proofs.** One proof of each type passes offline with the keyring `test`: no row
-  fails, and the trace matches. Among them are an item with all three witnesses and both
+- **Sound proofs.** Each sound proof passes offline with the keyring `test`: no row fails,
+  and the trace matches. Among them are an item with all three witnesses and both
   chains, whose claims hold an md5 `hash`, a `timestamp`, a `nonce`, the numbers 37.7749,
   1e-7 and 5e-324, member names that sort differently by UTF-16 code unit than by code
   point (U+FF5A against U+1F600), and quotes and backslashes; a block proof of the genesis
@@ -2266,9 +2289,10 @@ section 10 reports that check. Each class below says what its cases assert.
   `spec/keys.nonproduction.json`; a non-production run that is not keyless and has no
   keyring source (a case with no `keyring`); keyrings that break a load check of section
   10.2, step 0 (a repeated key, a wrong `key_id`, a small-order key, an extra member); and,
-  online, a network pinned with no source for it, a source pinned to `public` or `mainnet`
-  whose identity read gives another value, and a source pinned to another network whose
-  identity read gives its chain's production value.
+  online, a network pinned with no source for it (regtest, which its replay does not
+  answer), a source pinned to `public` or `mainnet` whose identity read gives another value,
+  and a source pinned to another network whose identity read gives its chain's production
+  value.
 - **ENVIRONMENT.** `environment_mismatch`: a proof marked `staging` under `prod`; a proof
   with no `environment` under `staging`; an `environment` of `prod`, `production`, `null`
   or a number; and, under `test`, a `test` marker with a `\n` escaped onto its end.

@@ -17,6 +17,16 @@
     },
     {
       "environment": "test",
+      "key_id": "9602c03e",
+      "public_key": "Ivwpd5Lwtv_Av8_bftsMCqFOAlo2XsDjQuhuOCnLdLY"
+    },
+    {
+      "environment": "test",
+      "key_id": "f12cfabb",
+      "public_key": "25lf4lFp0UHKubu6krqgH58uHs599MsqwFGQ83_MH50"
+    },
+    {
+      "environment": "test",
       "key_id": "fbd680e8",
       "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI"
     }

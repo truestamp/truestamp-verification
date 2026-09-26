@@ -1,0 +1,328 @@
+[
+  {
+    "construction": "block_hash",
+    "declared": "2ff6ae1fcc13afb761508b1cd84a251e0a182f34f5ad0df595e63cc83016b52d",
+    "inputs": [
+      "/block/record"
+    ],
+    "part": "/block/block_hash",
+    "recomputed": "2ff6ae1fcc13afb761508b1cd84a251e0a182f34f5ad0df595e63cc83016b52d",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "a699a91b47c630323b2ba633a46ff1301b646baec412e1b0a05638f5c78a2453",
+    "inputs": [
+      "/subject/inclusion_proof",
+      "/subject/record"
+    ],
+    "part": "/block/record/merkle_root",
+    "recomputed": "a699a91b47c630323b2ba633a46ff1301b646baec412e1b0a05638f5c78a2453",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "91b12929a2a889809cda8f552932f95f3a7c252db4a52f52fd34e009d1f0247f",
+    "inputs": [
+      "/commitments/bitcoin/epoch/record"
+    ],
+    "part": "/commitments/bitcoin/epoch/epoch_hash",
+    "recomputed": "91b12929a2a889809cda8f552932f95f3a7c252db4a52f52fd34e009d1f0247f",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "1fa3fb4f84d508ea8ea4908f6e04877011640e2b3b75b91a949eb72b2fcf0363",
+    "inputs": [
+      "/block/record",
+      "/commitments/bitcoin/inclusion_proof"
+    ],
+    "part": "/commitments/bitcoin/epoch/record/merkle_root",
+    "recomputed": "1fa3fb4f84d508ea8ea4908f6e04877011640e2b3b75b91a949eb72b2fcf0363",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "23c63d48d5e69929c1540d99b402070ffeb515b50e814188d0eb6e94e97e018b",
+    "inputs": [
+      "/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/commitments/bitcoin/header_hash",
+    "recomputed": "23c63d48d5e69929c1540d99b402070ffeb515b50e814188d0eb6e94e97e018b",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "95506534864d99dc3e796e5f5c4df9e0c7deef1e9d045c15be4c4735f6cf96fd",
+    "inputs": [
+      "/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/commitments/bitcoin/header_merkle_root",
+    "recomputed": "95506534864d99dc3e796e5f5c4df9e0c7deef1e9d045c15be4c4735f6cf96fd",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "2026-09-26T01:48:00Z",
+    "inputs": [
+      "/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/commitments/bitcoin/header_time",
+    "recomputed": "2026-09-26T01:48:00Z",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 3,
+    "inputs": [
+      "/commitments/bitcoin/epoch/record/leaf_count"
+    ],
+    "part": "/commitments/bitcoin/inclusion_proof/tree_size",
+    "recomputed": 3,
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "70165373aed5a2037f39be582c79452afe88a282d3fb376c53766f86842448d4",
+    "inputs": [
+      "/commitments/bitcoin/raw_transaction"
+    ],
+    "part": "/commitments/bitcoin/transaction_hash",
+    "recomputed": "70165373aed5a2037f39be582c79452afe88a282d3fb376c53766f86842448d4",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "91b12929a2a889809cda8f552932f95f3a7c252db4a52f52fd34e009d1f0247f",
+    "inputs": [
+      "/commitments/stellar/epoch/record"
+    ],
+    "part": "/commitments/stellar/epoch/epoch_hash",
+    "recomputed": "91b12929a2a889809cda8f552932f95f3a7c252db4a52f52fd34e009d1f0247f",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "1fa3fb4f84d508ea8ea4908f6e04877011640e2b3b75b91a949eb72b2fcf0363",
+    "inputs": [
+      "/block/record",
+      "/commitments/stellar/inclusion_proof"
+    ],
+    "part": "/commitments/stellar/epoch/record/merkle_root",
+    "recomputed": "1fa3fb4f84d508ea8ea4908f6e04877011640e2b3b75b91a949eb72b2fcf0363",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 3,
+    "inputs": [
+      "/commitments/stellar/epoch/record/leaf_count"
+    ],
+    "part": "/commitments/stellar/inclusion_proof/tree_size",
+    "recomputed": 3,
+    "status": "pass"
+  },
+  {
+    "construction": "block_hash",
+    "declared": "395271e2bc7b7484653511abd0a30b5b47818a57b38388117dfe161aaf5ca735",
+    "inputs": [
+      "/signing_key_event/block/record"
+    ],
+    "part": "/signing_key_event/block/block_hash",
+    "recomputed": "395271e2bc7b7484653511abd0a30b5b47818a57b38388117dfe161aaf5ca735",
+    "status": "pass"
+  },
+  {
+    "construction": "handover",
+    "declared": "v-kjK9ZFgSR1SDB07gXLLKSntIUqJTv8-l0Uebr3ilSSTjYhfShcrDZk0R-XLb6MlPZvubDYHQHOFcbZTPv6Cw",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event",
+      "/signing_key_event/block/record/metadata/key_event/previous_public_key"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/handover_signature",
+    "recomputed": "dfee3dc5b692ab018030be36e776b6c12b69abab8946c44ac65007a8f8adc31d",
+    "status": "pass"
+  },
+  {
+    "construction": "handover",
+    "declared": 5,
+    "inputs": [
+      "/signing_key_event/block/record/height"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/height",
+    "recomputed": 5,
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  },
+  {
+    "construction": "handover",
+    "declared": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+    "inputs": [
+      "/signing_key_event/block/record/previous_block_hash"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/previous_block_hash",
+    "recomputed": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+    "status": "pass"
+  },
+  {
+    "construction": "handover",
+    "declared": "9602c03e",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event/previous_public_key"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/previous_key_id",
+    "recomputed": "9602c03e",
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/signing_key_event/block/record/signing_key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "ae181679737af000821ee049f0889f54fcab10699c5dfba3e5113b9fe22626fe",
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/epoch/record"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/epoch/epoch_hash",
+    "recomputed": "ae181679737af000821ee049f0889f54fcab10699c5dfba3e5113b9fe22626fe",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "557975d2a25d4dfe1a5022391f740ff63c1039b414ca5e7597c8dfef81d2c58c",
+    "inputs": [
+      "/signing_key_event/block/record",
+      "/signing_key_event/commitments/bitcoin/inclusion_proof"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/epoch/record/merkle_root",
+    "recomputed": "557975d2a25d4dfe1a5022391f740ff63c1039b414ca5e7597c8dfef81d2c58c",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "71a80ad2d916468d1d9bc3161198033188fb4cf3e9a312a0fec0c86f9d6f8c11",
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/header_hash",
+    "recomputed": "71a80ad2d916468d1d9bc3161198033188fb4cf3e9a312a0fec0c86f9d6f8c11",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "192109f6f403d0796a6857c64be0519fdfe1e814e0f1e50286281b59627ebb85",
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/header_merkle_root",
+    "recomputed": "192109f6f403d0796a6857c64be0519fdfe1e814e0f1e50286281b59627ebb85",
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "2026-09-26T01:52:00Z",
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/txoutproof"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/header_time",
+    "recomputed": "2026-09-26T01:52:00Z",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 3,
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/epoch/record/leaf_count"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/inclusion_proof/tree_size",
+    "recomputed": 3,
+    "status": "pass"
+  },
+  {
+    "construction": "bitcoin",
+    "declared": "9c895e8b2f5b465a25208694f38c861df03081f8d9dafa62b47caede6cf8c453",
+    "inputs": [
+      "/signing_key_event/commitments/bitcoin/raw_transaction"
+    ],
+    "part": "/signing_key_event/commitments/bitcoin/transaction_hash",
+    "recomputed": "9c895e8b2f5b465a25208694f38c861df03081f8d9dafa62b47caede6cf8c453",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "ae181679737af000821ee049f0889f54fcab10699c5dfba3e5113b9fe22626fe",
+    "inputs": [
+      "/signing_key_event/commitments/stellar/epoch/record"
+    ],
+    "part": "/signing_key_event/commitments/stellar/epoch/epoch_hash",
+    "recomputed": "ae181679737af000821ee049f0889f54fcab10699c5dfba3e5113b9fe22626fe",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "557975d2a25d4dfe1a5022391f740ff63c1039b414ca5e7597c8dfef81d2c58c",
+    "inputs": [
+      "/signing_key_event/block/record",
+      "/signing_key_event/commitments/stellar/inclusion_proof"
+    ],
+    "part": "/signing_key_event/commitments/stellar/epoch/record/merkle_root",
+    "recomputed": "557975d2a25d4dfe1a5022391f740ff63c1039b414ca5e7597c8dfef81d2c58c",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 3,
+    "inputs": [
+      "/signing_key_event/commitments/stellar/epoch/record/leaf_count"
+    ],
+    "part": "/signing_key_event/commitments/stellar/inclusion_proof/tree_size",
+    "recomputed": 3,
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 3,
+    "inputs": [
+      "/block/record/leaf_count"
+    ],
+    "part": "/subject/inclusion_proof/tree_size",
+    "recomputed": 3,
+    "status": "pass"
+  },
+  {
+    "construction": "observation_hash",
+    "declared": "bf9aced3870481ece7764c59bbcd80b13e43e6f042596a0aad6313be6a3b77c9",
+    "inputs": [
+      "/subject/record"
+    ],
+    "part": "/subject/observation_hash",
+    "recomputed": "bf9aced3870481ece7764c59bbcd80b13e43e6f042596a0aad6313be6a3b77c9",
+    "status": "pass"
+  },
+  {
+    "construction": "entropy_hash",
+    "declared": "c5e73cea68aaf7999c859639b8b7816f356be9b40d0ff8304b9001377ae040ca",
+    "inputs": [
+      "/subject/entropy"
+    ],
+    "part": "/subject/record/entropy_hash",
+    "recomputed": "c5e73cea68aaf7999c859639b8b7816f356be9b40d0ff8304b9001377ae040ca",
+    "status": "pass"
+  }
+]

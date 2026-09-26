@@ -1,0 +1,225 @@
+[
+  {
+    "construction": "block_hash",
+    "declared": "95d11a7686d42692ecf1486928df0d957750baf44e059a52600ed54a4d9dde23",
+    "inputs": [
+      "/block/record"
+    ],
+    "part": "/block/block_hash",
+    "recomputed": "95d11a7686d42692ecf1486928df0d957750baf44e059a52600ed54a4d9dde23",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "8a1d15fc5d41842fcace3bd6770068e573e71bf8e457fe5d5ae17f8d1bce0678",
+    "inputs": [
+      "/subject/inclusion_proof",
+      "/subject/record"
+    ],
+    "part": "/block/record/merkle_root",
+    "recomputed": "8a1d15fc5d41842fcace3bd6770068e573e71bf8e457fe5d5ae17f8d1bce0678",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "9e63626f0f4343302e6946a2e0e56deafd6ca2039de9f28724521a722c342a3e",
+    "inputs": [
+      "/commitments/stellar/epoch/record"
+    ],
+    "part": "/commitments/stellar/epoch/epoch_hash",
+    "recomputed": "9e63626f0f4343302e6946a2e0e56deafd6ca2039de9f28724521a722c342a3e",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "ba30091e650a2aae8c14bb908f174f61a19755e25c8005b09ab9f72461ebe4c6",
+    "inputs": [
+      "/block/record",
+      "/commitments/stellar/inclusion_proof"
+    ],
+    "part": "/commitments/stellar/epoch/record/merkle_root",
+    "recomputed": "ba30091e650a2aae8c14bb908f174f61a19755e25c8005b09ab9f72461ebe4c6",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 2,
+    "inputs": [
+      "/commitments/stellar/epoch/record/leaf_count"
+    ],
+    "part": "/commitments/stellar/inclusion_proof/tree_size",
+    "recomputed": 2,
+    "status": "pass"
+  },
+  {
+    "construction": "block_hash",
+    "declared": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "inputs": [
+      "/signing_key_event/block/record"
+    ],
+    "part": "/signing_key_event/block/block_hash",
+    "recomputed": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "status": "pass"
+  },
+  {
+    "construction": "genesis",
+    "declared": 0,
+    "inputs": [
+      "/signing_key_event/block/record/metadata/genesis"
+    ],
+    "part": "/signing_key_event/block/record/height",
+    "recomputed": 0,
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/signing_key_event/block/record/metadata/key_event/key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  },
+  {
+    "construction": "genesis",
+    "declared": "bb35c74c7dfc669b0f54596b20a750222b620a83f139b786c3a0daa7cf8279cf",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/genesis"
+    ],
+    "part": "/signing_key_event/block/record/previous_block_hash",
+    "recomputed": "bb35c74c7dfc669b0f54596b20a750222b620a83f139b786c3a0daa7cf8279cf",
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/signing_key_event/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/signing_key_event/block/record/signing_key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  },
+  {
+    "construction": "epoch_hash",
+    "declared": "9e63626f0f4343302e6946a2e0e56deafd6ca2039de9f28724521a722c342a3e",
+    "inputs": [
+      "/signing_key_event/commitments/stellar/epoch/record"
+    ],
+    "part": "/signing_key_event/commitments/stellar/epoch/epoch_hash",
+    "recomputed": "9e63626f0f4343302e6946a2e0e56deafd6ca2039de9f28724521a722c342a3e",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": "ba30091e650a2aae8c14bb908f174f61a19755e25c8005b09ab9f72461ebe4c6",
+    "inputs": [
+      "/signing_key_event/block/record",
+      "/signing_key_event/commitments/stellar/inclusion_proof"
+    ],
+    "part": "/signing_key_event/commitments/stellar/epoch/record/merkle_root",
+    "recomputed": "ba30091e650a2aae8c14bb908f174f61a19755e25c8005b09ab9f72461ebe4c6",
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 2,
+    "inputs": [
+      "/signing_key_event/commitments/stellar/epoch/record/leaf_count"
+    ],
+    "part": "/signing_key_event/commitments/stellar/inclusion_proof/tree_size",
+    "recomputed": 2,
+    "status": "pass"
+  },
+  {
+    "construction": "inclusion",
+    "declared": 1,
+    "inputs": [
+      "/block/record/leaf_count"
+    ],
+    "part": "/subject/inclusion_proof/tree_size",
+    "recomputed": 1,
+    "status": "pass"
+  },
+  {
+    "construction": "item_hash",
+    "declared": "8962c0e3d7978d0604a539fc9a32ebf2d6bfd2c742183402d6dd82aa05195d9c",
+    "inputs": [
+      "/subject/record"
+    ],
+    "part": "/subject/item_hash",
+    "recomputed": "8962c0e3d7978d0604a539fc9a32ebf2d6bfd2c742183402d6dd82aa05195d9c",
+    "status": "pass"
+  },
+  {
+    "construction": "claims_hash",
+    "declared": "8a3d0d33ba8f9c47f8e283e9f3bcc87ada35aed0ce21f96150478e31be865b2f",
+    "inputs": [
+      "/subject/claims"
+    ],
+    "part": "/subject/record/claims_hash",
+    "recomputed": "8a3d0d33ba8f9c47f8e283e9f3bcc87ada35aed0ce21f96150478e31be865b2f",
+    "status": "pass"
+  },
+  {
+    "construction": "witnesses",
+    "declared": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "inputs": [
+      "/witnesses/block/record"
+    ],
+    "part": "/subject/record/witness_hashes/block",
+    "recomputed": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "status": "pass"
+  },
+  {
+    "construction": "block_hash",
+    "declared": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "inputs": [
+      "/witnesses/block/record"
+    ],
+    "part": "/witnesses/block/block_hash",
+    "recomputed": "a7ffc00f2e1c38a93f3e8dd63406d5ee4f62e1c61d5b6756ea7f5f4716a78b12",
+    "status": "pass"
+  },
+  {
+    "construction": "genesis",
+    "declared": 0,
+    "inputs": [
+      "/witnesses/block/record/metadata/genesis"
+    ],
+    "part": "/witnesses/block/record/height",
+    "recomputed": 0,
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/witnesses/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/witnesses/block/record/metadata/key_event/key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  },
+  {
+    "construction": "genesis",
+    "declared": "bb35c74c7dfc669b0f54596b20a750222b620a83f139b786c3a0daa7cf8279cf",
+    "inputs": [
+      "/witnesses/block/record/metadata/genesis"
+    ],
+    "part": "/witnesses/block/record/previous_block_hash",
+    "recomputed": "bb35c74c7dfc669b0f54596b20a750222b620a83f139b786c3a0daa7cf8279cf",
+    "status": "pass"
+  },
+  {
+    "construction": "key_event",
+    "declared": "fbd680e8",
+    "inputs": [
+      "/witnesses/block/record/metadata/key_event/public_key"
+    ],
+    "part": "/witnesses/block/record/signing_key_id",
+    "recomputed": "fbd680e8",
+    "status": "pass"
+  }
+]
