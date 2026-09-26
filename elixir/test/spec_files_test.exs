@@ -100,7 +100,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     test "is the table of section 4.3, row for row" do
       signers = %{
         "never" => nil,
-        "yes" => "active_key",
+        "yes, by the active key" => "active_key",
         "yes, by the key the chain assigns" => "chain_assigned_key",
         "yes, by the outgoing key" => "outgoing_key"
       }
@@ -133,7 +133,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
           }
         end
 
-      assert length(rows) == 18
+      assert length(rows) == 13
       assert Enum.sort_by(from_file, & &1["byte"]) == Enum.sort_by(rows, & &1["byte"])
     end
 
@@ -147,6 +147,39 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       |> Enum.each(fn {family, lows} ->
         assert Enum.sort(lows) == Enum.to_list(0..(length(lows) - 1)), "family #{family}"
       end)
+    end
+
+    test "the families follow the processing order with no gap, and 4.2 names the next one" do
+      families =
+        read("prefixes.json")
+        |> Map.values()
+        |> Enum.map(fn %{"byte" => "0x" <> hex, "family" => family} ->
+          {String.to_integer(hex, 16) >>> 4, family}
+        end)
+        |> Enum.uniq()
+        |> Enum.sort()
+
+      assert Enum.map(families, &elem(&1, 1)) ==
+               ~w(Merkle Items Entropy Blocks Epochs Proofs Keys)
+
+      assert Enum.map(families, &elem(&1, 0)) == Enum.to_list(0..(length(families) - 1))
+
+      next = Integer.to_string(length(families), 16)
+      assert spec_md() =~ "lowest free high nibble (`0x#{next}_` next)"
+    end
+
+    test "within a family, a value comes before the record that contains it" do
+      bytes = Map.new(read("prefixes.json"), fn {kind, %{"byte" => byte}} -> {kind, byte} end)
+
+      for {inner, outer} <- [
+            {"claims_hash", "item_hash"},
+            {"entropy_hash", "observation_hash"},
+            {"genesis_previous_block_hash", "block_hash"},
+            {"key_id", "handover"},
+            {"prerotation_commitment", "handover"}
+          ] do
+        assert bytes[inner] < bytes[outer], "#{inner} before #{outer}"
+      end
     end
   end
 

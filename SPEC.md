@@ -140,7 +140,7 @@ library. Known answers for JCS, Ed25519 and base64url are among the conformance 
   `application/vnd.truestamp.proof+json` and the file extension `.proof.json`. A verifier
   MUST accept any formatting of the same JSON value that the parsing rules of section 10.1
   allow.
-- **Identity.** A proof is identified by its digest, SHA-256(0x60 || JCS(proof)), never by
+- **Identity.** A proof is identified by its digest, SHA-256(0x50 || JCS(proof)), never by
   the bytes of a file or by its signature string.
 - **Sameness.** Files that differ only in formatting, within the parsing rules of
   section 10.1, verify alike, and two proofs are the same exactly when their digests are
@@ -174,14 +174,14 @@ A BLOCK_NODE appears at `/block`, `/witnesses/block` and `/signing_key_event/blo
 
 ```
 {
-  "block_hash": HEX64,             // CHECKED = H(0x30, record); for type beacon, the beacon value
+  "block_hash": HEX64,             // CHECKED = H(0x31, record); for type beacon, the beacon value
   "record": {
     "height": INT,                 // 0 at genesis, then one more per block
     "id": UUID7,
     "leaf_count": INT,             // Proposed: the number of leaves under merkle_root (section 5.4)
     "merkle_root": HEX64,          // at /block, the inclusion target
     "metadata": {} | {"key_event": KEY_EVENT} | {"genesis": GENESIS, "key_event": KEY_EVENT},
-    "previous_block_hash": HEX64,  // at genesis, CHECKED = H(0x31, metadata.genesis)
+    "previous_block_hash": HEX64,  // at genesis, CHECKED = H(0x30, metadata.genesis)
     "signing_key_id": KID          // preimage input only; never selects or validates the signer
   }
 }
@@ -197,10 +197,10 @@ A KEY_EVENT is one of these, by its `type`:
 | `prerotation` | `active_key_id`, `prerotation_commitment`, `type` | `record.signing_key_id` = `active_key_id`; introduces no key |
 | `revocation` | `revoked_key_id`, `type` | introduces no key |
 
-- A key's **key id** is the hex of the first 4 bytes of SHA-256(0x51 || its 32 bytes).
-  `prerotation_commitment` is the hex of SHA-256(0x52 || the next key's 32 bytes).
+- A key's **key id** is the hex of the first 4 bytes of SHA-256(0x60 || its 32 bytes).
+  `prerotation_commitment` is the hex of SHA-256(0x61 || the next key's 32 bytes).
 - The **handover signature** is Ed25519 by `previous_public_key` over the 32 bytes of
-  H(0x50, the event without `handover_signature`), so the outgoing key endorses every other
+  H(0x62, the event without `handover_signature`), so the outgoing key endorses every other
   member.
 - The key event at `/signing_key_event/block` MUST be a `genesis`, `rotation` or
   `emergency_rotation`.
@@ -224,7 +224,7 @@ An EPOCH_NODE (*Proposed*) mirrors a BLOCK_NODE: a record and its hash.
 
 ```
 {
-  "epoch_hash": HEX64,             // CHECKED = H(0x80, record); the value written to the chain
+  "epoch_hash": HEX64,             // CHECKED = H(0x40, record); the value written to the chain
   "record": {
     "leaf_count": INT,             // the number of leaves under merkle_root (section 5.4)
     "merkle_root": HEX64           // CHECKED = the walk from the block's RECOMPUTED block_hash
@@ -258,7 +258,7 @@ An EPOCH_NODE (*Proposed*) mirrors a BLOCK_NODE: a record and its hash.
 
 An ENTROPY_OBJECT, at `/subject/entropy`, `/witnesses/entropy_X` and
 `/observations/entropy_X/entropy`, is exactly the preimage of its `entropy_hash`,
-H(0x21, object):
+H(0x20, object):
 
 | Source | Object |
 |---|---|
@@ -276,8 +276,8 @@ item: the common members, plus
   "subject": {                          // ITEM_SUBJECT
     "claims": {...},                    // OPEN; SUBMITTED, never checked as true
     "inclusion_proof": MERKLE_PROOF,    // Proposed. Walked from the RECOMPUTED item_hash to /block/record/merkle_root
-    "item_hash": HEX64,                 // CHECKED = H(0x10, record)
-    "record": {"claims_hash": HEX64,    // CHECKED = H(0x11, claims)
+    "item_hash": HEX64,                 // CHECKED = H(0x11, record)
+    "record": {"claims_hash": HEX64,    // CHECKED = H(0x10, claims)
                "id": ULID,
                "witness_hashes": {"block": HEX64, "entropy_bitcoin": HEX64, "entropy_nist": HEX64, "entropy_stellar": HEX64}}
   },                                    // witness_hashes: block R; each entropy_X present iff that source had a current observation
@@ -286,8 +286,8 @@ item: the common members, plus
 entropy_nist | entropy_stellar | entropy_bitcoin: the common members, plus
   "subject": {"entropy": ENTROPY_OBJECT,          // OBSERVATION_SUBJECT; its source matches the type
               "inclusion_proof": MERKLE_PROOF,    // Proposed. Walked from the RECOMPUTED observation_hash
-              "observation_hash": HEX64,          // CHECKED = H(0x20, record)
-              "record": {"entropy_hash": HEX64, "id": UUID7}}   // entropy_hash CHECKED = H(0x21, entropy)
+              "observation_hash": HEX64,          // CHECKED = H(0x21, record)
+              "record": {"entropy_hash": HEX64, "id": UUID7}}   // entropy_hash CHECKED = H(0x20, entropy)
 
 block:  the common members only; the subject is block.record, and only the submitted-before edge applies.
 
@@ -378,12 +378,12 @@ H(p, R) = SHA-256(p || JCS(R))
 - `R` is a JSON object within the value profile of section 10.1, hashed exactly as carried
   or stored, and never containing its own hash or signature. JCS is injective over that
   profile, so no length framing is needed.
-- **Signing.** A kind marked signed is signed with Ed25519 over the 32 bytes of H(p, R).
-  The signer takes a kind and a record and computes H itself; it refuses unsigned kinds and
-  never signs bytes a caller hands it. So a signature for one kind never verifies for
-  another, and the proof is signed like every other record. The active key signs, except
-  that a block is signed by the key the chain assigns it (a rotation block by the key it
-  introduces) and a handover by the outgoing key.
+- **Signing.** Three kinds are signed, each with Ed25519 over the 32 bytes of H(p, R): a
+  block record, by the key the chain assigns it (a rotation block by the key it introduces);
+  a handover, by the outgoing key; and the proof, by the active key. No other record is
+  signed. The signer takes a kind and a record and computes H itself; it refuses unsigned
+  kinds and never signs bytes a caller hands it. So a signature for one kind never verifies
+  for another.
 
 **Outside the rule.**
 
@@ -393,7 +393,7 @@ H(p, R) = SHA-256(p || JCS(R))
   itself a record hash. The root of the empty tree, SHA-256 of zero
   bytes, has a 0-byte preimage, so it cannot collide with a 33-byte leaf or a 65-byte node
   preimage.
-- **Key id 0x51 and prerotation commitment 0x52:** SHA-256 over the 32 raw key bytes, so
+- **Key id 0x60 and prerotation commitment 0x61:** SHA-256 over the 32 raw key bytes, so
   neither depends on how the key is written. The key id is cut to 4 bytes and is only an
   index.
 - **Not in the registry:** hashes an outside protocol fixes (Bitcoin's SHA-256d, Stellar
@@ -406,9 +406,14 @@ H(p, R) = SHA-256(p || JCS(R))
 
 ### 4.2 Layout
 
-- The high nibble is the family. The low nibble counts kinds from 0, with `x0` the
-  family's primary construction. A new kind takes its family's lowest free low nibble, and
-  a new family takes the lowest free high nibble (`0x9_` next).
+- The high nibble is the family. The families follow the order in which Truestamp builds
+  the values, from the leaves up: items and entropy, then blocks, epochs and proofs. Keys,
+  which stand beside that path, come last. Within a family, a value comes before the record
+  that contains it (`claims_hash` before `item_hash`).
+- 0x00 and 0x01 are where RFC 9162 puts them. The Merkle step runs at both tree levels, so
+  it takes no single place in the order.
+- A byte never moves, so a new kind takes its family's lowest free low nibble, and a new
+  family takes the lowest free high nibble (`0x7_` next).
 - From genesis on, a byte MUST NOT be pointed at a different construction.
 
 ### 4.3 The table
@@ -417,44 +422,20 @@ H(p, R) = SHA-256(p || JCS(R))
 |---|---|---|---|---|
 | `0x00` | Merkle | leaf | the 32 bytes of the leaf value | never |
 | `0x01` | Merkle | node | the 32 bytes of the left child, then of the right | never |
-| `0x10` | Items | `item_hash` | JCS(item record) | yes |
-| `0x11` | Items | `claims_hash` | JCS(claims) | never |
-| `0x20` | Entropy | `observation_hash` | JCS(observation record) | yes |
-| `0x21` | Entropy | `entropy_hash` | JCS(entropy object) | never |
-| `0x30` | Blocks | `block_hash` | JCS(block record) | yes, by the key the chain assigns |
-| `0x31` | Blocks | genesis `previous_block_hash` | JCS(genesis object) | never |
-| `0x40` | Beacon | beacon draw | JCS(draw record) | never |
-| `0x50` | Keys | handover | JCS(rotation event without `handover_signature`) | yes, by the outgoing key |
-| `0x51` | Keys | `key_id` | the 32 key bytes; the hash cut to 4 bytes | never |
-| `0x52` | Keys | `prerotation_commitment` | the 32 bytes of the next key | never |
-| `0x60` | Proofs | proof digest | JCS(proof) | yes |
-| `0x70` | Commitments | inclusion record | JCS(inclusion record) | yes |
-| `0x71` | Commitments | internal epoch record (name *Proposed*) | JCS(internal epoch record) | yes |
-| `0x72` | Commitments | external commitment record | JCS(external commitment record) | yes |
-| `0x73` | Commitments | commitment evidence record | JCS(evidence record) | yes |
-| `0x80` | Epochs | `epoch_hash` (*Proposed*) | JCS(epoch record) | never |
+| `0x10` | Items | `claims_hash` | JCS(claims) | never |
+| `0x11` | Items | `item_hash` | JCS(item record) | never |
+| `0x20` | Entropy | `entropy_hash` | JCS(entropy object) | never |
+| `0x21` | Entropy | `observation_hash` | JCS(observation record) | never |
+| `0x30` | Blocks | genesis `previous_block_hash` | JCS(genesis object) | never |
+| `0x31` | Blocks | `block_hash` | JCS(block record) | yes, by the key the chain assigns |
+| `0x40` | Epochs | `epoch_hash` (*Proposed*) | JCS(epoch record) | never |
+| `0x50` | Proofs | proof digest | JCS(proof) | yes, by the active key |
+| `0x60` | Keys | `key_id` | the 32 key bytes; the hash cut to 4 bytes | never |
+| `0x61` | Keys | `prerotation_commitment` | the 32 bytes of the next key | never |
+| `0x62` | Keys | handover | JCS(rotation event without `handover_signature`) | yes, by the outgoing key |
 
-Every other byte is unassigned. The 0x70 to 0x73 records are Truestamp's internal records
-and never appear in a proof, so this document lists only their bytes. The epoch record
-that 0x80 hashes is a different record, carried in every commitment entry (section 3.4).
-The beacon draw appears in no proof.
-
-### 4.4 Beacon draws (0x40)
-
-Each draw record is closed: `beacon` is the block hash in hex, `tool` names the draw,
-integers are at most MAX_INTEGER, and `d` is the draw's hash, H(0x40, record), read as an
-unsigned 256-bit big-endian integer.
-
-| `tool` | Other members | Result |
-|---|---|---|
-| `coin_toss` | none | d mod 2 (0 is heads) |
-| `dice_roll` | `sides` (at least 2) | 1 + (d mod sides) |
-| `integer` | `max`, `min` (min at most max) | min + (d mod (max - min + 1)) |
-| `drawing` | `entries`: 1 to 1,000 strings, byte-sorted | the entry at index d mod (number of entries) |
-| `lottery` | `count` (1 to `max`), `max` (1 to 1,000), `position` | for i from 0 to max - 1, insert i + 1 at index (d_i mod (i + 1)) of a running list, where d_i is the draw hash of the record with `position` = i; the first `count` values, sorted |
-
-The drawing record carries its entries, so a result can be reproduced from the record
-alone.
+Every other byte is unassigned. The epoch record that 0x40 hashes is carried in every
+commitment entry (section 3.4).
 
 ## 5. Merkle trees and inclusion proofs
 
@@ -523,14 +504,14 @@ tree head signs the tree size with the root. Each such tree has a record holding
 
 | Tree | Its leaves | Record | Record hash | Where the record hash goes |
 |---|---|---|---|---|
-| block | `item_hash`, `observation_hash` | the block record | `block_hash` = H(0x30, record) | a leaf of an epoch tree |
-| epoch | `block_hash` | the epoch record `{leaf_count, merkle_root}` | `epoch_hash` = H(0x80, record) | Stellar and Bitcoin |
+| block | `item_hash`, `observation_hash` | the block record | `block_hash` = H(0x31, record) | a leaf of an epoch tree |
+| epoch | `block_hash` | the epoch record `{leaf_count, merkle_root}` | `epoch_hash` = H(0x40, record) | Stellar and Bitcoin |
 
 At both levels, for each `inclusion_proof` into a tree, a verifier MUST check that the walk
 from the recomputed leaf reaches the record's `merkle_root` and that the proof's
 `tree_size` equals the record's `leaf_count`.
 
-For each commitment entry, a verifier MUST also compute H(0x80, `epoch.record`) and compare
+For each commitment entry, a verifier MUST also compute H(0x40, `epoch.record`) and compare
 it with `epoch.epoch_hash`. It MUST compare the computed hash with the chain's copy wherever
 it holds that copy: always for Bitcoin, and for Stellar when it reads the transaction's hash
 memo (section 10.4). In Bitcoin the copy is in the carried `raw_transaction`: exactly one of
@@ -600,7 +581,7 @@ A verifier checks the member at SHAPE (section 10.2), after the signature has pa
 ### 7.3 The text
 
 The genesis text (*Proposed*): 28 rows, 7,653 octets under JCS, digest
-`f3adb9f89afbf8ed232854bdec4ab19ad39cc010095d46148af7331acd672d96`. Every value is printable
+`f62553c8534d240e16beed2e7e5871668e0035507ff459b99f933aeddfec73bd`. Every value is printable
 ASCII with no `"` or `\`. To reproduce the digest, parse the object below, serialize it
 with sorted keys and no whitespace (exactly JCS for this object), and hash it:
 `hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()`.
@@ -609,27 +590,27 @@ with sorted keys and no whitespace (exactly JCS for this object), and hash it:
 {
   "beacon": "block.block_hash is the beacon value; each member of observations is an entropy leaf of that block, checked as an observation subject; no one, Truestamp included, could compute the value before Submitted after, but Truestamp chooses the block contents after the entropy is public and so can bias it",
   "bitcoin": "raw_transaction is a transaction serialized without witness data (BIP 144 marker, flag and witnesses removed), with at least one input; transaction_hash = rev(SHA-256d(raw_transaction)); exactly one output script begins 0x6a and it is 0x6a 0x20 followed by the 32 bytes epoch.epoch_hash's hex spells, in that order; txoutproof is a BIP 37 merkleblock: an 80-byte header, total_txs, and a partial Merkle tree that places transaction_hash under header_merkle_root; header_hash = rev(SHA-256d(header)) and meets the target in the header nBits; header_merkle_root = rev(the header Merkle root field); header_time = the header nTime; header_hash is the best-chain block at height on network; network is the verifier's pinned Bitcoin network, and nothing in this proof decides it",
-  "block_hash": "SHA-256(0x30 || JCS(record))",
+  "block_hash": "SHA-256(0x31 || JCS(record))",
   "chain_order": "a Stellar entropy object sequence is below the ledger of a top-level stellar commitment on the same network; a Bitcoin entropy object height is at or below the height of a top-level bitcoin commitment on the same network",
   "checks": "compute each hash this text defines from its preimage as carried and compare it with the value the proof carries for it; every merkle_path, and every comparison of one hash with another, starts from the computed value, never the carried one",
   "claims": "the submitter's statements exactly as submitted, attested as submitted and never as true; hash is lowercase hex of the length hash_type fixes (for example md5 32, sha1 40, sha256 64) and is never recomputed; timestamp is a time the submitter claims and never an edge of the submission window; nonce, if present, is at most 32 random bytes in lowercase hex",
-  "claims_hash": "SHA-256(0x11 || JCS(claims))",
+  "claims_hash": "SHA-256(0x10 || JCS(claims))",
   "encoding": "JCS is RFC 8785; hashes, key ids and Bitcoin byte strings are lowercase hex, Bitcoin hashes in the reversed byte order explorers display, except NIST outputValue, which is uppercase hex as NIST publishes it; Ed25519 keys and signatures are unpadded base64url (RFC 4648 section 5); times are RFC 3339 UTC, except the Bitcoin entropy payload time, which is integer Unix seconds; SHA-256d is SHA-256 applied twice; rev reverses byte order; median time past is the median of the header times of a block and the 10 blocks before it",
-  "entropy_hash": "SHA-256(0x21 || JCS(entropy object))",
+  "entropy_hash": "SHA-256(0x20 || JCS(entropy object))",
   "environment": "present only outside production, naming the environment that signed the proof (dev, staging or test); a verifier rejects a proof from any environment but its own",
-  "epoch_hash": "SHA-256(0x80 || JCS(record)) for the epoch of each commitment entry, whose record holds the epoch tree's merkle_root and leaf_count; epoch_hash is the value written to Stellar and Bitcoin, so the chain commits the tree's leaf count with its root",
-  "genesis": "when record.metadata.genesis is present: record.height = 0 and previous_block_hash = SHA-256(0x31 || JCS(metadata.genesis)); genesis.bitcoin names a best-chain Bitcoin block mined before the chain began",
-  "handover": "in a rotation or emergency_rotation key_event: previous_key_id is the key id of previous_public_key, and handover_signature, if present, is Ed25519 by previous_public_key over SHA-256(0x50 || JCS(the key_event without handover_signature))",
+  "epoch_hash": "SHA-256(0x40 || JCS(record)) for the epoch of each commitment entry, whose record holds the epoch tree's merkle_root and leaf_count; epoch_hash is the value written to Stellar and Bitcoin, so the chain commits the tree's leaf count with its root",
+  "genesis": "when record.metadata.genesis is present: record.height = 0 and previous_block_hash = SHA-256(0x30 || JCS(metadata.genesis)); genesis.bitcoin names a best-chain Bitcoin block mined before the chain began",
+  "handover": "in a rotation or emergency_rotation key_event: previous_key_id is the key id of previous_public_key, and handover_signature, if present, is Ed25519 by previous_public_key over SHA-256(0x62 || JCS(the key_event without handover_signature))",
   "height": "record.height counts blocks from 0 at genesis; the height of witnesses.block is below the height of block",
   "inclusion": "a subject's merkle_path(item_hash or observation_hash, inclusion_proof) = block.record.merkle_root; each commitment entry's merkle_path(block_hash of the block these commitments belong to, inclusion_proof) = epoch.record.merkle_root; at both levels, inclusion_proof.tree_size = that record's leaf_count",
-  "item_hash": "SHA-256(0x10 || JCS(record))",
-  "key_event": "wherever record.metadata.key_event is present: genesis, rotation and emergency_rotation introduce public_key, and key_id = record.signing_key_id = the key id of public_key, which is hex of the first 4 bytes of SHA-256(0x51 || its 32 bytes); prerotation and revocation introduce no key, and for prerotation record.signing_key_id = active_key_id; signing_key_event.block introduces signature.public_key",
+  "item_hash": "SHA-256(0x11 || JCS(record))",
+  "key_event": "wherever record.metadata.key_event is present: genesis, rotation and emergency_rotation introduce public_key, and key_id = record.signing_key_id = the key id of public_key, which is hex of the first 4 bytes of SHA-256(0x60 || its 32 bytes); prerotation and revocation introduce no key, and for prerotation record.signing_key_id = active_key_id; signing_key_event.block introduces signature.public_key",
   "keyring": "signature.public_key is Truestamp's only if its 32 bytes equal a key in Truestamp's keyring, published at https://www.truestamp.com/.well-known/keyring.json and with the specification; nothing in this proof decides it",
   "merkle_path": "merkle_path(start, proof) is RFC 9162 section 2.1.3.2 over proof.leaf_index, proof.tree_size and proof.path, a list of hashes: fail unless leaf_index < tree_size and path has at most 32 hashes; set fn = leaf_index, sn = tree_size - 1 and r = SHA-256(0x00 || start); then for each p in path, in order: fail if sn = 0; if fn is odd or fn = sn, set r = SHA-256(0x01 || p || r) and then, while fn is even and not 0, halve fn and sn; if neither, set r = SHA-256(0x01 || r || p); in both cases, then halve fn and sn once; after the last p, fail unless sn = 0; halving rounds down, each hash is the 32 bytes its hex spells, and the result is the final r",
-  "observation_hash": "SHA-256(0x20 || JCS(record))",
+  "observation_hash": "SHA-256(0x21 || JCS(record))",
   "parsing": "the file is one UTF-8 JSON text (RFC 8259) with no duplicate member names or lone surrogates, at most 32 levels deep, whose numbers are read as the nearest binary64 value (underflow gives 0), none an integer above 2^53-1 and below 10^21 in magnitude however written; formatting and member order do not matter, since every hash and the signature use JCS of the parsed values",
   "recorded": "ids, the times inside ids, and every value this text does not derive are Truestamp records bound by these hashes and the signature; they are never a verdict input except as the rows above and the verifier's pins use them",
-  "signature": "signature.value is pure Ed25519 (RFC 8032, not Ed25519ph) by signature.public_key over the 32 bytes SHA-256(0x60 || JCS(proof)), where proof is the top-level proof member, and signature.alg names exactly this rule; that digest is never carried",
+  "signature": "signature.value is pure Ed25519 (RFC 8032, not Ed25519ph) by signature.public_key over the 32 bytes SHA-256(0x50 || JCS(proof)), where proof is the top-level proof member, and signature.alg names exactly this rule; that digest is never carried",
   "specification": "the full rules and a reference verifier are at https://github.com/truestamp/truestamp-verification, which governs wherever this summary differs",
   "stellar": "transaction transaction_hash on network is successful, has memo_type hash with memo = epoch.epoch_hash, and is in ledger ledger; network is the verifier's pinned Stellar network, and nothing in this proof decides it",
   "submitted_after": "the latest of these, each read from its source during verification for an entropy object whose hash matched: a NIST pulse timeStamp, a Stellar ledger closed_at, a Bitcoin block median time past; times carried in this proof are never used; the network of a Stellar or Bitcoin entropy object is the verifier's pinned network for that source, and nothing in this proof decides it",

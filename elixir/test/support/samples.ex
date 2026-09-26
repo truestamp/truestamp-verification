@@ -288,7 +288,7 @@ defmodule Truestamp.Verifier.Test.Samples do
     "item"
     |> common("plain")
     |> Map.merge(%{
-      "constructions" => %{"block_hash" => "SHA-256(0x30 || JCS(record))"},
+      "constructions" => %{"block_hash" => "SHA-256(0x31 || JCS(record))"},
       "signing_key_event" => %{
         "block" => block("rotation", 2),
         "commitments" => %{"stellar" => stellar_commitment(2)}
