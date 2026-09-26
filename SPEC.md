@@ -104,7 +104,7 @@ and its data:
 | Standard | Used for |
 |---|---|
 | RFC 8259, JSON | the document, and every file under `spec/` and `vectors/` |
-| RFC 8785, the JSON Canonicalization Scheme (JCS) | every record hash and the signed digest |
+| RFC 8785, the JSON Canonicalization Scheme (JCS) | every record hash, `proof_hash` among them |
 | FIPS 180-4, SHA-256 | every hash, and SHA-256d for Bitcoin |
 | RFC 8032, Ed25519 (the pure variant) | the proof's signature and every handover signature, checked as section 6.2 says |
 | RFC 4648 section 5, base64url without padding | keys and signatures |
@@ -134,17 +134,17 @@ library. Known answers for JCS, Ed25519 and base64url are among the conformance 
   - `public_key` (K): the 32-octet Ed25519 public key, as B64U32.
   - `value` (V): the 64-octet Ed25519 signature, as B64U64.
 
-  There is no second signature, key id, digest or context member.
+  There is no second signature, key id, `proof_hash` or context member.
 - **Served form.** Truestamp serves JCS(envelope) as UTF-8 with no trailing newline, at
   most 65,536 octets (MAX_DOCUMENT_OCTETS), with the media type
   `application/vnd.truestamp.proof+json` and the file extension `.proof.json`. A verifier
   MUST accept any formatting of the same JSON value that the parsing rules of section 10.1
   allow.
-- **Identity.** A proof is identified by its digest, SHA-256(0x50 || JCS(proof)), never by
+- **Identity.** A proof is identified by its `proof_hash`, SHA-256(0x50 || JCS(proof)), never by
   the bytes of a file or by its signature string.
 - **Sameness.** Files that differ only in formatting, within the parsing rules of
-  section 10.1, verify alike, and two proofs are the same exactly when their digests are
-  equal. Two files that verify with the same
+  section 10.1, verify alike, and two proofs are the same exactly when their `proof_hash`
+  values are equal. Two files that verify with the same
   `signature.value` carry the same proof value and key.
 
 ### 3.2 Members of `proof`
@@ -164,7 +164,7 @@ library. Known answers for JCS, Ed25519 and base64url are among the conformance 
 | `witnesses` | `item` R, else F | WITNESSES |
 
 A proof carries none of these: a `generated_at` time, an issuer, a proof-level key id,
-the proof digest, a download variant, a close time for any commitment's ledger or block,
+its own `proof_hash`, a download variant, a close time for any commitment's ledger or block,
 the intermediate hashes a walk computes, or the chain of blocks between `/witnesses/block`
 and `/block`.
 
@@ -353,16 +353,16 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
-| item | 15,016 | 7,292 | 7,152 | 54,396 |
-| entropy_nist | 13,746 | 6,022 | 5,882 | 32,055 |
-| entropy_stellar | 13,654 | 5,930 | 5,790 | 31,935 |
-| entropy_bitcoin | 13,634 | 5,910 | 5,770 | 31,922 |
-| block | 12,959 | 5,235 | 5,095 | 29,270 |
-| beacon | 15,128 | 7,404 | 7,264 | 37,384 |
+| item | 15,028 | 7,292 | 7,152 | 54,408 |
+| entropy_nist | 13,758 | 6,022 | 5,882 | 32,067 |
+| entropy_stellar | 13,666 | 5,930 | 5,790 | 31,947 |
+| entropy_bitcoin | 13,646 | 5,910 | 5,770 | 31,934 |
+| block | 12,971 | 5,235 | 5,095 | 29,282 |
+| beacon | 15,140 | 7,404 | 7,264 | 37,396 |
 
-For items, the served size is at most 33,916 + |JCS(claims)| octets in full mode (26,192 by
+For items, the served size is at most 33,928 + |JCS(claims)| octets in full mode (26,192 by
 reference, 26,052 with none), plus at most 24 octets for `"environment":"staging",`. The
-worst staging item is 54,420 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
+worst staging item is 54,432 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
 ## 4. The byte-prefix registry
@@ -434,7 +434,7 @@ H(p, R) = SHA-256(p || JCS(R))
 | `0x30` | Blocks | genesis `previous_block_hash` | JCS(genesis object) | never |
 | `0x31` | Blocks | `block_hash` | JCS(block record) | yes, by the key the chain assigns |
 | `0x40` | Epochs | `epoch_hash` | JCS(epoch record) | never |
-| `0x50` | Proofs | proof digest | JCS(proof) | yes, by the active key |
+| `0x50` | Proofs | `proof_hash` | JCS(proof) | yes, by the active key |
 | `0x60` | Keys | `key_id` | the 32 key bytes; the hash cut to 4 bytes | never |
 | `0x61` | Keys | `prerotation_commitment` | the 32 bytes of the next key | never |
 | `0x62` | Keys | handover | JCS(rotation event without `handover_signature`) | yes, by the outgoing key |
@@ -592,8 +592,8 @@ A verifier checks the member at SHAPE (section 10.2), after the signature has pa
 
 ### 7.3 The text
 
-The genesis text (*Proposed*): 28 rows, 7,847 octets under JCS, digest
-`9e6efb15a6d96afe23179d91445c6832db4b49096fd584a3aeba3ab8cc12b914`. Every value is printable
+The genesis text (*Proposed*): 28 rows, 7,859 octets under JCS, digest
+`c4cf75328f76a30992da2f3449e2df28b4197f819d785d2a18aa62a33284f969`. Every value is printable
 ASCII with no `"` or `\`. To reproduce the digest, parse the object below, serialize it
 with sorted keys and no whitespace (exactly JCS for this object), and hash it:
 `hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()`.
@@ -622,7 +622,7 @@ with sorted keys and no whitespace (exactly JCS for this object), and hash it:
   "observation_hash": "SHA-256(0x21 || JCS(record))",
   "parsing": "the file is one UTF-8 JSON text (RFC 8259) with no duplicate member names or lone surrogates, at most 32 levels deep, whose numbers are read as the nearest binary64 value (underflow gives 0), none an integer above 2^53-1 and below 10^21 in magnitude however written; formatting and member order do not matter, since every hash and the signature use JCS of the parsed values",
   "recorded": "ids, the times inside ids, and every value this text does not derive are Truestamp records bound by these hashes and the signature; they are never a verdict input except as the rows above and the verifier's pins use them",
-  "signature": "signature.value is pure Ed25519 (RFC 8032, not Ed25519ph) by signature.public_key over the 32 bytes SHA-256(0x50 || JCS(proof)), where proof is the top-level proof member, and signature.alg names exactly this rule; that digest is never carried",
+  "signature": "signature.value is pure Ed25519 (RFC 8032, not Ed25519ph) by signature.public_key over the 32 bytes proof_hash = SHA-256(0x50 || JCS(proof)), where proof is the top-level proof member, and signature.alg names exactly this rule; proof_hash is never carried",
   "specification": "the full rules and a reference verifier are at https://github.com/truestamp/truestamp-verification, which governs wherever this summary differs",
   "stellar": "transaction transaction_hash on network is successful, has memo_type hash with memo = epoch.epoch_hash, and is in ledger ledger; network is the verifier's pinned Stellar network, and nothing in this proof decides it",
   "submitted_after": "the latest of these, each read from its source during verification for an entropy object whose hash matched: a NIST pulse timeStamp, a Stellar ledger closed_at, a Bitcoin block median time past; times carried in this proof are never used; the network of a Stellar or Bitcoin entropy object is the verifier's pinned network for that source, and nothing in this proof decides it",
@@ -635,7 +635,7 @@ The `checks` row stops a walk from starting at a carried value (the graft defect
 `keyring` row stops a self-signed proof from passing as Truestamp's. The CI of each of
 Truestamp's implementations extracts every `SHA-256(0xNN || ...)` in the text and asserts
 that the byte and the preimage name match the registry, and that the set of rows equals
-this one. Reference mode saves 7,724 octets per proof, and `none` 140 more.
+this one. Reference mode saves 7,736 octets per proof, and `none` 140 more.
 
 ### 7.4 The agent-sufficiency acceptance test
 

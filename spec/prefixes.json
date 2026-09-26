@@ -85,9 +85,9 @@
     "hashed": "the 32 bytes of the next key",
     "signed": false
   },
-  "proof_digest": {
+  "proof_hash": {
     "byte": "0x50",
-    "construction": "proof digest",
+    "construction": "proof_hash",
     "family": "Proofs",
     "hashed": "JCS(proof)",
     "signed": true,
