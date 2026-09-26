@@ -1,6 +1,6 @@
 {
   "classes": {
-    "BLOCK HEIGHT": "0 at genesis (CHECKED); otherwise used only by LINK_HEAD",
+    "BLOCK HEIGHT": "0 at genesis (CHECKED); otherwise used only by LINK_HEAD and by a rotation's height check",
     "CHAIN POINTER": "may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification",
     "CHECKED": "recomputed and compared",
     "PATH INPUT": "bound by the walk",
@@ -65,11 +65,19 @@
     },
     {
       "class": "CHECKED",
+      "pointer": "/block/record/metadata/key_event/height"
+    },
+    {
+      "class": "CHECKED",
       "pointer": "/block/record/metadata/key_event/key_id"
     },
     {
       "class": "RECORDED",
       "pointer": "/block/record/metadata/key_event/prerotation_commitment"
+    },
+    {
+      "class": "CHECKED",
+      "pointer": "/block/record/metadata/key_event/previous_block_hash"
     },
     {
       "class": "CHECKED",
@@ -301,11 +309,19 @@
     },
     {
       "class": "CHECKED",
+      "pointer": "/signing_key_event/block/record/metadata/key_event/height"
+    },
+    {
+      "class": "CHECKED",
       "pointer": "/signing_key_event/block/record/metadata/key_event/key_id"
     },
     {
       "class": "RECORDED",
       "pointer": "/signing_key_event/block/record/metadata/key_event/prerotation_commitment"
+    },
+    {
+      "class": "CHECKED",
+      "pointer": "/signing_key_event/block/record/metadata/key_event/previous_block_hash"
     },
     {
       "class": "CHECKED",
@@ -547,11 +563,19 @@
     },
     {
       "class": "CHECKED",
+      "pointer": "/witnesses/block/record/metadata/key_event/height"
+    },
+    {
+      "class": "CHECKED",
       "pointer": "/witnesses/block/record/metadata/key_event/key_id"
     },
     {
       "class": "RECORDED",
       "pointer": "/witnesses/block/record/metadata/key_event/prerotation_commitment"
+    },
+    {
+      "class": "CHECKED",
+      "pointer": "/witnesses/block/record/metadata/key_event/previous_block_hash"
     },
     {
       "class": "CHECKED",

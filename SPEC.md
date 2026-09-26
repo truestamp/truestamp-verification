@@ -192,7 +192,7 @@ A KEY_EVENT is one of these, by its `type`:
 | `type` | Members | Checked wherever it appears |
 |---|---|---|
 | `genesis` | `key_id`, `prerotation_commitment` (O), `public_key`, `sequence` (0), `type` | `key_id` = the key id of `public_key` = `record.signing_key_id` |
-| `rotation` | `handover_signature`, `key_id`, `prerotation_commitment` (O), `previous_key_id`, `previous_public_key`, `public_key`, `reason` (ASCII128), `sequence` (at least 1), `type` | as `genesis`, plus `previous_key_id` = the key id of `previous_public_key`, and `handover_signature` verifies under `previous_public_key` |
+| `rotation` | `handover_signature`, `height`, `key_id`, `prerotation_commitment` (O), `previous_block_hash`, `previous_key_id`, `previous_public_key`, `public_key`, `reason` (ASCII128), `sequence` (at least 1), `type` | as `genesis`, plus `previous_key_id` = the key id of `previous_public_key`, `height` and `previous_block_hash` = those of the block record that carries the event, and `handover_signature` verifies under `previous_public_key` |
 | `emergency_rotation` | as `rotation`, with `handover_signature` O | as `rotation`, the signature when present |
 | `prerotation` | `active_key_id`, `prerotation_commitment`, `type` | `record.signing_key_id` = `active_key_id`; introduces no key |
 | `revocation` | `revoked_key_id`, `type` | introduces no key |
@@ -201,7 +201,9 @@ A KEY_EVENT is one of these, by its `type`:
   `prerotation_commitment` is the hex of SHA-256(0x61 || the next key's 32 bytes).
 - The **handover signature** is Ed25519 by `previous_public_key` over the 32 bytes of
   H(0x62, the event without `handover_signature`), so the outgoing key endorses every other
-  member.
+  member. Those members include the event's `height` and `previous_block_hash`, which equal the
+  carrying block record's, so a handover is valid only at the one place in the chain it was
+  signed for.
 - The key event at `/signing_key_event/block` MUST be a `genesis`, `rotation` or
   `emergency_rotation`.
 - Which key events Truestamp's key chain accepts, and in what order, is Truestamp's own
@@ -310,11 +312,11 @@ A verifier MUST treat each value as its class says.
 | Class | Members | Treatment |
 |---|---|---|
 | PINNED | `format`, `version`, `type`, `environment`, `signature.alg`, `constructions` | compared with pinned values before anything uses them |
-| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature` | recomputed and compared |
+| CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature`; a rotation's `height` and `previous_block_hash`, against the block record that carries it | recomputed and compared |
 | PATH INPUT | every MERKLE_PROOF `path` node and `leaf_index` | bound by the walk |
 | PREIMAGE | `/block/record/leaf_count` and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations; the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
 | CHAIN POINTER | Stellar `transaction_hash`, `ledger`; Bitcoin commitment `height`; every `network`; NIST `chainIndex`, `pulseIndex`; Stellar `sequence`; Bitcoin entropy `hash`; `genesis.bitcoin` | may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification |
-| BLOCK HEIGHT | every `record.height` | 0 at genesis (CHECKED); otherwise used only by LINK_HEAD |
+| BLOCK HEIGHT | every `record.height` | 0 at genesis (CHECKED); otherwise used only by LINK_HEAD and by a rotation's `height` check |
 | SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with bidirectional and zero-width characters escaped |
 | RECORDED | ids and their times; the other `previous_block_hash`, `merkle_root`, `leaf_count` and `signing_key_id` values; `prerotation_commitment`, `previous_public_key` (only an input to the handover check), `sequence`, `reason`, `revoked_key_id`; NIST `version`; which observation a beacon carries | never a verdict input except where a row above uses it; shown under a provenance heading chosen by attribution |
 
@@ -348,16 +350,16 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
-| item | 14,822 | 7,292 | 7,152 | 53,860 |
-| entropy_nist | 13,552 | 6,022 | 5,882 | 31,633 |
-| entropy_stellar | 13,460 | 5,930 | 5,790 | 31,513 |
-| entropy_bitcoin | 13,440 | 5,910 | 5,770 | 31,501 |
-| block | 12,765 | 5,235 | 5,095 | 28,848 |
-| beacon | 14,934 | 7,404 | 7,264 | 36,963 |
+| item | 14,923 | 7,292 | 7,152 | 54,306 |
+| entropy_nist | 13,653 | 6,022 | 5,882 | 31,964 |
+| entropy_stellar | 13,561 | 5,930 | 5,790 | 31,844 |
+| entropy_bitcoin | 13,541 | 5,910 | 5,770 | 31,832 |
+| block | 12,866 | 5,235 | 5,095 | 29,179 |
+| beacon | 15,035 | 7,404 | 7,264 | 37,294 |
 
-For items, the served size is at most 33,380 + |JCS(claims)| octets in full mode (25,850 by
-reference, 25,710 with none), plus at most 24 octets for `"environment":"staging",`. The
-worst staging item is 53,884 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
+For items, the served size is at most 33,826 + |JCS(claims)| octets in full mode (26,195 by
+reference, 26,055 with none), plus at most 24 octets for `"environment":"staging",`. The
+worst staging item is 54,330 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
 ## 4. The byte-prefix registry
@@ -580,8 +582,8 @@ A verifier checks the member at SHAPE (section 10.2), after the signature has pa
 
 ### 7.3 The text
 
-The genesis text (*Proposed*): 28 rows, 7,653 octets under JCS, digest
-`f62553c8534d240e16beed2e7e5871668e0035507ff459b99f933aeddfec73bd`. Every value is printable
+The genesis text (*Proposed*): 28 rows, 7,754 octets under JCS, digest
+`8766002e89f5d2d599d93e4cccddb61a8422e6e555454d5143394cfc08e1a639`. Every value is printable
 ASCII with no `"` or `\`. To reproduce the digest, parse the object below, serialize it
 with sorted keys and no whitespace (exactly JCS for this object), and hash it:
 `hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()`.
@@ -600,7 +602,7 @@ with sorted keys and no whitespace (exactly JCS for this object), and hash it:
   "environment": "present only outside production, naming the environment that signed the proof (dev, staging or test); a verifier rejects a proof from any environment but its own",
   "epoch_hash": "SHA-256(0x40 || JCS(record)) for the epoch of each commitment entry, whose record holds the epoch tree's merkle_root and leaf_count; epoch_hash is the value written to Stellar and Bitcoin, so the chain commits the tree's leaf count with its root",
   "genesis": "when record.metadata.genesis is present: record.height = 0 and previous_block_hash = SHA-256(0x30 || JCS(metadata.genesis)); genesis.bitcoin names a best-chain Bitcoin block mined before the chain began",
-  "handover": "in a rotation or emergency_rotation key_event: previous_key_id is the key id of previous_public_key, and handover_signature, if present, is Ed25519 by previous_public_key over SHA-256(0x62 || JCS(the key_event without handover_signature))",
+  "handover": "in a rotation or emergency_rotation key_event: previous_key_id is the key id of previous_public_key; height and previous_block_hash equal those of the block record whose metadata carries the key_event; and handover_signature, if present, is Ed25519 by previous_public_key over SHA-256(0x62 || JCS(the key_event without handover_signature))",
   "height": "record.height counts blocks from 0 at genesis; the height of witnesses.block is below the height of block",
   "inclusion": "a subject's merkle_path(item_hash or observation_hash, inclusion_proof) = block.record.merkle_root; each commitment entry's merkle_path(block_hash of the block these commitments belong to, inclusion_proof) = epoch.record.merkle_root; at both levels, inclusion_proof.tree_size = that record's leaf_count",
   "item_hash": "SHA-256(0x11 || JCS(record))",
@@ -623,7 +625,7 @@ The `checks` row stops a walk from starting at a carried value (the graft defect
 `keyring` row stops a self-signed proof from passing as Truestamp's. The CI of each of
 Truestamp's implementations extracts every `SHA-256(0xNN || ...)` in the text and asserts
 that the byte and the preimage name match the registry, and that the set of rows equals
-this one. Reference mode saves 7,530 octets per proof, and `none` 140 more.
+this one. Reference mode saves 7,631 octets per proof, and `none` 140 more.
 
 ### 7.4 The agent-sufficiency acceptance test
 

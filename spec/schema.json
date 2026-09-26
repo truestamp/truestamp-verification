@@ -172,10 +172,16 @@
         "handover_signature": {
           "$ref": "#/$defs/B64U64"
         },
+        "height": {
+          "$ref": "#/$defs/INT"
+        },
         "key_id": {
           "$ref": "#/$defs/KID"
         },
         "prerotation_commitment": {
+          "$ref": "#/$defs/HEX64"
+        },
+        "previous_block_hash": {
           "$ref": "#/$defs/HEX64"
         },
         "previous_key_id": {
@@ -199,7 +205,9 @@
         }
       },
       "required": [
+        "height",
         "key_id",
+        "previous_block_hash",
         "previous_key_id",
         "previous_public_key",
         "public_key",
@@ -1001,10 +1009,16 @@
         "handover_signature": {
           "$ref": "#/$defs/B64U64"
         },
+        "height": {
+          "$ref": "#/$defs/INT"
+        },
         "key_id": {
           "$ref": "#/$defs/KID"
         },
         "prerotation_commitment": {
+          "$ref": "#/$defs/HEX64"
+        },
+        "previous_block_hash": {
           "$ref": "#/$defs/HEX64"
         },
         "previous_key_id": {
@@ -1029,7 +1043,9 @@
       },
       "required": [
         "handover_signature",
+        "height",
         "key_id",
+        "previous_block_hash",
         "previous_key_id",
         "previous_public_key",
         "public_key",

@@ -920,8 +920,9 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     end
   end
 
-  defp key_event_class(leaf) when leaf in ~w(key_id previous_key_id handover_signature),
-    do: "CHECKED"
+  defp key_event_class(leaf)
+       when leaf in ~w(key_id previous_key_id handover_signature height previous_block_hash),
+       do: "CHECKED"
 
   defp key_event_class(leaf) when leaf in ~w(public_key type active_key_id), do: "PREIMAGE"
 

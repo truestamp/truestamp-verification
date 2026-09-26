@@ -153,19 +153,30 @@ defmodule Truestamp.Verifier.Test.Samples do
   defp metadata(kind), do: %{"key_event" => key_event(kind)}
 
   defp block(kind, n) do
-    %{
-      "block_hash" => hex64("block #{n}"),
-      "record" => %{
-        "height" => if(kind == "genesis", do: 0, else: 525_600 + n),
-        "id" => uuid7(n),
-        "leaf_count" => 8,
-        "merkle_root" => hex64("root #{n}"),
-        "metadata" => metadata(kind),
-        "previous_block_hash" => hex64("previous #{n}"),
-        "signing_key_id" => kid("k1")
-      }
+    record = %{
+      "height" => if(kind == "genesis", do: 0, else: 525_600 + n),
+      "id" => uuid7(n),
+      "leaf_count" => 8,
+      "merkle_root" => hex64("root #{n}"),
+      "metadata" => metadata(kind),
+      "previous_block_hash" => hex64("previous #{n}"),
+      "signing_key_id" => kid("k1")
     }
+
+    %{"block_hash" => hex64("block #{n}"), "record" => bind_position(record)}
   end
+
+  # A rotation event carries the height and previous_block_hash of its block (SPEC.md 3.3).
+  defp bind_position(%{"metadata" => %{"key_event" => %{"type" => type}}} = record)
+       when type in ~w(rotation emergency_rotation) do
+    update_in(
+      record,
+      ["metadata", "key_event"],
+      &Map.merge(&1, Map.take(record, ~w(height previous_block_hash)))
+    )
+  end
+
+  defp bind_position(record), do: record
 
   defp epoch(n) do
     %{
