@@ -1,8 +1,7 @@
 {
   "bitcoin": [
     "mainnet",
-    "testnet3",
-    "testnet4",
+    "testnet",
     "regtest"
   ],
   "stellar": [

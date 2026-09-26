@@ -81,8 +81,7 @@
     "BITCOIN_NETWORK": {
       "enum": [
         "mainnet",
-        "testnet3",
-        "testnet4",
+        "testnet",
         "regtest"
       ]
     },

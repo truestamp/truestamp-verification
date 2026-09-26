@@ -86,7 +86,7 @@ for its member. Each pattern below is written bare and MUST match the whole stri
 | UUID7 | `[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}` | block and observation `id` |
 | INT | an integer from 0 to 9007199254740991 (MAX_INTEGER) | every number outside `subject.claims` |
 | ASCII128, ASCII16 | 1 to 128 (or 16) printable ASCII characters, with no `"` or `\` | `reason`, NIST `version` |
-| NETWORK | Stellar `public` or `testnet`; Bitcoin `mainnet`, `testnet3`, `testnet4` or `regtest` (never plain `testnet`) | every `network` |
+| NETWORK | Stellar `public` or `testnet`; Bitcoin `mainnet`, `testnet` or `regtest` | every `network` |
 | ENV | `dev`, `staging` or `test` | `environment` |
 
 The base64url classes are unpadded (RFC 4648 section 5), and the class of the last
@@ -346,20 +346,20 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
   `tree_size` 2^32; both chains at both positions, with 1,000-octet raw transactions and
   1,024-octet txoutproofs; `emergency_rotation` events with every optional member and a
   128-character reason at all three block positions; every `leaf_count` 2^32 and every
-  other integer 16 digits; a 16-character NIST `version`; `testnet` and `testnet4`.
+  other integer 16 digits; a 16-character NIST `version`; `testnet` on both chains.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
-| item | 14,923 | 7,292 | 7,152 | 54,306 |
-| entropy_nist | 13,653 | 6,022 | 5,882 | 31,964 |
-| entropy_stellar | 13,561 | 5,930 | 5,790 | 31,844 |
-| entropy_bitcoin | 13,541 | 5,910 | 5,770 | 31,832 |
-| block | 12,866 | 5,235 | 5,095 | 29,179 |
-| beacon | 15,035 | 7,404 | 7,264 | 37,294 |
+| item | 14,923 | 7,292 | 7,152 | 54,303 |
+| entropy_nist | 13,653 | 6,022 | 5,882 | 31,962 |
+| entropy_stellar | 13,561 | 5,930 | 5,790 | 31,842 |
+| entropy_bitcoin | 13,541 | 5,910 | 5,770 | 31,829 |
+| block | 12,866 | 5,235 | 5,095 | 29,177 |
+| beacon | 15,035 | 7,404 | 7,264 | 37,291 |
 
-For items, the served size is at most 33,826 + |JCS(claims)| octets in full mode (26,195 by
-reference, 26,055 with none), plus at most 24 octets for `"environment":"staging",`. The
-worst staging item is 54,330 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
+For items, the served size is at most 33,823 + |JCS(claims)| octets in full mode (26,192 by
+reference, 26,052 with none), plus at most 24 octets for `"environment":"staging",`. The
+worst staging item is 54,327 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
 ## 4. The byte-prefix registry
