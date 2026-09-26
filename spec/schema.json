@@ -103,6 +103,36 @@
     },
     "BLOCK_RECORD": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "merkle_root": {
+                "not": {
+                  "const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "leaf_count": {
+                "const": 0
+              }
+            },
+            "required": [
+              "leaf_count"
+            ]
+          },
+          "then": {
+            "properties": {
+              "merkle_root": {
+                "const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "height": {
           "$ref": "#/$defs/INT"

@@ -284,11 +284,11 @@
       "pointer": "/signing_key_event/block/record/id"
     },
     {
-      "class": "RECORDED",
+      "class": "PREIMAGE",
       "pointer": "/signing_key_event/block/record/leaf_count"
     },
     {
-      "class": "RECORDED",
+      "class": "PREIMAGE",
       "pointer": "/signing_key_event/block/record/merkle_root"
     },
     {
@@ -534,11 +534,11 @@
       "pointer": "/witnesses/block/record/id"
     },
     {
-      "class": "RECORDED",
+      "class": "PREIMAGE",
       "pointer": "/witnesses/block/record/leaf_count"
     },
     {
-      "class": "RECORDED",
+      "class": "PREIMAGE",
       "pointer": "/witnesses/block/record/merkle_root"
     },
     {

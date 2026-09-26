@@ -75,7 +75,7 @@ for its member. Each pattern below is written bare and MUST match the whole stri
 |---|---|---|
 | HEX64 | `[0-9a-f]{64}` | every hash, root and path node; `transaction_hash`, `header_hash`, `header_merkle_root`, `prerotation_commitment` |
 | KID | `[0-9a-f]{8}` | `signing_key_id`, `key_id`, `previous_key_id`, `active_key_id`, `revoked_key_id` |
-| MERKLE_PROOF | the closed object of section 5.2 (*Proposed*) | every `inclusion_proof` |
+| MERKLE_PROOF | the closed object of section 5.2 | every `inclusion_proof` |
 | HEXBYTES | `(?:[0-9a-f]{2})+`, capped | `raw_transaction` (at most 1,000 octets), `txoutproof` (at most 1,024) |
 | B64U32 | `[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]` | `signature.public_key`; key-event `public_key`, `previous_public_key` |
 | B64U64 | `[A-Za-z0-9_-]{85}[AQgw]` | `signature.value`, `handover_signature` |
@@ -178,7 +178,7 @@ A BLOCK_NODE appears at `/block`, `/witnesses/block` and `/signing_key_event/blo
   "record": {
     "height": INT,                 // 0 at genesis, then one more per block
     "id": UUID7,
-    "leaf_count": INT,             // Proposed: the number of leaves under merkle_root (section 5.4)
+    "leaf_count": INT,             // the number of leaves under merkle_root; 0 exactly with the empty root (section 5.4)
     "merkle_root": HEX64,          // at /block, the inclusion target
     "metadata": {} | {"key_event": KEY_EVENT} | {"genesis": GENESIS, "key_event": KEY_EVENT},
     "previous_block_hash": HEX64,  // at genesis, CHECKED = H(0x30, metadata.genesis)
@@ -222,7 +222,7 @@ chain, with one or two members. Every member of each entry is R. Each entry carr
 epoch whose hash it wrote to its chain, as an EPOCH_NODE, and the inclusion proof of the
 block beside these commitments in that epoch's tree.
 
-An EPOCH_NODE (*Proposed*) mirrors a BLOCK_NODE: a record and its hash.
+An EPOCH_NODE mirrors a BLOCK_NODE: a record and its hash.
 
 ```
 {
@@ -236,20 +236,20 @@ An EPOCH_NODE (*Proposed*) mirrors a BLOCK_NODE: a record and its hash.
 
 ```
 "bitcoin": {                        // present only once final: the tip at height + 10 when captured
-  "epoch": EPOCH_NODE,              // Proposed. epoch.epoch_hash is the value in the OP_RETURN output (section 5.4)
+  "epoch": EPOCH_NODE,              // epoch.epoch_hash is the value in the OP_RETURN output (section 5.4)
   "header_hash": HEX64,             // CHECKED = rev(SHA-256d(first 80 octets of txoutproof))
   "header_merkle_root": HEX64,      // CHECKED = rev(header Merkle root field)
   "header_time": TIME,              // CHECKED = header nTime; display only, never an edge
   "height": INT,                    // chain pointer
-  "inclusion_proof": MERKLE_PROOF,  // Proposed. Walked from the RECOMPUTED block_hash of the block beside these commitments to epoch.record.merkle_root
+  "inclusion_proof": MERKLE_PROOF,  // Walked from the RECOMPUTED block_hash of the block beside these commitments to epoch.record.merkle_root
   "network": NETWORK,
   "raw_transaction": HEXBYTES,      // non-witness serialization, at least one input
   "transaction_hash": HEX64,        // CHECKED = rev(SHA-256d(raw_transaction)); also a chain pointer
   "txoutproof": HEXBYTES            // BIP 37 merkleblock as bitcoind emits it
 },
 "stellar": {
-  "epoch": EPOCH_NODE,              // Proposed. epoch.epoch_hash equals the transaction's hash memo
-  "inclusion_proof": MERKLE_PROOF,  // Proposed. Walked from the RECOMPUTED block_hash to epoch.record.merkle_root
+  "epoch": EPOCH_NODE,              // epoch.epoch_hash equals the transaction's hash memo
+  "inclusion_proof": MERKLE_PROOF,  // Walked from the RECOMPUTED block_hash to epoch.record.merkle_root
   "ledger": INT,                    // chain pointer
   "network": "public" | "testnet",
   "transaction_hash": HEX64         // chain pointer
@@ -277,7 +277,7 @@ The common members are `block`, `commitments`, `constructions`, `environment`, `
 item: the common members, plus
   "subject": {                          // ITEM_SUBJECT
     "claims": {...},                    // OPEN; SUBMITTED, never checked as true
-    "inclusion_proof": MERKLE_PROOF,    // Proposed. Walked from the RECOMPUTED item_hash to /block/record/merkle_root
+    "inclusion_proof": MERKLE_PROOF,    // Walked from the RECOMPUTED item_hash to /block/record/merkle_root
     "item_hash": HEX64,                 // CHECKED = H(0x11, record)
     "record": {"claims_hash": HEX64,    // CHECKED = H(0x10, claims)
                "id": ULID,
@@ -287,7 +287,7 @@ item: the common members, plus
 
 entropy_nist | entropy_stellar | entropy_bitcoin: the common members, plus
   "subject": {"entropy": ENTROPY_OBJECT,          // OBSERVATION_SUBJECT; its source matches the type
-              "inclusion_proof": MERKLE_PROOF,    // Proposed. Walked from the RECOMPUTED observation_hash
+              "inclusion_proof": MERKLE_PROOF,    // Walked from the RECOMPUTED observation_hash
               "observation_hash": HEX64,          // CHECKED = H(0x21, record)
               "record": {"entropy_hash": HEX64, "id": UUID7}}   // entropy_hash CHECKED = H(0x20, entropy)
 
@@ -314,11 +314,11 @@ A verifier MUST treat each value as its class says.
 | PINNED | `format`, `version`, `type`, `environment`, `signature.alg`, `constructions` | compared with pinned values before anything uses them |
 | CHECKED | `claims_hash`, `item_hash`, `entropy_hash`, `observation_hash`, every `block_hash`; the genesis `previous_block_hash`; `witness_hashes` entries; `/block/record/merkle_root` where the `inclusion_proof` of the subject or of an observation walks to it; every `epoch_hash` and every epoch's `record.merkle_root`; every `inclusion_proof` `tree_size` (section 5.4); Bitcoin `transaction_hash`, `header_hash`, `header_merkle_root`, `header_time`; `key_id` where an event introduces a key, and `signing_key_id` where an event introduces a key or is a prerotation; `previous_key_id`, `handover_signature`; a rotation's `height` and `previous_block_hash`, against the block record that carries it | recomputed and compared |
 | PATH INPUT | every MERKLE_PROOF `path` node and `leaf_index` | bound by the walk |
-| PREIMAGE | `/block/record/leaf_count` and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations; the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
+| PREIMAGE | every block record's `leaf_count`, and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations, and the `merkle_root` at `/witnesses/block` and `/signing_key_event/block` (the empty-root rule of section 5.4); the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
 | CHAIN POINTER | Stellar `transaction_hash`, `ledger`; Bitcoin commitment `height`; every `network`; NIST `chainIndex`, `pulseIndex`; Stellar `sequence`; Bitcoin entropy `hash`; `genesis.bitcoin` | may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification |
 | BLOCK HEIGHT | every `record.height` | 0 at genesis (CHECKED); otherwise used only by LINK_HEAD and by a rotation's `height` check |
 | SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with bidirectional and zero-width characters escaped |
-| RECORDED | ids and their times; the other `previous_block_hash`, `merkle_root`, `leaf_count` and `signing_key_id` values; `prerotation_commitment`, `previous_public_key` (only an input to the handover check), `sequence`, `reason`, `revoked_key_id`; NIST `version`; which observation a beacon carries | never a verdict input except where a row above uses it; shown under a provenance heading chosen by attribution |
+| RECORDED | ids and their times; the other `previous_block_hash` and `signing_key_id` values; `prerotation_commitment`, `previous_public_key` (only an input to the handover check), `sequence`, `reason`, `revoked_key_id`; NIST `version`; which observation a beacon carries | never a verdict input except where a row above uses it; shown under a provenance heading chosen by attribution |
 
 No value is opaque, and no record contains its own hash. SOURCES and POLICY are steps of
 section 10.2, and LINK_CHAIN_ORDER and LINK_HEAD are links of section 10.3.
@@ -350,16 +350,16 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
-| item | 14,923 | 7,292 | 7,152 | 54,303 |
-| entropy_nist | 13,653 | 6,022 | 5,882 | 31,962 |
-| entropy_stellar | 13,561 | 5,930 | 5,790 | 31,842 |
-| entropy_bitcoin | 13,541 | 5,910 | 5,770 | 31,829 |
-| block | 12,866 | 5,235 | 5,095 | 29,177 |
-| beacon | 15,035 | 7,404 | 7,264 | 37,291 |
+| item | 15,016 | 7,292 | 7,152 | 54,396 |
+| entropy_nist | 13,746 | 6,022 | 5,882 | 32,055 |
+| entropy_stellar | 13,654 | 5,930 | 5,790 | 31,935 |
+| entropy_bitcoin | 13,634 | 5,910 | 5,770 | 31,922 |
+| block | 12,959 | 5,235 | 5,095 | 29,270 |
+| beacon | 15,128 | 7,404 | 7,264 | 37,384 |
 
-For items, the served size is at most 33,823 + |JCS(claims)| octets in full mode (26,192 by
+For items, the served size is at most 33,916 + |JCS(claims)| octets in full mode (26,192 by
 reference, 26,052 with none), plus at most 24 octets for `"environment":"staging",`. The
-worst staging item is 54,327 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
+worst staging item is 54,420 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
 ## 4. The byte-prefix registry
@@ -430,7 +430,7 @@ H(p, R) = SHA-256(p || JCS(R))
 | `0x21` | Entropy | `observation_hash` | JCS(observation record) | never |
 | `0x30` | Blocks | genesis `previous_block_hash` | JCS(genesis object) | never |
 | `0x31` | Blocks | `block_hash` | JCS(block record) | yes, by the key the chain assigns |
-| `0x40` | Epochs | `epoch_hash` (*Proposed*) | JCS(epoch record) | never |
+| `0x40` | Epochs | `epoch_hash` | JCS(epoch record) | never |
 | `0x50` | Proofs | proof digest | JCS(proof) | yes, by the active key |
 | `0x60` | Keys | `key_id` | the 32 key bytes; the hash cut to 4 bytes | never |
 | `0x61` | Keys | `prerotation_commitment` | the 32 bytes of the next key | never |
@@ -456,7 +456,7 @@ verifier never needs the keys, because an inclusion proof carries the leaf's pos
 library's `vectors/merkle.json` holds the tree's known answers, and this document does not
 copy them.
 
-### 5.2 Inclusion proofs (*Proposed*)
+### 5.2 Inclusion proofs
 
 A MERKLE_PROOF is a closed object:
 
@@ -498,7 +498,7 @@ sizes, and the index can move with the size: in a tree of three leaves, the last
 path also verifies as index 1 of two. So the size is committed and checked separately
 (section 5.4).
 
-### 5.4 The committed leaf count (*Proposed*)
+### 5.4 The committed leaf count
 
 Every tree whose root Truestamp commits also commits its leaf count, as RFC 9162's signed
 tree head signs the tree size with the root. Each such tree has a record holding its
@@ -512,6 +512,13 @@ tree head signs the tree size with the root. Each such tree has a record holding
 At both levels, for each `inclusion_proof` into a tree, a verifier MUST check that the walk
 from the recomputed leaf reaches the record's `merkle_root` and that the proof's
 `tree_size` equals the record's `leaf_count`.
+
+In every block record, `leaf_count` MUST be 0 exactly when `merkle_root` is the root of the
+empty tree, SHA-256 of zero bytes
+(`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`). Genesis and key-event
+blocks include nothing, so their trees are empty. The rule holds at every block position,
+including a block whose tree no inclusion proof walks into, and `spec/schema.json`
+enforces it.
 
 For each commitment entry, a verifier MUST also compute H(0x40, `epoch.record`) and compare
 it with `epoch.epoch_hash`. It MUST compare the computed hash with the chain's copy wherever
@@ -582,8 +589,8 @@ A verifier checks the member at SHAPE (section 10.2), after the signature has pa
 
 ### 7.3 The text
 
-The genesis text (*Proposed*): 28 rows, 7,754 octets under JCS, digest
-`8766002e89f5d2d599d93e4cccddb61a8422e6e555454d5143394cfc08e1a639`. Every value is printable
+The genesis text (*Proposed*): 28 rows, 7,847 octets under JCS, digest
+`9e6efb15a6d96afe23179d91445c6832db4b49096fd584a3aeba3ab8cc12b914`. Every value is printable
 ASCII with no `"` or `\`. To reproduce the digest, parse the object below, serialize it
 with sorted keys and no whitespace (exactly JCS for this object), and hash it:
 `hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()`.
@@ -604,7 +611,7 @@ with sorted keys and no whitespace (exactly JCS for this object), and hash it:
   "genesis": "when record.metadata.genesis is present: record.height = 0 and previous_block_hash = SHA-256(0x30 || JCS(metadata.genesis)); genesis.bitcoin names a best-chain Bitcoin block mined before the chain began",
   "handover": "in a rotation or emergency_rotation key_event: previous_key_id is the key id of previous_public_key; height and previous_block_hash equal those of the block record whose metadata carries the key_event; and handover_signature, if present, is Ed25519 by previous_public_key over SHA-256(0x62 || JCS(the key_event without handover_signature))",
   "height": "record.height counts blocks from 0 at genesis; the height of witnesses.block is below the height of block",
-  "inclusion": "a subject's merkle_path(item_hash or observation_hash, inclusion_proof) = block.record.merkle_root; each commitment entry's merkle_path(block_hash of the block these commitments belong to, inclusion_proof) = epoch.record.merkle_root; at both levels, inclusion_proof.tree_size = that record's leaf_count",
+  "inclusion": "a subject's merkle_path(item_hash or observation_hash, inclusion_proof) = block.record.merkle_root; each commitment entry's merkle_path(block_hash of the block these commitments belong to, inclusion_proof) = epoch.record.merkle_root; at both levels, inclusion_proof.tree_size = that record's leaf_count; in every block record, leaf_count = 0 exactly when merkle_root is the SHA-256 of zero bytes",
   "item_hash": "SHA-256(0x11 || JCS(record))",
   "key_event": "wherever record.metadata.key_event is present: genesis, rotation and emergency_rotation introduce public_key, and key_id = record.signing_key_id = the key id of public_key, which is hex of the first 4 bytes of SHA-256(0x60 || its 32 bytes); prerotation and revocation introduce no key, and for prerotation record.signing_key_id = active_key_id; signing_key_event.block introduces signature.public_key",
   "keyring": "signature.public_key is Truestamp's only if its 32 bytes equal a key in Truestamp's keyring, published at https://www.truestamp.com/.well-known/keyring.json and with the specification; nothing in this proof decides it",
@@ -625,7 +632,7 @@ The `checks` row stops a walk from starting at a carried value (the graft defect
 `keyring` row stops a self-signed proof from passing as Truestamp's. The CI of each of
 Truestamp's implementations extracts every `SHA-256(0xNN || ...)` in the text and asserts
 that the byte and the preimage name match the registry, and that the set of rows equals
-this one. Reference mode saves 7,631 octets per proof, and `none` 140 more.
+this one. Reference mode saves 7,724 octets per proof, and `none` 140 more.
 
 ### 7.4 The agent-sufficiency acceptance test
 

@@ -16,6 +16,9 @@ defmodule Truestamp.Verifier.SpecFilesTest do
   @spec_md Path.join(@root, "SPEC.md")
   @spec_files @root |> Path.join("spec/*.json") |> Path.wildcard() |> Enum.sort()
   @external_resource @spec_md
+
+  # The root of the empty tree, SHA-256 of zero bytes (SPEC.md 5.4).
+  @empty_root Base.encode16(:crypto.hash(:sha256, ""), case: :lower)
   for file <- @spec_files, do: @external_resource(file)
 
   defp spec_md, do: File.read!(@spec_md)
@@ -774,6 +777,10 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       {"a commitment on another chain", put_in(item, ["proof", "commitments", "ethereum"], %{})},
       {"Bitcoin network testnet4",
        put_in(item, ["proof", "commitments", "bitcoin", "network"], "testnet4")},
+      {"a block with leaves under the empty root",
+       put_in(item, ["proof", "block", "record", "merkle_root"], @empty_root)},
+      {"a block with no leaves under a real root",
+       put_in(item, ["proof", "witnesses", "block", "record", "leaf_count"], 0)},
       {"Stellar network mainnet",
        put_in(item, ["proof", "commitments", "stellar", "network"], "mainnet")},
       {"a reference URL on another host",
@@ -881,8 +888,8 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     {["epoch", "epoch_hash"], "CHECKED"},
     {["epoch", "record", "merkle_root"], "CHECKED"},
     {["epoch", "record", "leaf_count"], "PREIMAGE"},
-    {["record", "merkle_root"], "RECORDED"},
-    {["record", "leaf_count"], "RECORDED"},
+    {["record", "merkle_root"], "PREIMAGE"},
+    {["record", "leaf_count"], "PREIMAGE"},
     {["record", "previous_block_hash"], {"CHECKED", "genesis_block", "RECORDED"}},
     {["record", "signing_key_id"], {"CHECKED", "introduces_key_or_prerotation", "RECORDED"}},
     {["record", "height"], "BLOCK HEIGHT"},
