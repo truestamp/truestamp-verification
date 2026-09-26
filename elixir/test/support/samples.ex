@@ -153,11 +153,17 @@ defmodule Truestamp.Verifier.Test.Samples do
   defp metadata(kind), do: %{"key_event" => key_event(kind)}
 
   defp block(kind, n) do
+    # A genesis or key-event block includes nothing, so its tree is empty (SPEC.md 5.4).
+    {leaf_count, merkle_root} =
+      if kind == "plain",
+        do: {8, hex64("root #{n}")},
+        else: {0, Base.encode16(:crypto.hash(:sha256, ""), case: :lower)}
+
     record = %{
       "height" => if(kind == "genesis", do: 0, else: 525_600 + n),
       "id" => uuid7(n),
-      "leaf_count" => 8,
-      "merkle_root" => hex64("root #{n}"),
+      "leaf_count" => leaf_count,
+      "merkle_root" => merkle_root,
       "metadata" => metadata(kind),
       "previous_block_hash" => hex64("previous #{n}"),
       "signing_key_id" => kid("k1")

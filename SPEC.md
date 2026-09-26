@@ -334,8 +334,9 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
 - **Typical:** subject inclusion proofs of 3 nodes (`leaf_index` 5, `tree_size` 8);
   Stellar and Bitcoin commitment inclusion proofs of 4 and 6 nodes (`leaf_index` 9 and 33,
-  `tree_size` 16 and 64); `leaf_count` 8 in every block record, and in every epoch record
-  the `tree_size` of its entry's proof; a 137-octet raw transaction and a 506-octet
+  `tree_size` 16 and 64); `leaf_count` 8 in every block record but the genesis block's,
+  which is 0 under the empty root (section 5.4), and in every epoch record the `tree_size`
+  of its entry's proof; a 137-octet raw transaction and a 506-octet
   txoutproof; 155-octet claims; all three witnesses (and observations); both chains at the
   top level; `metadata` `{}`; at `/signing_key_event`, the genesis block (`height` 0, with
   a genesis key event that carries `prerotation_commitment`) and Stellar only; every other
@@ -346,7 +347,9 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
   `tree_size` 2^32; both chains at both positions, with 1,000-octet raw transactions and
   1,024-octet txoutproofs; `emergency_rotation` events with every optional member and a
   128-character reason at all three block positions; every `leaf_count` 2^32 and every
-  other integer 16 digits; a 16-character NIST `version`; `testnet` on both chains.
+  other integer 16 digits; a 16-character NIST `version`; `testnet` on both chains. This is
+  a ceiling over what the schema admits, not a proof Truestamp makes: a key-event block has
+  no leaves (section 5.4), so it is never the `/block` of an item or observation proof.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
