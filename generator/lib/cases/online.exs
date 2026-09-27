@@ -4,16 +4,23 @@
 defmodule Generator.Cases.Online do
   @moduledoc """
   The online cases SPEC.md 13.3 and the tracker's P6.1 entry call for, which vectors/cases.json
-  cannot hold until the form of a replay file under corpus/ is set (SPEC.md 13.2): each with
-  the configuration it will run under and the outcome it will expect. No file is written from
-  this list. It is the record of what is pending, and the check of every code
-  (Generator.Cases) reports each code of codes/0 as pending online rather than failing.
+  does not hold yet: each with the configuration it will run under and the outcome it will
+  expect, and each to be written with its replay file, in the form SPEC.md 13.2 sets
+  (Generator.Replay). No file is written from this list. It is the record of what is pending,
+  and the check of every code (Generator.Cases) reports each code of codes/0 as pending online
+  rather than failing.
 
   Unless an entry says otherwise, a case runs under E_v `test` with the keyring `test`, pins
   `regtest` and `testnet` for every chain and source, as the offline cases do, and its replay
   stands as the operator-pinned source for each chain and network it answers (SPEC.md 13.2).
   An online case's `expected` also holds each edge's instant and basis, or its absence
   (SPEC.md 13.1).
+
+  The `source_unreachable` cases vary which kind of read is unreachable, one case for each.
+  That an HTTP 429 or 503, an answer that does not parse and an answer that lacks a field are
+  each an unreachable answer, and that an answer that shows a contradiction fails even when
+  it lacks another field, are left to each verifier's own tests (SPEC.md 13.3), since a
+  replay holds answers, not a service's exchanges.
   """
 
   # Each entry: its class, the configuration, the proof, and the expected outcome.
@@ -69,14 +76,29 @@ defmodule Generator.Cases.Online do
      "a candidate read that answers not found: ledger L after the transaction was found",
      "a sound proof with a top-level Stellar entry",
      "CHAIN skip not_held_by_source at the entry; no submitted-before edge from it"},
-    {"Chain and source reads", "a read answered with HTTP 429", "a sound proof",
-     "skip source_unreachable on the row that read serves"},
-    {"Chain and source reads", "a read answered with HTTP 503", "a sound proof",
-     "skip source_unreachable on the row that read serves"},
-    {"Chain and source reads", "an answer that does not parse", "a sound proof",
-     "skip source_unreachable on the row that read serves"},
-    {"Chain and source reads", "an answer that lacks a field the read uses", "a sound proof",
-     "skip source_unreachable on the row that read serves"},
+    {"Chain and source reads",
+     "the Stellar root read unreachable, with the Stellar transaction found and matching",
+     "a sound proof with a top-level Stellar entry",
+     "CHAIN pass at the entry, and its candidate edge: the root is read only when the " <>
+       "transaction is not found, and a verifier need not make every read its replay holds"},
+    {"Chain and source reads",
+     "the Stellar transaction not found, and the Stellar root read unreachable",
+     "a sound proof with a Stellar entry", "CHAIN skip source_unreachable at the entry"},
+    {"Chain and source reads", "the Stellar transaction read unreachable",
+     "a sound proof with a Stellar entry", "CHAIN skip source_unreachable at the entry"},
+    {"Chain and source reads",
+     "the read of ledger L unreachable, with the Stellar transaction found and matching",
+     "a sound proof with a top-level Stellar entry",
+     "CHAIN skip source_unreachable at the entry; no submitted-before edge from it"},
+    {"Chain and source reads", "the Bitcoin tip read unreachable",
+     "a sound proof with a Bitcoin entry", "CHAIN skip source_unreachable at the entry"},
+    {"Chain and source reads", "the read of the best-chain block at height unreachable",
+     "a sound proof with a Bitcoin entry", "CHAIN skip source_unreachable at the entry"},
+    {"Chain and source reads", "the read of a Bitcoin entropy block by its hash unreachable",
+     "a sound proof with a Bitcoin entropy object",
+     "SOURCES skip source_unreachable at the object"},
+    {"Chain and source reads", "the NIST pulse read unreachable",
+     "a sound proof with a NIST entropy object", "SOURCES skip source_unreachable at the object"},
     {"Chain and source reads", "a Bitcoin tip below height", "a sound proof with a Bitcoin entry",
      "CHAIN skip not_yet_indexed at the entry"},
     {"Chain and source reads", "a Bitcoin tip at or above height but below height + 10",
@@ -143,6 +165,6 @@ defmodule Generator.Cases.Online do
   @doc "Each pending online case: `{class, configuration, proof, expected}`."
   def pending, do: @pending
 
-  @doc "The reason codes only an online case can give, each pending until the replay format."
+  @doc "The reason codes only an online case can give, each pending until its cases are written."
   def codes, do: @codes
 end

@@ -65,9 +65,9 @@ defmodule Generator.Cases.Front do
     and s = r + k a mod L, where a is the other key's scalar, the first r (from the other
     seed's prefix, a counter octet and `proof_hash`) whose k is 0 modulo 8 gives a signature
     that passes, label `unattributed` (`mixed_order-k_multiple_of_8`), and the first whose k
-    is not gives `signature_invalid` (`mixed_order-k_not_multiple_of_8`). The generator's
-    Ed25519 point arithmetic, which this needs and nothing else has, is at the end of this
-    file; it is checked against the other key's public key and the point's order. Anyone who
+    is not gives `signature_invalid` (`mixed_order-k_not_multiple_of_8`). The key and the
+    signatures come from the generator's Ed25519 point arithmetic (Generator.Ed25519), which
+    checks the key against the other key's public key and the point's order. Anyone who
     holds the other seed can sign under this K, choosing r as these cases do, so it is a
     published test key too, key id `5e81cc77`, and the seed check
     (Generator.KnownAnswers.seeds/1) fails the run unless spec/keys.nonproduction.json lists
@@ -81,20 +81,14 @@ defmodule Generator.Cases.Front do
 
   @behaviour Generator.Cases.Class
 
-  import Bitwise
-
-  alias Generator.{Bytes, Case, Edit, FileForm, JCS, Keys, Registry, Seeds, Spec}
+  alias Generator.{Bytes, Case, Ed25519, Edit, FileForm, JCS, Keys, Registry, Seeds, Spec}
 
   @capitals String.upcase("truestamp-ed25519-sha256-jcs")
   @alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
-  # RFC 8032 section 5.1: p, the order L of the base point, and d.
+  # RFC 8032 section 5.1: p, and the order L of the base point.
   @p Integer.pow(2, 255) - 19
   @l Integer.pow(2, 252) + 27_742_317_777_372_353_535_851_937_790_883_648_493
-  @d Integer.mod(
-       -121_665 * :binary.decode_unsigned(:crypto.mod_pow(121_666, @p - 2, @p)),
-       @p
-     )
 
   # The files that several cases share, each written by the first case named here.
   @staging "negative/configuration-vector_key-under-staging.proof.json"
@@ -378,9 +372,11 @@ defmodule Generator.Cases.Front do
   defp mixed_order(%{proof: proof}) do
     proof = Map.delete(proof, "signing_key_event")
     message = Registry.record_hash("proof_hash", proof)
-    {a, prefix} = expand(Seeds.other())
-    key = mixed_key(a)
-    envelope = fn wanted? -> mixed_envelope(proof, key, {a, prefix, message}, wanted?) end
+    key = Bytes.b64u(Ed25519.mixed_order_key())
+
+    envelope = fn wanted? ->
+      Case.envelope(proof, key, Bytes.b64u(Ed25519.sign_mixed(message, wanted?)))
+    end
 
     [
       Case.new("mixed_order-k_multiple_of_8",
@@ -400,92 +396,5 @@ defmodule Generator.Cases.Front do
         defect: {:fail, "signature_invalid", nil, "SIGNATURE"}
       )
     ]
-  end
-
-  # [a]B, the other key, plus the first point of order 8 that spec/small-order-keys.json
-  # lists, encoded.
-  defp mixed_key(a) do
-    valid = multiply(a, base())
-    other = Keys.public_key(Seeds.other())
-    if encode(valid) != other, do: raise(ArgumentError, "[a]B is not the other key")
-
-    [torsion | _rest] =
-      for %{"order" => 8, "hex" => hex} <- Spec.read("small-order-keys.json"),
-          do: decode(Bytes.unhex(hex))
-
-    if encode(multiply(8, torsion)) != encode(identity()) or
-         encode(multiply(4, torsion)) == encode(identity()),
-       do: raise(ArgumentError, "the torsion point is not of order 8")
-
-    Keys.built(encode(add(valid, torsion)), Seeds.other())
-  end
-
-  # The envelope of `proof` with K `key` and V the signature RFC 8032 section 5.1.6 makes with
-  # the scalar a, from the first r whose challenge k satisfies wanted?.
-  defp mixed_envelope(proof, key, {a, prefix, message}, wanted?) do
-    value =
-      Enum.find_value(0..255, fn counter ->
-        r = scalar(:crypto.hash(:sha512, [prefix, <<counter>>, message]))
-        encoded = encode(multiply(r, base()))
-        k = scalar(:crypto.hash(:sha512, [encoded, key, message]))
-        if wanted?.(k), do: encoded <> <<Integer.mod(r + k * a, @l)::little-256>>
-      end)
-
-    Case.envelope(proof, Bytes.b64u(key), Bytes.b64u(value))
-  end
-
-  # Ed25519 point arithmetic (RFC 8032 section 5.1), in extended coordinates (X, Y, Z, T)
-  # with x = X/Z, y = Y/Z and xy = T/Z.
-
-  # The secret scalar a and the prefix of a 32-octet seed (RFC 8032 section 5.1.5).
-  defp expand(seed) do
-    <<a::little-256, prefix::binary-32>> = :crypto.hash(:sha512, seed)
-    {(a &&& (1 <<< 254) - 8) ||| 1 <<< 254, prefix}
-  end
-
-  defp scalar(hash), do: Integer.mod(:binary.decode_unsigned(hash, :little), @l)
-
-  defp f(x), do: Integer.mod(x, @p)
-
-  defp pow(x, e), do: :binary.decode_unsigned(:crypto.mod_pow(f(x), e, @p))
-
-  defp identity, do: {0, 1, 1, 0}
-
-  defp base, do: decode(<<f(4 * pow(5, @p - 2))::little-256>>)
-
-  defp add({x1, y1, z1, t1}, {x2, y2, z2, t2}) do
-    a = f((y1 - x1) * (y2 - x2))
-    b = f((y1 + x1) * (y2 + x2))
-    c = f(t1 * 2 * @d * t2)
-    d = f(z1 * 2 * z2)
-    {e, g, h, i} = {b - a, d - c, d + c, b + a}
-    {f(e * g), f(h * i), f(g * h), f(e * i)}
-  end
-
-  defp multiply(0, _point), do: identity()
-
-  defp multiply(n, point) do
-    half = multiply(n >>> 1, point)
-    twice = add(half, half)
-    if (n &&& 1) == 1, do: add(twice, point), else: twice
-  end
-
-  # RFC 8032 section 5.1.2.
-  defp encode({x, y, z, _t}) do
-    inverse = pow(z, @p - 2)
-    x = f(x * inverse)
-    <<f(y * inverse) ||| (x &&& 1) <<< 255::little-256>>
-  end
-
-  # RFC 8032 section 5.1.3, for an encoding known to be of a point on the curve.
-  defp decode(<<n::little-256>>) do
-    y = n &&& (1 <<< 255) - 1
-    u = f(y * y - 1)
-    v = f(@d * y * y + 1)
-    x = f(u * pow(v, 3) * pow(u * pow(v, 7), div(@p - 5, 8)))
-    x = if f(v * x * x) == u, do: x, else: f(x * pow(2, div(@p - 1, 4)))
-    x = if (x &&& 1) == n >>> 255, do: x, else: f(-x)
-    if f(v * x * x) != u, do: raise(ArgumentError, "not a point on the curve")
-    {x, y, 1, f(x * y)}
   end
 end

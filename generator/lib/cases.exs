@@ -17,7 +17,7 @@ defmodule Generator.Case do
   - `keyring`: `"test"` unless given; `"none"` (keyless mode); `nil`, for no keyring option;
     `{:value, keyring}` writes `negative/<id>.keyring.json` in the canonical form of SPEC.md 9;
     `{:bytes, bytes}` writes those bytes there as they are; `{:path, path}` names a keyring
-    file another case has. `"unavailable"` is online, and waits for the replay format.
+    file another case has. `"unavailable"` is online, and waits for the online cases.
   - `networks`: the pins of pins/0 unless given, in the form `{"commitment": {chain: network},
     "entropy": {chain: network}}`.
   - `expected_hash`: the caller's hash, or nil for none.
@@ -349,10 +349,115 @@ defmodule Generator.Cases do
         ids(definitions),
         Enum.map(results, &elem(&1, 2)),
         negative(files, definitions),
+        replay_sources(cases, files),
+        replay_sources_self_test(files),
         coverage_failures
       ])
 
     {failures, report}
+  end
+
+  # SPEC.md 13.2: an online case's replay holds the identity read of every Stellar and Bitcoin
+  # network the case pins, as a commitment pin or an entropy pin, so no verifier falls back on
+  # a compiled-in default source that another verifier lacks. The one exception is a case
+  # whose point is a network with no source, regtest, whose expected output is then the bare
+  # rejection configuration_error.
+  defp replay_sources(cases, files) do
+    cases
+    |> Enum.filter(&match?(%{"config" => %{"online" => _path}}, &1))
+    |> Enum.flat_map(&replay_source(&1, files))
+  end
+
+  defp replay_source(%{"id" => id, "config" => %{"online" => online}} = json, files) do
+    case Map.fetch(files, "vectors/" <> online) do
+      {:ok, bytes} ->
+        for {chain, network} <- missing_identities(json, JSON.decode!(bytes)),
+            do:
+              "case #{id}: its replay holds no identity read of #{chain} #{network}, which it pins"
+
+      :error ->
+        ["case #{id}: its replay #{online} is no file the generator writes"]
+    end
+  end
+
+  # Each Stellar and Bitcoin network the case pins whose identity read its replay, `replay`,
+  # does not hold, but for a network with no source that is the case's point.
+  defp missing_identities(%{"config" => config} = json, replay) do
+    held =
+      for %{"read" => %{"kind" => kind, "network" => network}} <- replay["reads"] || [],
+          kind in ~w(bitcoin_identity stellar_identity),
+          do: {String.replace_suffix(kind, "_identity", ""), network}
+
+    for {_pin, by_chain} <- config["networks"] || %{},
+        {chain, network} <- by_chain,
+        chain in ~w(bitcoin stellar),
+        {chain, network} not in held,
+        not no_source?(network, json),
+        uniq: true,
+        do: {chain, network}
+  end
+
+  defp no_source?("regtest", %{"expected" => %{"code" => "configuration_error"}}), do: true
+  defp no_source?(_network, _json), do: false
+
+  # replay_sources/2 against cases made in memory, each pinning regtest and testnet, with a
+  # replay of the identity reads of both: it passes a case whose replay holds each, and one
+  # whose point is regtest with no source, and refuses a case whose replay lacks the identity
+  # read of Stellar testnet, which has sources, even when that case expects
+  # configuration_error, and a case that lacks regtest's but expects something else.
+  defp replay_sources_self_test(files) do
+    reads = [
+      %{
+        "answer" => %{"outcome" => "found", "value" => %{"hash" => String.duplicate("0f", 32)}},
+        "read" => %{"kind" => "bitcoin_identity", "network" => "regtest"}
+      },
+      %{
+        "answer" => %{"outcome" => "unreachable", "reason" => "HTTP 503"},
+        "read" => %{"kind" => "stellar_identity", "network" => "testnet"}
+      }
+    ]
+
+    path = "corpus/replay/self-test.json"
+
+    without = fn kind ->
+      FileForm.encode(%{"reads" => Enum.reject(reads, &(&1["read"]["kind"] == kind))})
+    end
+
+    run = fn expected, replay ->
+      json = %{
+        "config" => %{"networks" => Case.pins(), "online" => path},
+        "expected" => expected,
+        "id" => "self-test"
+      }
+
+      replay_sources([json], Map.put(files, "vectors/" <> path, replay))
+    end
+
+    report = %{"label" => "verified", "rows" => []}
+    bare = %{"code" => "configuration_error"}
+
+    [
+      expect(
+        "the replay check, on a replay that holds each pinned network's identity read",
+        run.(report, FileForm.encode(%{"reads" => reads})),
+        []
+      ),
+      expect(
+        "the replay check, on a case whose point is regtest with no source",
+        run.(bare, without.("bitcoin_identity")),
+        []
+      ),
+      truth(
+        "the replay check refuses a replay without the identity read of Stellar testnet",
+        run.(report, without.("stellar_identity")) != [] and
+          run.(bare, without.("stellar_identity")) != []
+      ),
+      truth(
+        "the replay check refuses a replay without the identity read of regtest in a case " <>
+          "that does not expect configuration_error",
+        run.(report, without.("bitcoin_identity")) != []
+      )
+    ]
   end
 
   # The case's output, derived again from its proof file's bytes and its configuration as
@@ -721,7 +826,7 @@ defmodule Generator.Cases do
         {:covered, "cases: #{code}: covered, in #{count} cases"}
 
       code in Online.codes() ->
-        {:online, "cases: #{code}: pending online, until the replay format is set"}
+        {:online, "cases: #{code}: pending online, until its online cases are written"}
 
       Map.has_key?(pending, code) ->
         {:class, "cases: #{code}: pending, #{inspect(pending[code])} has no cases yet"}

@@ -29,6 +29,20 @@ defmodule Generator.KnownAnswers do
   @rfc8785_output ~S({"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],"string":") <>
                     "\u20ac" <> ~S($\u000f\nA'B\"\\\\\"/"})
 
+  # RFC 8785 section 3.2.3: an object's members, in the order the RFC lists them, and its JCS.
+  @rfc8785_sorting {[
+                      {"\u20ac", "Euro Sign"},
+                      {"\r", "Carriage Return"},
+                      {"\uFB33", "Hebrew Letter Dalet With Dagesh"},
+                      {"1", "One"},
+                      {"\u{1F600}", "Emoji: Grinning Face"},
+                      {"\u0080", "Control"},
+                      {"\u00F6", "Latin Small Letter O With Diaeresis"}
+                    ],
+                    ~s({"\\r":"Carriage Return","1":"One","\u0080":"Control",) <>
+                      ~s("\u00F6":"Latin Small Letter O With Diaeresis","\u20ac":"Euro Sign",) <>
+                      ~s("\u{1F600}":"Emoji: Grinning Face","\uFB33":"Hebrew Letter Dalet With Dagesh"})}
+
   # RFC 8785 appendix B: binary64 values by their bits, and the JCS of each. Its NaN and
   # Infinity rows are left out, since JSON has neither.
   @rfc8785_numbers [
@@ -91,6 +105,18 @@ defmodule Generator.KnownAnswers do
 
   @doc "The failures of check 1."
   def run, do: registry() ++ keys() ++ jcs() ++ merkle() ++ BitcoinAnswers.run()
+
+  @doc """
+  RFC 8785's own examples, which the JCS corpus quotes (Generator.Corpus): section 3.2.2's
+  input and output, section 3.2.3's names, and appendix B's binary64 values, each `{bits,
+  text}`.
+  """
+  def rfc8785,
+    do: %{
+      example: {@rfc8785_input, @rfc8785_output},
+      sorting: @rfc8785_sorting,
+      numbers: @rfc8785_numbers
+    }
 
   # The registry kept here is spec/prefixes.json's, byte for byte.
   defp registry do
@@ -232,18 +258,8 @@ defmodule Generator.KnownAnswers do
       # RFC 8785 section 3.2.3: names sorted by UTF-16 code units, and U+0080 written as is.
       expect(
         "JCS of RFC 8785 section 3.2.3",
-        JCS.encode(%{
-          "\u20ac" => "Euro Sign",
-          "\r" => "Carriage Return",
-          "\uFB33" => "Hebrew Letter Dalet With Dagesh",
-          "1" => "One",
-          "\u{1F600}" => "Emoji: Grinning Face",
-          "\u0080" => "Control",
-          "\u00F6" => "Latin Small Letter O With Diaeresis"
-        }),
-        ~s({"\\r":"Carriage Return","1":"One","\u0080":"Control",) <>
-          ~s("\u00F6":"Latin Small Letter O With Diaeresis","\u20ac":"Euro Sign",) <>
-          ~s("\u{1F600}":"Emoji: Grinning Face","\uFB33":"Hebrew Letter Dalet With Dagesh"})
+        JCS.encode(Map.new(elem(@rfc8785_sorting, 0))),
+        elem(@rfc8785_sorting, 1)
       ),
       # SPEC.md 13.3: names that sort one way by UTF-16 code unit and the other by code point.
       expect(
@@ -413,6 +429,16 @@ defmodule Generator.BitcoinAnswers do
 
   @doc "The failures of check 1 for Bitcoin."
   def run, do: List.flatten([transaction(), merkle(), headers(), targets(), partial_trees()])
+
+  @doc "Mainnet's genesis transaction, serialized."
+  def genesis_transaction, do: Bytes.unhex(@coinbase)
+
+  @doc """
+  The headers check 1 builds, each `{version, previous, Merkle root, time, nBits, nonce,
+  hash}`, the hashes in display hex: mainnet's genesis, regtest's genesis and mainnet block
+  100,000.
+  """
+  def header_fields, do: @headers
 
   # The builder writes mainnet's genesis transaction from its pieces, and the parser reads it.
   defp transaction do

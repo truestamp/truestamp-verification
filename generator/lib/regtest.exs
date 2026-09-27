@@ -10,9 +10,10 @@ defmodule Generator.Regtest do
   It is a model for the parsers of SPEC.md 10.2 step 9 and for those replays, and it is not
   valid Bitcoin: its transactions spend SegWit outputs with no witness, and no coinbase
   carries a witness commitment. Bitcoin Core would reject its blocks, so no regtest node can
-  load them, and the replays of it are drawn from this model, never from a node. Nothing yet
-  checks the model's own links (each header's previous hash, the heights in the coinbases,
-  the blocks the entropy objects name); that check comes with the replay corpus.
+  load them, and the replays of it are drawn from this model, never from a node. The model's
+  consistency check (Generator.Consistency) holds it together: each header's previous hash,
+  hash, Merkle root, time and target, the height in each coinbase, and the blocks the sound
+  proofs name.
 
   - Block k, from 1 on, is mined at `time(k)`: one block a minute, block 200 at
     2026-09-26T01:30:00Z.

@@ -17,7 +17,7 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
 | `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
-| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the offline cases of section 13.3, each with its configuration and expected output; and under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json` by the case's id. |
+| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the offline cases of section 13.3, each with its configuration and expected output; under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json` by the case's id; and under `corpus/` known answers for JCS, Ed25519 and base64url, and real Bitcoin transactions, merkleblocks and headers, each with where it came from and what a parser concludes from it. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
 | `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors, from the modules in `generator/lib/`, and `manifest.exs` writes the manifest. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
@@ -27,11 +27,17 @@ The sound proofs are cut from two modeled Truestamp chains, which commit to a mo
 Bitcoin regtest chain. That chain is a model for the parsers of `SPEC.md` section 10.2 and
 for the replays of the online cases, and it is not valid Bitcoin: its transactions spend
 SegWit outputs with no witness, and no coinbase carries a witness commitment, so no Bitcoin
-node would accept its blocks. The chains' Stellar and NIST values are made up as well.
+node would accept its blocks. The chains' Stellar and NIST values are made up as well. The
+generator checks that the model holds together: each header links to the one below it,
+each coinbase carries its height as Bitcoin Core writes it, each median time past the model
+serves is the median of its header times, every block, ledger and pulse a sound proof names
+is the one the model says, and the window each sound proof gets is in order, with the time
+in its subject's id inside it. The Bitcoin bytes under `vectors/corpus/bitcoin/` are real
+ones.
 
-Still to come: the production key and the staging key; the rest of the conformance cases,
-the online ones among them, and their inputs, with known answers for JCS, Ed25519 and
-base64url under `corpus/`; and reference verifiers in Go and TypeScript beside the Elixir one.
+Still to come: the production key and the staging key; the online cases, each with its
+replay file, in the form `SPEC.md` section 13.2 sets; and reference verifiers in Go and
+TypeScript beside the Elixir one.
 
 ## Standards and dependencies
 

@@ -175,37 +175,64 @@ defmodule Generator.Chain do
   # and its source time, by which a beacon picks the observation of each source (SPEC.md 3.6).
 
   defp nist_entropy(clock) do
-    index = 1_200_000 + div(at(clock) - @base, 60)
+    %{"payload" => %{"pulse" => nist_pulse(pulse(at(clock)))}, "source" => "nist"}
+  end
 
+  @doc """
+  The pulse of NIST chain 2 whose `pulseIndex` is `index`, as the model's NIST source gives
+  it: one a minute from pulse 1,200,000 at 01:30:00.000.
+  """
+  def nist_pulse(index) do
     %{
-      "payload" => %{
-        "pulse" => %{
-          "chainIndex" => 2,
-          "outputValue" => Base.encode16(:crypto.hash(:sha512, "nist chain 2 pulse #{index}")),
-          "pulseIndex" => index,
-          "timeStamp" => String.replace(time_text(at(clock)), "Z", ".000Z"),
-          "version" => "2.0"
-        }
-      },
-      "source" => "nist"
+      "chainIndex" => 2,
+      "outputValue" => Base.encode16(:crypto.hash(:sha512, "nist chain 2 pulse #{index}")),
+      "pulseIndex" => index,
+      "timeStamp" => String.replace(time_text(@base + 60 * (index - 1_200_000)), "Z", ".000Z"),
+      "version" => "2.0"
     }
   end
 
   defp stellar_entropy(clock) do
-    sequence = ledger(clock)
-
     %{
       "network" => @stellar_network,
-      "payload" => %{
-        "closed_at" => time_text(at(clock)),
-        "hash" => Bytes.hex(:crypto.hash(:sha256, "stellar testnet ledger #{sequence}")),
-        "sequence" => sequence
-      },
+      "payload" => stellar_ledger(ledger(clock)),
       "source" => "stellar"
     }
   end
 
-  defp ledger(clock), do: 1_000_000 + div(at(clock) - @base, 5)
+  @doc """
+  The Stellar testnet ledger whose sequence is `sequence`, as the model's Stellar source gives
+  it: `closed_at`, `hash` and `sequence`, one ledger every 5 seconds from ledger 1,000,000 at
+  01:30:00.
+  """
+  def stellar_ledger(sequence) do
+    %{
+      "closed_at" => time_text(@base + 5 * (sequence - 1_000_000)),
+      "hash" => Bytes.hex(:crypto.hash(:sha256, "stellar testnet ledger #{sequence}")),
+      "sequence" => sequence
+    }
+  end
+
+  @doc """
+  What the model's sources hold at its last moment, the time of the regtest tip: the tip's
+  height, the first and the latest Stellar ledger, and the first and the latest NIST pulse.
+  """
+  def sources(model) do
+    tip = Regtest.tip(model.regtest)
+    now = Regtest.time(tip)
+
+    %{
+      bitcoin_tip: tip,
+      stellar_elder: 1_000_000,
+      stellar_latest: ledger_at(now),
+      nist_first: 1_200_000,
+      nist_latest: pulse(now)
+    }
+  end
+
+  defp ledger(clock), do: ledger_at(at(clock))
+  defp ledger_at(unix), do: 1_000_000 + div(unix - @base, 5)
+  defp pulse(unix), do: 1_200_000 + div(unix - @base, 60)
 
   defp bitcoin_entropy(regtest, height) do
     block = Regtest.block(regtest, height)

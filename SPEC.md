@@ -117,9 +117,9 @@ and its data:
 | the Bitcoin and Stellar protocols, and NIST's Randomness Beacon | commitments, chain reads and entropy sources |
 
 Any conforming implementation of each standard will do; none of them requires a particular
-library. Known answers for JCS, Ed25519 and base64url are among the conformance vectors
-(section 13), and those for the Merkle tree live with Truestamp's Merkle library (section
-5.1).
+library. Known answers for JCS, Ed25519 and base64url, and real Bitcoin bytes for the
+parsers of section 10.2, are among the conformance vectors (section 13.2), and the known
+answers for the Merkle tree live with Truestamp's Merkle library (section 5.1).
 
 ## 3. The proof document
 
@@ -663,9 +663,10 @@ every other encoding of such a point.
 
 **Common libraries (informative).** Two common libraries were tested for this document:
 Go's `crypto/ed25519` (Go 1.26), and OpenSSL (3.5), which Erlang/OTP's `:crypto` uses. Both
-make steps 4 to 7 as written, and neither makes step 2 or step 3: both accept the identity
-key, and the identity written with y = p + 1, with the signature (identity, 0). A verifier
-built on either makes steps 2 and 3 itself, before it calls the library. A ZIP-215 verifier
+make steps 4 to 7 as written for every key that passes steps 2 and 3, and neither makes step
+2 or step 3: both accept the identity key, and the identity written with y = p + 1, with the
+signature (identity, 0). A verifier built on either makes steps 2 and 3 itself, before it
+calls the library. A ZIP-215 verifier
 does not conform: it accepts encodings with y at or above p, and uses the cofactored
 equation.
 
@@ -1033,14 +1034,16 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 
 VECTOR_KEY signs every sound proof (section 13.3), and every other proof in the vectors
 unless its case says otherwise (section 13.2). Two more keys come from published seeds and
-sign no proof, only blocks and handovers of the chains the sound proofs are cut from: the
-key of the seed of 32 bytes of 0x41, whose key id is `f12cfabb`, and the key of the seed of
-32 bytes of 0x43, whose key id is `9602c03e`. A fourth, the key of the seed of 32 bytes of
-0x44, whose key id is `d0b1cefe`, signs only the proofs of cases that call for a key other
-than VECTOR_KEY (section 13.3). A fifth, whose key id is `5e81cc77`, is the 0x44 key plus a
-point of order 8, which signs only the two mixed-order cases; anyone who holds the 0x44 seed
-can sign under it (section 6.2). All five are test keys in `spec/keys.nonproduction.json`,
-so no production keyring can hold them.
+sign no proof, only blocks and handovers of the chains the sound proofs are cut from, and
+the Ed25519 cases of the corpus (section 13.2): the key of the seed of 32 bytes of 0x41,
+whose key id is `f12cfabb`, and the key of the seed of 32 bytes of 0x43, whose key id is
+`9602c03e`. A fourth, the key of the seed of 32 bytes of 0x44, whose key id is `d0b1cefe`,
+signs only the proofs of cases that call for a key other than VECTOR_KEY (section 13.3),
+and the Ed25519 cases of the corpus (section 13.2). A fifth, whose key id is `5e81cc77`, is
+the 0x44 key plus a point of order 8, which signs only the two mixed-order cases and the
+Ed25519 cases of the corpus (section 13.2); anyone who holds the 0x44 seed can sign under
+it (section 6.2). All five are test keys in `spec/keys.nonproduction.json`, so no
+production keyring can hold them.
 
 There are no clock tolerances.
 
@@ -1205,9 +1208,10 @@ and sources (section 9), and the keyring that governs key binding, which the ver
 role decides (section 8). The downloaded keyring governs an external verifier's online run
 under E_v `prod` with no supplied keyring and outside keyless mode (section 8.3). The
 verifier then reads `https://www.truestamp.com/.well-known/keyring.json` here, and the
-keyring it reads replaces the compiled pin for the run. A keyring read online
-that fails, from that URL or from the origin `--base-url` names, is no bare rejection: no
-key binds, and KEY_BINDING fails with `keyring_unavailable` (section 8.3).
+keyring it reads replaces the compiled pin for the run. A keyring read online that fails
+for any reason, by transport, by an HTTP error, by parse or by a load check, whether from
+that URL or from the origin `--base-url` names, is no bare rejection: no key binds, and
+KEY_BINDING fails with `keyring_unavailable` (section 8.3).
 
 Each keyring the verifier loads, the one it reads online included, MUST pass these checks
 (section 9). A keyring is read under section 10.1 and MUST be an object with exactly two
@@ -1678,10 +1682,8 @@ test network are for testing only.
 **Stellar commitment entries.** For each entry at `/commitments/stellar` and
 `/signing_key_event/commitments/stellar`, with L its `ledger`:
 
-1. Read the source's root, for `history_latest_ledger` (latest) and `history_elder_ledger`
-   (elder, the first ledger the source holds).
-2. Read the transaction whose hash is `transaction_hash`.
-3. If it is found, each of these MUST hold, or the row fails with `chain_mismatch`:
+1. Read the transaction whose hash is `transaction_hash`.
+2. If it is found, each of these MUST hold, or the row fails with `chain_mismatch`:
    - `successful` is true;
    - `memo_type` is `hash`, and the memo is the 32 bytes of H(0x40, `epoch.record`) as the
      verifier computed it, so the chain's copy also fixes the epoch's `leaf_count`
@@ -1690,7 +1692,8 @@ test network are for testing only.
 
    For a top-level entry, then read ledger L. Its `closed_at` is the entry's candidate for
    the submitted-before edge (section 11.1).
-4. If it is not found:
+3. If it is not found, read the source's root, for `history_latest_ledger` (latest) and
+   `history_elder_ledger` (elder, the first ledger the source holds). Then:
    - if L > latest - STELLAR_INDEX_MARGIN, the row is `skip not_yet_indexed`;
    - if L < elder, the row is `skip not_held_by_source`, and its values name elder;
    - otherwise, read ledger L. If it is not found, the row is `skip not_held_by_source`,
@@ -1709,14 +1712,19 @@ test network are for testing only.
 4. For a top-level entry, then read the best-chain block at height h + BITCOIN_FINALITY.
    Its median time past, the median of the header times of the BITCOIN_MEDIAN_SPAN blocks
    ending at it (the `encoding` row of section 7.3), is the entry's candidate for the
-   submitted-before edge (section 11.1). A verifier MAY take it from the source's report of
-   that block, such as the `mediantime` of Bitcoin Core and of Esplora.
+   submitted-before edge (section 11.1).
 
 DERIVE has already checked the carried evidence offline: the transaction and its OP_RETURN
 against the computed epoch hash (section 5.4), the txoutproof, and the header against the
 target its own nBits encodes (section 10.2, step 9). Item 3 is what places that header on
 the best chain. A header that meets only its own target costs almost nothing to make, so a
 Bitcoin entry supports no pass until item 3 holds.
+
+**Median time past.** For each Bitcoin median time past this section uses, the candidate of
+item 4 above and the candidate of a Bitcoin entropy object below, a verifier MAY take it
+from the source's report of that block, the `mediantime` of Bitcoin Core and of Esplora, or
+MAY compute it from the header times the same source serves. Both are acceptable, and
+neither is required over the other.
 
 **`genesis.bitcoin`.** For each `genesis.bitcoin` the proof carries, at `/block`,
 `/witnesses/block` or `/signing_key_event/block`, apply items 1 and 2 of the Bitcoin rule
@@ -2175,8 +2183,8 @@ its run ended:
 
 - A verifier conforms to this document when it gives the expected output for every case in
   `vectors/cases.json` that applies to it. Every offline case applies to every verifier. An
-  online case applies to a verifier that makes the reads its replay answers, so the
-  reference verifiers in this repository run the offline cases only.
+  online case applies to a verifier that makes the chain and source reads of section
+  10.4, so the reference verifiers in this repository run the offline cases only.
 - **Truestamp's own verifier** runs the cases through a test seam, which gives its engine
   the case's configuration exactly as an external verifier takes it. A keyring path or
   `test` is a supplied keyring (`keyring:<d>`), `none` is keyless mode, an absent `keyring`
@@ -2215,7 +2223,7 @@ These files are under `vectors/`, and `MANIFEST.sha256` holds the digest of each
 | `worked-example.json` | the values of section 6.3, one member each: `proof` (the input), `M`, `proof_hash`, `sk` (in hex), `A`, `K`, `key_id` (the key id of A), `S`, `V` and `document` (the served document) |
 | `positive/` | the sound proofs of section 13.3, each as `<name>.proof.json` with its trace as `<name>.trace.json`, where `<name>` is the proof's type, or its type, a hyphen and a variant, such as `beacon-empty`, `block-rotation` or `item-genesis-witness`; a proof file is in the served form of section 3.1, JCS(envelope) in UTF-8 with no final newline, so it is not always ASCII; a trace file is in the canonical form of section 9 |
 | `negative/` | each proof and each keyring a case supplies that no other file holds, as `<id>.proof.json` or `<id>.keyring.json`, where `<id>` is the id of a case that uses it; each file is in its usual form, the served form for a proof and the canonical form for a keyring, unless the case concerns the file's bytes (a defect, a reformatting or a size) |
-| `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the recorded chain, source and keyring responses that online cases replay |
+| `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the replay files of the online cases, which hold the answers to their chain, source and keyring reads; each file is described below |
 
 `cases.json`, `keyring.test.json` and `worked-example.json` are in that canonical form too.
 
@@ -2224,7 +2232,7 @@ holds:
 
 | Member | Holds |
 |---|---|
-| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network; `online`, OPTIONAL: the path of a replay file under `corpus/` |
+| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network; `online`, OPTIONAL: the path of a replay file under `corpus/replay/` |
 | `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges |
 | `id` | a name unique in the file |
 | `proof` | the path of its proof |
@@ -2234,8 +2242,10 @@ Every path a case holds is relative to `vectors/`.
 - A case without `online` runs with the verifier asked to be offline. An online case
   answers each read its replay file holds, of a chain, a source or a keyring, from that
   file in place of the network. The replay file stands as the operator-pinned source for
-  each chain and network it answers, so a case that pins such a network, `regtest`
-  included, has a source for it (section 10.2, step 0).
+  each chain and network it answers (below), so a case that pins such a network, `regtest`
+  included, has a source for it (section 10.2, step 0). An online case's replay holds the
+  identity read of every Stellar and Bitcoin network the case pins, except a case whose
+  point is a network with no source, which is regtest.
 - A case whose keyring is `unavailable` is online and runs under `prod`, on an unmarked
   proof signed by VECTOR_KEY. The verifier is given no keyring option, and the replay fails
   its default keyring read at www.truestamp.com. For Truestamp's own verifier, `unavailable`
@@ -2252,6 +2262,74 @@ Every path a case holds is relative to `vectors/`.
   neither a regular file nor a directory, and asserts that section 6.3's
   worked example equals `worked-example.json`. Once the reference verifiers in this
   repository exist, `--check` also runs them over `cases.json`.
+
+**The corpus.** These are the files under `corpus/`. Each is in the canonical form of
+section 9, except the files under `jcs/`, which are their bytes:
+
+| Path under `corpus/` | Holds |
+|---|---|
+| `jcs/` | pairs of files, `<name>.input.json` and `<name>.output.json`: a JSON text whose value is within the value profile of section 10.1, and the exact bytes of JCS of that value, with no final newline. Among them are RFC 8785's own examples, quoted from its sections 3.2.2 and 3.2.3 and its appendix B (`rfc8785-example`, `rfc8785-sorting` and `rfc8785-numbers`, the last without the five values J5 refuses), the input of section 6.3, whose output is its M, the number forms of section 10.1, and member names that sort differently by UTF-16 code unit than by code point |
+| `ed25519.json` | an array of cases of Verify (section 6.2), each `{about, id, message, public_key, signature, step, verify}`: `message` is the 32 octets in hex, and the key and the signature are a B64U32 and a B64U64, both canonical, so step 1 passes; `verify` is `pass`, or `fail` with `step`, the first step that refuses it. Every key is in `spec/keys.nonproduction.json`, or fails a check of a key's bytes or step 4 |
+| `base64url.json` | an array of spellings of B64U32 and B64U64 (section 2.4), each `{class, octets, text}` for a canonical spelling, or `{class, refused, text}` for a spelling the class refuses, where `refused` names its flaw and, when a decoder that allows the flaw reads the spelling as the octets of a canonical one, `canonical` is that one |
+| `bitcoin/` | real Bitcoin bytes, one transaction, merkleblock or header in each file, `<network>-<height>-<what>.json`, each `{about, block_hash, expected, height, hex, kind, network, source}`: the block it belongs to, where the bytes came from, and in `expected` what a parser concludes under section 10.2, step 9 (d) |
+| `replay/` | the replay file of each online case, `<id>.json`, where `<id>` is the id of a case that names it |
+
+In a file under `bitcoin/`, every hash is in display order, rev of the byte order it is
+hashed in (section 2.2), as a proof's members are. For a transaction, `expected` holds
+`transaction_hash`, rev(SHA-256d) of the bytes, and `well_formed`; when it is well formed,
+`op_return`, the 32 bytes its OP_RETURN pushes, and otherwise `fails`, the first rule of a
+well-formed `raw_transaction` it breaks: `parse`, `length` or `op_return`. For a
+merkleblock, `expected` holds `well_formed`, `matched` (the one hash it matches),
+`total_txs`, and its header's `header_hash`, `header_merkle_root` and `header_time`; for a
+header, those three and `meets_target`. A transaction serialized with its witness (BIP 144)
+appears twice: as it is, in `<what>-witness.json`, which a parser refuses, and without its
+witness, in `<what>.json`.
+
+**Replay files.** A replay file records answers at the level of a read, and nothing of any
+service's API: a verifier's test adapter answers each read the verifier makes from the file,
+in place of the network. The file is an object whose one member, `reads`, is an array of
+records `{answer, read}`, no two with the same `read`, in an order that carries no meaning.
+
+- `read` names the read: `kind`; `network`, for a read of a Stellar or Bitcoin source; and
+  the read's parameters, each spelled as the proof spells the value it comes from. A
+  verifier finds its answer by building the same object.
+- `answer` is `{outcome, value}` with `outcome` `found`; `{outcome}` with `outcome`
+  `not_found`; or `{outcome, reason}` with `outcome` `unreachable` (section 10.4), where
+  `reason` is an ASCII128 that says why, such as an HTTP 429, and is informational only. A
+  read of a source's identity, the Stellar root, the Bitcoin tip or the keyring is never
+  `not_found`.
+- A found answer's `value` holds exactly the fields that sections 10.2, step 0, and 10.4
+  use for its kind of read. One record answers every use of its read, so its value holds
+  every field any use of that kind needs. The table gives each parameter and each field
+  with its class:
+
+| `kind` | Parameters | Fields of `value` |
+|---|---|---|
+| `stellar_identity` | `network` | `network_passphrase` (ASCII128) |
+| `stellar_root` | `network` | `elder` (INT), `latest` (INT) |
+| `stellar_transaction` | `network`, `hash` (HEX64) | `ledger` (INT), `memo_type` (one of `none`, `text`, `id`, `hash` or `return`), `successful` (a boolean), `memo` (HEX64, its 32 bytes, present only when `memo_type` is `hash` or `return`) |
+| `stellar_ledger` | `network`, `sequence` (INT) | `closed_at` (TIME), `hash` (HEX64) |
+| `bitcoin_identity` | `network` | `hash` (HEX64, of the block at height 0) |
+| `bitcoin_tip` | `network` | `height` (INT) |
+| `bitcoin_block_at_height` | `network`, `height` (INT) | `hash` (HEX64, of the best-chain block), `median_time_past` (INT), `transaction_count` (INT) |
+| `bitcoin_block` | `network`, `hash` (HEX64) | `height` (INT), `median_time_past` (INT), `time` (INT, the header's nTime) |
+| `nist_pulse` | `chainIndex` (INT), `pulseIndex` (INT) | `outputValue` (NISTHEX), `timeStamp` (NISTTIME) |
+| `keyring` | `url` (`https://<host>/.well-known/keyring.json`) | `keyring` (any JSON value the canonical form of section 9 can hold: the keyring read, which the load checks of section 10.2, step 0, then judge) |
+
+- `network` is a network of the read's chain in `spec/networks.json`. The `<host>` of a
+  keyring read's `url` is the host of the origin the keyring is read from: www.truestamp.com,
+  or the origin `--base-url` names (section 10.2, step 0).
+- Bitcoin hashes are in display order, and Bitcoin times are Unix seconds.
+- An online case gives a Bitcoin block's median time past only as the source's report of it,
+  and a verifier under an online case takes it from the replay (section 10.4).
+- Every read of an online case is answered from its file, and the file stands as the
+  operator-pinned source for each Stellar or Bitcoin network whose identity read it holds.
+  It holds another read of a Stellar or Bitcoin network only when it holds that network's
+  identity read, found with a value section 10.2, step 0, allows, so a verifier that reads
+  past a failed identity read finds no answer.
+- Under an online case a verifier makes only the reads of sections 10.2, step 0, and 10.4,
+  and need not make every read its replay holds.
+- A read the file does not hold has no answer: the test that makes it fails.
 
 ### 13.3 The cases
 
@@ -2408,15 +2486,20 @@ section 10 reports that check. Each class below says what its cases assert.
   transaction not found, in each branch of section 10.4 (`not_yet_indexed`;
   `not_held_by_source` below elder, and for a ledger between elder and latest that the
   source does not hold; `chain_mismatch` for a ledger it holds); a candidate read that
-  answers not found (`not_held_by_source`); `source_unreachable` for HTTP 429 and 503, for
-  an answer that lacks a field the read uses, and on every row a source serves when its
-  identity read gets no usable answer; a Bitcoin tip below `height` (`not_yet_indexed`) and
-  below `height` + BITCOIN_FINALITY (`chain_not_final`); a best-chain header hash or
-  transaction count at `height` that differs, and a `genesis.bitcoin` header hash that
-  differs (`chain_mismatch`); for each entropy source, a value that differs
-  (`entropy_mismatch`) and a value not found; and KEY_EVENT_COMMITMENT passing, giving
-  `info not_attributable` when the run is not attributed to Truestamp, and failing or
-  skipping with its first input's code.
+  answers not found (`not_held_by_source`); `source_unreachable` for an unreachable answer
+  to each kind of read (the Stellar root, a Stellar transaction, a Stellar ledger, the
+  Bitcoin tip, a best-chain block at a height, a Bitcoin block by its hash and a NIST
+  pulse), and on every row a source serves when its identity read gets no usable answer; a
+  Bitcoin tip below `height` (`not_yet_indexed`) and below `height` + BITCOIN_FINALITY
+  (`chain_not_final`); a best-chain header hash or transaction count at `height` that
+  differs, and a `genesis.bitcoin` header hash that differs (`chain_mismatch`); for each
+  entropy source, a value that differs (`entropy_mismatch`) and a value not found; and
+  KEY_EVENT_COMMITMENT passing, giving `info not_attributable` when the run is not
+  attributed to Truestamp, and failing or skipping with its first input's code. That an
+  HTTP 429 or 503, an answer that does not parse and an answer that lacks a field the read
+  uses are each an unreachable answer, and that an answer that shows a contradiction fails
+  its row even when it lacks another field (section 10.4), are tested in each verifier's own
+  tests, since a replay holds answers, not a service's exchanges (section 13.2).
 - **The window (section 11).** Online: both edges drawn, each case giving their instants
   and bases; the submitted-after edge later than the submitted-before edge
   (`window_inverted`), whose report, labelled `failed`, carries neither edge; the time in a

@@ -51,6 +51,49 @@ defmodule Generator.BitcoinParse do
     end
   end
 
+  @doc """
+  The height a coinbase's script signature begins with (BIP 34), when it begins with exactly
+  the bytes Bitcoin Core compares it with, those of `CScript() << height`: OP_1 to OP_16 for 1
+  to 16, and otherwise a minimal push of the height's little-endian magnitude, with 0x00 after
+  it when its top bit is set. Any other spelling of a number, which Bitcoin Core refuses, is
+  `:error`.
+  """
+  def coinbase_height(<<_version::binary-4, 1, 0::256, 0xFFFFFFFF::32, rest::binary>>) do
+    with {:ok, size, rest} <- compact(rest),
+         <<script::binary-size(^size), _rest::binary>> <- rest,
+         {:ok, height} <- leading_number(script),
+         prefix = height_script(height),
+         length = byte_size(prefix),
+         <<^prefix::binary-size(^length), _after::binary>> <- script do
+      height
+    else
+      _failure -> :error
+    end
+  end
+
+  def coinbase_height(_bytes), do: :error
+
+  # The number a script begins with, read loosely: OP_1 to OP_16, or a push of 1 to 8 octets
+  # read as an unsigned little-endian number. The caller holds it to the exact bytes of
+  # height_script/1, which no loose reading of another spelling gives.
+  defp leading_number(<<op, _rest::binary>>) when op in 0x51..0x60, do: {:ok, op - 0x50}
+
+  defp leading_number(<<n, number::binary-size(n), _rest::binary>>) when n in 1..8,
+    do: {:ok, :binary.decode_unsigned(number, :little)}
+
+  defp leading_number(_script), do: :error
+
+  # `CScript() << height`: OP_0 for 0, OP_N for 1 to 16, and otherwise the push of
+  # CScriptNum's serialization, the little-endian magnitude and a 0x00 when its top bit is set.
+  defp height_script(0), do: <<0x00>>
+  defp height_script(height) when height in 1..16, do: <<0x50 + height>>
+
+  defp height_script(height) when height > 16 do
+    magnitude = :binary.encode_unsigned(height, :little)
+    number = if :binary.last(magnitude) >= 0x80, do: magnitude <> <<0>>, else: magnitude
+    <<byte_size(number), number::binary>>
+  end
+
   defp compact(<<n, rest::binary>>) when n < 0xFD, do: {:ok, n, rest}
   defp compact(<<0xFD, n::little-16, rest::binary>>) when n >= 0xFD, do: {:ok, n, rest}
   defp compact(<<0xFE, n::little-32, rest::binary>>) when n > 0xFFFF, do: {:ok, n, rest}

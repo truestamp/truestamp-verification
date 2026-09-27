@@ -11,10 +11,23 @@ defmodule Generator.Vectors do
     3.1 and `<name>.trace.json`, its trace (SPEC.md 10.6) in the file form, where `<name>` is
     its type, or its type, a hyphen and a variant (Generator.Proofs);
   - `cases.json`, and under `negative/` the files its cases need (Generator.Cases), which are
-    built from the files above.
+    built from the files above;
+  - under `corpus/`, the known answers for JCS, Ed25519 and base64url (Generator.Corpus), and
+    the real Bitcoin bytes under `corpus/bitcoin/` (Generator.RealBitcoin).
   """
 
-  alias Generator.{Bytes, Cases, Chain, FileForm, JCS, Keys, Proofs, Registry}
+  alias Generator.{
+    Bytes,
+    Cases,
+    Chain,
+    Corpus,
+    FileForm,
+    JCS,
+    Keys,
+    Proofs,
+    RealBitcoin,
+    Registry
+  }
 
   # SPEC.md 9: VECTOR_KEY is the key of the seed of 32 bytes of 0x42.
   @vector_seed :binary.copy(<<0x42>>, 32)
@@ -49,6 +62,8 @@ defmodule Generator.Vectors do
     |> Map.new()
     |> Map.merge(data)
     |> then(&Map.merge(&1, Cases.files(&1)))
+    |> then(&Map.merge(&1, Corpus.files(&1)))
+    |> Map.merge(RealBitcoin.files())
   end
 
   # SPEC.md 13.2: a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY.

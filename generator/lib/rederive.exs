@@ -24,8 +24,9 @@ defmodule Generator.Rederive do
   # Each file reads back to a value whose form is the file itself: the served form of SPEC.md
   # 3.1 for a proof, and the file form for every other file. A file under negative/ is in the
   # form its case gives it, which Generator.Cases checks, since a case's defect can be in the
-  # bytes.
+  # bytes; and a file under corpus/jcs/ is its bytes, which Generator.Corpus checks.
   defp form("vectors/negative/" <> _name, _bytes), do: []
+  defp form("vectors/corpus/jcs/" <> _name, _bytes), do: []
 
   defp form(path, bytes) do
     if String.ends_with?(path, ".proof.json") do

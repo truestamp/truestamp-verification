@@ -15,7 +15,9 @@
 # SPEC.md 13.3, and under negative/ the proof and keyring files its cases need (lib/cases.exs),
 # each case stated by a class module under lib/cases/ and its expected output computed by the
 # generator's own model of the verification steps (lib/model.exs, with lib/parse.exs and
-# lib/schema.exs, and the DERIVE engine of lib/derive.exs).
+# lib/schema.exs, and the DERIVE engine of lib/derive.exs). Last, under corpus/, the known
+# answers for JCS, Ed25519 and base64url (lib/corpus.exs, with the point arithmetic of
+# lib/ed25519.exs) and the real Bitcoin bytes (lib/real_bitcoin.exs).
 #
 # Every run makes these checks before it writes or compares anything, and a failure in any
 # writes nothing:
@@ -44,9 +46,27 @@
 #      failures it states; a trace a case names is the model's trace; every file under
 #      negative/ belongs to a case, in its form, and holds bytes no other file under vectors/
 #      holds; and every reason code but internal_error has a case, each bare or fail code a
-#      single-defect case, or is reported as pending: online, until the replay format is set
-#      (lib/cases/online.exs), where only a code no offline run reaches may be, or on a class
-#      module with no cases yet. The run prints each code's line.
+#      single-defect case, or is reported as pending: online, until its online cases are
+#      written (lib/cases/online.exs), where only a code no offline run reaches may be, or on
+#      a class module with no cases yet. The run prints each code's line. An online case's
+#      replay holds the identity read of each network the case pins, but for a case whose
+#      point is regtest with no source.
+#   4. The corpus. Each JCS input reads under J1 to J6 and gives its output byte for byte;
+#      each Ed25519 case gives its verdict, step by step, under the generator's own Verify and
+#      the same pass or fail under the model's, and what its `about` says a verifier that
+#      skips steps 2 and 3 gives is OpenSSL's own verdict; each base64url spelling is on its
+#      class or off it as it says (lib/corpus.exs); and every conclusion a Bitcoin file
+#      states is derived again from its bytes by the rederive check's parser, with the files
+#      of a block tied together (lib/real_bitcoin.exs).
+#   5. The model and the replay form. The modeled regtest chain holds together, each median
+#      time past the model serves is the median of its header times, every read a verifier
+#      makes online for a sound proof is answered by the model's sources and agrees with the
+#      proof, and the window those answers give each sound proof is in order, with the time
+#      in its subject's id inside it (lib/consistency.exs). SPEC.md 13.2's table of the kinds
+#      of read is the validator's, and the sound item's replay, built in memory from the
+#      model, holds to the replay form of SPEC.md 13.2, whose every rule refuses a mutant of
+#      it, and so does any replay file under corpus/replay/ (lib/replay.exs). Each of these
+#      checks also refuses a model, a proof, an answer or a table with one defect.
 #
 # Then SPEC.md 6.3's worked example is read from the text and compared, value by value, with
 # worked-example.json (lib/worked_example.exs). Last, every seed the run derived a key from
@@ -59,14 +79,15 @@
 # :crypto and the data files under spec/, with its own JCS and its own Merkle walk, so a
 # defect in one cannot hide in both.
 
-for file <- ~w(base bitcoin regtest chain pointer edit proofs bitcoin_parse derive parse
+for file <- ~w(base ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse derive parse
                schema model cases/online cases cases/sound cases/parse cases/front cases/shape
-               cases/derive vectors known_answers sound mutations spec_rows positive rederive
-               worked_example) do
+               cases/derive known_answers corpus replay real_bitcoin consistency vectors sound
+               mutations spec_rows positive rederive worked_example) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
-alias Generator.{Cases, Files, KnownAnswers, Rederive, Spec, Vectors, WorkedExample}
+alias Generator.{Cases, Consistency, Corpus, Files, KnownAnswers, RealBitcoin, Rederive, Replay}
+alias Generator.{Spec, Vectors, WorkedExample}
 
 mode =
   case System.argv() do
@@ -90,6 +111,10 @@ failures =
   KnownAnswers.run() ++
     Rederive.run(files) ++
     case_failures ++
+    Corpus.check(files) ++
+    RealBitcoin.check(files) ++
+    Replay.check(files) ++
+    Consistency.run(files) ++
     WorkedExample.run(Spec.spec_md(), files["vectors/worked-example.json"]) ++
     KnownAnswers.seeds(files)
 
