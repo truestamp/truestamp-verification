@@ -17,8 +17,18 @@
     },
     {
       "environment": "test",
+      "key_id": "5e81cc77",
+      "public_key": "YJll6FVApZOcLcDRTsgWPyWxEJmbg18dLqYXy8DoLx8"
+    },
+    {
+      "environment": "test",
       "key_id": "9602c03e",
       "public_key": "Ivwpd5Lwtv_Av8_bftsMCqFOAlo2XsDjQuhuOCnLdLY"
+    },
+    {
+      "environment": "test",
+      "key_id": "d0b1cefe",
+      "public_key": "11l5O7wTooGagnx2rbb7qKSa7gB_SfLQmS2ZuCWtLEg"
     },
     {
       "environment": "test",

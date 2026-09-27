@@ -3,9 +3,9 @@
 
 defmodule Truestamp.Verifier.PositiveVectorsTest do
   # The sound proofs under vectors/positive/ (SPEC.md 13.2), which generator/generate.exs
-  # writes and checks. The generator has no schema interpreter, so these tests hold each proof
-  # to spec/schema.json with the test suite's own, read it under the parsing rules, and pair it
-  # with its trace. The generator's --check rederives everything else.
+  # writes and checks. These tests hold each proof to spec/schema.json with the test suite's
+  # own interpreter, independent of the generator's, read it under the parsing rules, and pair
+  # it with its trace. The generator's --check rederives everything else.
   use ExUnit.Case, async: true
 
   alias Truestamp.Verifier.Test.{SchemaSubset, StrictJSON}

@@ -17,7 +17,7 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
 | `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
-| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring, and under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`. |
+| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the offline cases of section 13.3, each with its configuration and expected output; and under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json` by the case's id. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
 | `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors, from the modules in `generator/lib/`, and `manifest.exs` writes the manifest. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the tests that tie `spec/` to `SPEC.md`, and one test of the Merkle library it depends on. |
@@ -29,9 +29,9 @@ for the replays of the online cases, and it is not valid Bitcoin: its transactio
 SegWit outputs with no witness, and no coinbase carries a witness commitment, so no Bitcoin
 node would accept its blocks. The chains' Stellar and NIST values are made up as well.
 
-Still to come: the production key and the staging key; the rest of `vectors/`, the
-conformance cases and their inputs, with known answers for JCS, Ed25519 and base64url; and
-reference verifiers in Go and TypeScript beside the Elixir one.
+Still to come: the production key and the staging key; the rest of the conformance cases,
+the online ones among them, and their inputs, with known answers for JCS, Ed25519 and
+base64url under `corpus/`; and reference verifiers in Go and TypeScript beside the Elixir one.
 
 ## Standards and dependencies
 

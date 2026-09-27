@@ -190,7 +190,7 @@ defmodule Generator.Derive do
         proof,
         {:key_public_key, {2, 4}, public_key, "key_event", [public_key]},
         nil,
-        key?(key)
+        key_bytes?(key)
       ),
       row(proof, {:key_id, {2, 5}, e <> "/key_id", "key_event", [public_key]}, kid),
       row(
@@ -256,19 +256,26 @@ defmodule Generator.Derive do
   # A B64U32 value's 32 octets, or nil.
   defp decode_key(text), do: if(Spec.class?("B64U32", text), do: Bytes.unb64u(text))
 
-  # Steps 2 and 3 of SPEC.md 6.2: y below p, and not one of SMALL_ORDER_KEYS.
-  defp key?(nil), do: false
-
-  defp key?(<<head::binary-31, last>> = key) do
+  @doc """
+  Steps 2 and 3 of SPEC.md 6.2, the checks of a key's bytes: 32 octets whose y is below p,
+  and not one of SMALL_ORDER_KEYS. The expected-output model (Generator.Model) makes them at
+  ENVELOPE and at a keyring's load too.
+  """
+  def key_bytes?(<<head::binary-31, last>> = key) do
     y = :binary.decode_unsigned(<<head::binary, last &&& 0x7F>>, :little)
     small = for %{"hex" => hex} <- Spec.read("small-order-keys.json"), do: hex
     y < @p and Bytes.hex(key) not in small
   end
 
-  # SPEC.md 6.2: the key's bytes, a B64U64 signature whose s is below L, then Ed25519, which
-  # makes steps 4 to 7 as written (SPEC.md 6.2, common libraries).
-  defp verify?(key, message, text) do
-    with true <- key?(key),
+  def key_bytes?(_not_a_key), do: false
+
+  @doc """
+  Verify of SPEC.md 6.2 over the 32 octets `message`: the key's bytes, a B64U64 signature
+  `text` whose s is below L, then Ed25519, which makes steps 4 to 7 as written (SPEC.md 6.2,
+  common libraries). The model checks the proof's signature at SIGNATURE with it too.
+  """
+  def verify?(key, message, text) do
+    with true <- key_bytes?(key),
          true <- Spec.class?("B64U64", text),
          <<_r::binary-32, s::binary-32>> = signature <- Bytes.unb64u(text),
          true <- :binary.decode_unsigned(s, :little) < @l do

@@ -6,11 +6,19 @@ defmodule Generator.KnownAnswers do
   Check 1: each primitive against answers that do not come from the generator.
   """
 
+  import Bitwise
   import Generator.Check
 
-  alias Generator.{BitcoinAnswers, Bytes, JCS, Keys, Merkle, Registry, Spec}
+  alias Generator.{BitcoinAnswers, Bytes, Derive, JCS, Keys, Merkle, Registry, Spec}
 
   @vector_key "2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"
+
+  # RFC 8032 section 5.1: p and d, for the decoding of step 4 of SPEC.md 6.2.
+  @p Integer.pow(2, 255) - 19
+  @d Integer.mod(-121_665 * :binary.decode_unsigned(:crypto.mod_pow(121_666, @p - 2, @p)), @p)
+
+  # A member that holds a key, and its value's JSON string literal, as a file's bytes spell it.
+  @key_member ~r/"(?:previous_)?public_key"\s*:\s*("(?:[^"\\]++|\\.)*+")/
 
   # RFC 8785 section 3.2.2: a JSON text, and its JCS.
   @rfc8785_input ~S({
@@ -97,20 +105,103 @@ defmodule Generator.KnownAnswers do
   @doc """
   The failures of the seed check, which runs after every other: each seed the run derived a
   key from or signed with, whose bytes are published, gives a key that
-  spec/keys.nonproduction.json lists as a test key.
+  spec/keys.nonproduction.json lists as a test key, and so does each key the run built from a
+  seed's key by point arithmetic (Generator.Keys.built/2). As a backstop that needs no such
+  note, every `public_key` and `previous_public_key` in `files`, the files about to be written
+  under vectors/, that passes the checks of a key's bytes (SPEC.md 6.2, steps 2 to 4) is one
+  spec/keys.nonproduction.json lists.
   """
-  def seeds do
+  def seeds(files) do
     listed =
       for %{"environment" => "test", "public_key" => public} <-
             Spec.read("keys.nonproduction.json")["keys"],
           do: public
 
-    for seed <- Keys.seeds_used(),
-        public = Bytes.b64u(Keys.public_key(seed)),
-        public not in listed,
-        do:
-          "the generator derives #{public} from a seed spec/keys.nonproduction.json does not list"
+    derived =
+      for seed <- Keys.seeds_used(),
+          public = Bytes.b64u(Keys.public_key(seed)),
+          public not in listed,
+          do:
+            "the generator derives #{public} from a seed spec/keys.nonproduction.json does not list"
+
+    built =
+      for {public, seed} <- Keys.keys_built(),
+          public = Bytes.b64u(public),
+          public not in listed do
+        "the generator builds #{public} from the key #{Bytes.b64u(Keys.public_key(seed))} " <>
+          "by point arithmetic, and spec/keys.nonproduction.json does not list it"
+      end
+
+    derived ++ built ++ unlisted(files)
   end
+
+  # Each key a file under vectors/ holds that passes steps 2 to 4 of SPEC.md 6.2 and that
+  # spec/keys.nonproduction.json does not list, once, with the first file that holds it.
+  defp unlisted(files) do
+    listed = for key <- Spec.read("keys.nonproduction.json")["keys"], do: key["public_key"]
+
+    held =
+      for {path, bytes} <- Enum.sort(files),
+          text <- key_values(bytes),
+          Spec.class?("B64U32", text),
+          text not in listed,
+          key = Bytes.unb64u(text),
+          Derive.key_bytes?(key) and on_curve?(key),
+          do: {text, path}
+
+    for {text, path} <- Enum.uniq_by(held, &elem(&1, 0)) do
+      "#{path} holds the key #{text}, which passes the checks of a key's bytes (SPEC.md 6.2, " <>
+        "steps 2 to 4), and spec/keys.nonproduction.json does not list it"
+    end
+  end
+
+  # Every value of a public_key or previous_public_key member in `bytes`: those of the JSON
+  # the bytes parse to, and those the bytes themselves spell, so a file that does not parse,
+  # or that repeats a name, hides none.
+  defp key_values(bytes) do
+    parsed =
+      case JSON.decode(bytes) do
+        {:ok, value} -> key_members(value)
+        {:error, _reason} -> []
+      end
+
+    spelled =
+      for [_member, literal] <- Regex.scan(@key_member, bytes),
+          {:ok, text} <- [JSON.decode(literal)],
+          do: text
+
+    parsed ++ spelled
+  end
+
+  defp key_members(value) when is_map(value) do
+    Enum.flat_map(value, fn
+      {name, member} when name in ["public_key", "previous_public_key"] ->
+        [member | key_members(member)]
+
+      {_name, member} ->
+        key_members(member)
+    end)
+  end
+
+  defp key_members(value) when is_list(value), do: Enum.flat_map(value, &key_members/1)
+  defp key_members(_scalar), do: []
+
+  # Step 4 of SPEC.md 6.2: the 32 octets decode as a point on the curve, as RFC 8032 section
+  # 5.1.3 decodes them, for octets whose y is below p (step 2).
+  defp on_curve?(<<n::little-256>>) do
+    y = n &&& (1 <<< 255) - 1
+    u = Integer.mod(y * y - 1, @p)
+    v = Integer.mod(@d * y * y + 1, @p)
+    x = Integer.mod(u * pow(v, 3) * pow(u * pow(v, 7), div(@p - 5, 8)), @p)
+
+    cond do
+      Integer.mod(v * x * x, @p) == u -> x != 0 or n >>> 255 == 0
+      Integer.mod(v * x * x + u, @p) == 0 -> true
+      true -> false
+    end
+  end
+
+  defp pow(x, e), do: :binary.decode_unsigned(:crypto.mod_pow(Integer.mod(x, @p), e, @p))
 
   # VECTOR_KEY from its seed, and the key id of every key spec/keys.nonproduction.json lists.
   defp keys do

@@ -122,8 +122,8 @@ defmodule Truestamp.Verifier.KeyringTest do
         |> Regex.scan(text, capture: :all_but_first)
         |> Map.new(fn [byte, key_id] -> {String.to_integer(byte, 16), key_id} end)
 
-      assert Enum.sort(seeds) == [0x41, 0x42, 0x43]
-      assert Enum.sort(Map.keys(ids)) == [0x41, 0x43]
+      assert Enum.sort(seeds) == [0x41, 0x42, 0x43, 0x44]
+      assert Enum.sort(Map.keys(ids)) == [0x41, 0x43, 0x44]
 
       test_keys =
         for %{"environment" => "test"} = key <- read("keys.nonproduction.json")["keys"], do: key
@@ -134,6 +134,34 @@ defmodule Truestamp.Verifier.KeyringTest do
         assert listed, "the key of the seed of 0x#{Integer.to_string(seed, 16)}"
         assert listed["key_id"] == Map.get(ids, seed, key_id(public))
       end
+    end
+
+    # Section 9's fifth key is no seed's: it is the 0x44 key plus a point of order 8, under
+    # which anyone who holds the 0x44 seed can sign (section 6.2).
+    test "holds the 0x44 key plus a point of order 8 among the test keys, with its key id" do
+      text = String.replace(spec_md(), ~r/\s+/, " ")
+
+      [id] =
+        Regex.run(
+          ~r/whose key id is `([0-9a-f]{8})`, is the 0x44 key plus a point of order 8/,
+          text,
+          capture: :all_but_first
+        )
+
+      {other, _secret} = :crypto.generate_key(:eddsa, :ed25519, :binary.copy(<<0x44>>, 32))
+
+      sums =
+        for %{"order" => 8, "hex" => hex} <- read("small-order-keys.json") do
+          point = hex |> Base.decode16!(case: :lower) |> decode_point()
+          other |> decode_point() |> add(point) |> encode_point()
+        end
+
+      assert length(sums) == 4
+
+      listed = Enum.find(read("keys.nonproduction.json")["keys"], &(&1["key_id"] == id))
+
+      assert %{"environment" => "test"} = listed
+      assert decode(listed["public_key"]) in sums
     end
   end
 
@@ -325,6 +353,35 @@ defmodule Truestamp.Verifier.KeyringTest do
     "0x" <> byte = read("prefixes.json")["key_id"]["byte"]
     :sha256 |> :crypto.hash(Base.decode16!(byte, case: :lower) <> bytes) |> hex8()
   end
+
+  # Points of edwards25519 in affine coordinates (RFC 8032 section 5.1), for the fifth key: an
+  # encoding known to be of a point on the curve decoded, two points added, and a point encoded.
+  defp decode_point(<<n::little-256>>) do
+    y = n &&& Integer.pow(2, 255) - 1
+    x2 = Integer.mod((y * y - 1) * inverse(d() * y * y + 1), @p)
+    x = power(x2, div(@p + 3, 8))
+
+    x =
+      if Integer.mod(x * x - x2, @p) == 0,
+        do: x,
+        else: Integer.mod(x * power(2, div(@p - 1, 4)), @p)
+
+    0 = Integer.mod(x * x - x2, @p)
+    if (x &&& 1) == n >>> 255, do: {x, y}, else: {Integer.mod(-x, @p), y}
+  end
+
+  defp add({x1, y1}, {x2, y2}) do
+    t = Integer.mod(d() * x1 * x2 * y1 * y2, @p)
+
+    {Integer.mod((x1 * y2 + y1 * x2) * inverse(1 + t), @p),
+     Integer.mod((y1 * y2 + x1 * x2) * inverse(1 - t), @p)}
+  end
+
+  defp encode_point({x, y}), do: <<y ||| (x &&& 1) <<< 255::little-256>>
+
+  defp d, do: Integer.mod(-121_665 * inverse(121_666), @p)
+  defp inverse(x), do: power(x, @p - 2)
+  defp power(x, e), do: :binary.decode_unsigned(:crypto.mod_pow(Integer.mod(x, @p), e, @p))
 
   defp hex8(digest), do: digest |> binary_part(0, 4) |> hex()
   defp hex(bytes), do: Base.encode16(bytes, case: :lower)

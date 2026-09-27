@@ -671,9 +671,10 @@ equation.
 
 A key of mixed order, the sum of a point of order L and a point of small order, passes
 steps 2 to 4, and a signature made with it verifies only when k is a multiple of the small
-point's order. Every key Truestamp makes is [a]B for a scalar a, so its order is L, and no
-keyring Truestamp publishes holds a key of mixed order. Section 13's agreement case holds
-every verifier to the same answers for such a key.
+point's order. Every key Truestamp makes, apart from the mixed-order test key of section 9,
+which exists only for the agreement cases and which no keyring holds, is [a]B for a scalar
+a, so its order is L, and no keyring Truestamp publishes holds a key of mixed order.
+Section 13's agreement cases hold every verifier to the same answers for such a key.
 
 ### 6.3 Worked example
 
@@ -1001,9 +1002,10 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   this repository, and the keyring downloaded from www.truestamp.com replaces it online
   (section 10.2, step 0).
   `spec/keys.nonproduction.json` lists the public keys of the dev, test and staging
-  environments, with VECTOR_KEY and every other key whose seed this section or the
-  generator publishes among the test keys, and a production keyring MUST NOT contain any of
-  them (section 6.4). A verifier MUST validate every keyring when it loads it.
+  environments, with VECTOR_KEY, every other key whose seed this section or the generator
+  publishes, and every key such a seed can sign under, among the test keys, and a
+  production keyring MUST NOT contain any of them (section 6.4). A verifier MUST validate
+  every keyring when it loads it.
 - **Literals:** `format`, `version` 1, `signature.alg`, CONSTRUCTIONS_ACCEPTED (the digests
   of the texts under `spec/constructions/`), and `spec/schema.json`: the type registry,
   closed member sets, presence by type and patterns.
@@ -1033,8 +1035,12 @@ VECTOR_KEY signs every sound proof (section 13.3), and every other proof in the 
 unless its case says otherwise (section 13.2). Two more keys come from published seeds and
 sign no proof, only blocks and handovers of the chains the sound proofs are cut from: the
 key of the seed of 32 bytes of 0x41, whose key id is `f12cfabb`, and the key of the seed of
-32 bytes of 0x43, whose key id is `9602c03e`. All three are test keys in
-`spec/keys.nonproduction.json`, so no production keyring can hold them.
+32 bytes of 0x43, whose key id is `9602c03e`. A fourth, the key of the seed of 32 bytes of
+0x44, whose key id is `d0b1cefe`, signs only the proofs of cases that call for a key other
+than VECTOR_KEY (section 13.3). A fifth, whose key id is `5e81cc77`, is the 0x44 key plus a
+point of order 8, which signs only the two mixed-order cases; anyone who holds the 0x44 seed
+can sign under it (section 6.2). All five are test keys in `spec/keys.nonproduction.json`,
+so no production keyring can hold them.
 
 There are no clock tolerances.
 
@@ -2208,19 +2214,22 @@ These files are under `vectors/`, and `MANIFEST.sha256` holds the digest of each
 | `keyring.test.json` | a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY, so it is valid only when the verifier's environment is `test` |
 | `worked-example.json` | the values of section 6.3, one member each: `proof` (the input), `M`, `proof_hash`, `sk` (in hex), `A`, `K`, `key_id` (the key id of A), `S`, `V` and `document` (the served document) |
 | `positive/` | the sound proofs of section 13.3, each as `<name>.proof.json` with its trace as `<name>.trace.json`, where `<name>` is the proof's type, or its type, a hyphen and a variant, such as `beacon-empty`, `block-rotation` or `item-genesis-witness`; a proof file is in the served form of section 3.1, JCS(envelope) in UTF-8 with no final newline, so it is not always ASCII; a trace file is in the canonical form of section 9 |
-| `negative/` | the proofs of the single-defect cases |
+| `negative/` | each proof and each keyring a case supplies that no other file holds, as `<id>.proof.json` or `<id>.keyring.json`, where `<id>` is the id of a case that uses it; each file is in its usual form, the served form for a proof and the canonical form for a keyring, unless the case concerns the file's bytes (a defect, a reformatting or a size) |
 | `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the recorded chain, source and keyring responses that online cases replay |
 
 `cases.json`, `keyring.test.json` and `worked-example.json` are in that canonical form too.
 
-A case in `cases.json` holds:
+`cases.json` is an array of cases, and the order of the cases carries no meaning. A case
+holds:
 
 | Member | Holds |
 |---|---|
-| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: the commitment pin per chain and the entropy pin per source; `online`, OPTIONAL: the path of a replay file under `corpus/` |
-| `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, for a sound case the path of its trace, and for an online case its two edges |
+| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network; `online`, OPTIONAL: the path of a replay file under `corpus/` |
+| `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges |
 | `id` | a name unique in the file |
-| `proof` | the path of its proof under `vectors/` |
+| `proof` | the path of its proof |
+
+Every path a case holds is relative to `vectors/`.
 
 - A case without `online` runs with the verifier asked to be offline. An online case
   answers each read its replay file holds, of a chain, a source or a keyring, from that
@@ -2241,8 +2250,8 @@ A case in `cases.json` holds:
   nothing: it regenerates every file in memory and compares bytes with the files on disk,
   fails on any file under `vectors/` it does not write and on any entry there that is
   neither a regular file nor a directory, and asserts that section 6.3's
-  worked example equals `worked-example.json`. Once `cases.json` exists, `--check` also runs
-  the reference verifiers in this repository over it.
+  worked example equals `worked-example.json`. Once the reference verifiers in this
+  repository exist, `--check` also runs them over `cases.json`.
 
 ### 13.3 The cases
 
@@ -2282,8 +2291,8 @@ section 10 reports that check. Each class below says what its cases assert.
   missing or extra in `signature` (`signature`); an `alg` of `Ed25519`, of `EdDSA`, or of
   the pin in other letter case (`alg`); a K or V padded, in the standard alphabet, with
   unused bits set, or with a `\n` escaped onto its end (`public_key` or `value`); and each
-  of SMALL_ORDER_KEYS as K, the identity with the signature (identity, 0) among them, and a
-  K whose y is not below 2^255 - 19 (`public_key`).
+  of SMALL_ORDER_KEYS as K, the identity among them, and a K whose y is not below
+  2^255 - 19, each with the signature (identity, 0) as V (`public_key`).
 - **CONFIGURATION.** The bare rejection `configuration_error`: a keyring holding VECTOR_KEY
   when the verifier's environment is not `test`; a keyring, under `prod`, holding a key of
   `spec/keys.nonproduction.json`; a non-production run that is not keyless and has no
@@ -2341,7 +2350,8 @@ section 10 reports that check. Each class below says what its cases assert.
 - **The committed leaf count (section 5.4).** At the block level, for a subject and for a
   beacon observation, and at the epoch level, for each chain's entry at both positions:
   - a `tree_size` other than its record's `leaf_count`, whose walk still reaches the root,
-    fails `derivation_mismatch` at that `tree_size`;
+    fails `derivation_mismatch` at that `tree_size`; at `/signing_key_event`, where no other
+    `tree_size` fits the leaf in its place, these cases first reorder the epoch's leaves;
   - a moved leaf index, the last of three leaves presented as `{"leaf_index": 1,
     "tree_size": 2}` with the same path, whose walk reaches the same root, fails there too;
   - the same lie carried into the record, with the record's hash recomputed: at the block
@@ -2389,7 +2399,9 @@ section 10 reports that check. Each class below says what its cases assert.
   after the transaction or after the merkleblock; a duplicate sibling pair in the partial
   tree; an unused hash or flag bit; `total_txs` of 0 and of BITCOIN_MAX_TOTAL_TXS + 1; a
   header hash above the target its nBits encodes; and an nBits that overflows or is
-  negative.
+  negative. A transaction with an input and an exact OP_RETURN output is at least 94
+  octets, so the OP_RETURN rule implies the 64-octet rule, and the 64-octet case also lacks
+  an OP_RETURN. The 64-octet rule stays, as the guard against CVE-2017-12842.
 - **Chain and source reads.** Online, each outcome of section 10.4 from a replay: a Stellar
   entry found and matching, which passes and gives its candidate edge; a memo that
   differs, a transaction that did not succeed, and another ledger (`chain_mismatch`); a

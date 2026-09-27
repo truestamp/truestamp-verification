@@ -9,10 +9,12 @@ defmodule Generator.Vectors do
     Generator.FileForm;
   - under `positive/`, for each sound proof, `<name>.proof.json` in the served form of SPEC.md
     3.1 and `<name>.trace.json`, its trace (SPEC.md 10.6) in the file form, where `<name>` is
-    its type, or its type, a hyphen and a variant (Generator.Proofs).
+    its type, or its type, a hyphen and a variant (Generator.Proofs);
+  - `cases.json`, and under `negative/` the files its cases need (Generator.Cases), which are
+    built from the files above.
   """
 
-  alias Generator.{Bytes, Chain, FileForm, JCS, Keys, Proofs, Registry}
+  alias Generator.{Bytes, Cases, Chain, FileForm, JCS, Keys, Proofs, Registry}
 
   # SPEC.md 9: VECTOR_KEY is the key of the seed of 32 bytes of 0x42.
   @vector_seed :binary.copy(<<0x42>>, 32)
@@ -46,6 +48,7 @@ defmodule Generator.Vectors do
     end)
     |> Map.new()
     |> Map.merge(data)
+    |> then(&Map.merge(&1, Cases.files(&1)))
   end
 
   # SPEC.md 13.2: a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY.

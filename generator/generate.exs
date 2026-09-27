@@ -11,7 +11,11 @@
 # of SPEC.md 13.3, each <name>.proof.json in the served form of SPEC.md 3.1, with its trace,
 # <name>.trace.json, where <name> is its type, or its type, a hyphen and a variant
 # (lib/vectors.exs). The proofs are cut from two modeled chains (lib/chain.exs and
-# lib/regtest.exs) and assembled in lib/proofs.exs.
+# lib/regtest.exs) and assembled in lib/proofs.exs. Then cases.json, the offline cases of
+# SPEC.md 13.3, and under negative/ the proof and keyring files its cases need (lib/cases.exs),
+# each case stated by a class module under lib/cases/ and its expected output computed by the
+# generator's own model of the verification steps (lib/model.exs, with lib/parse.exs and
+# lib/schema.exs, and the DERIVE engine of lib/derive.exs).
 #
 # Every run makes these checks before it writes or compares anything, and a failure in any
 # writes nothing:
@@ -32,22 +36,37 @@
 #      lib/positive.exs). Across the proofs, every check runs at every position a sound proof
 #      can hold it, the proofs hold every sound shape of SPEC.md 13.3 (lib/sound.exs), and at
 #      each of those positions the check fails on a proof with one defect made in memory
-#      (lib/mutations.exs).
+#      (lib/mutations.exs), made with the edits of lib/edit.exs.
+#   3. The cases. Each case's expected output is derived again from its proof file's bytes and
+#      its configuration as cases.json holds them; the model's output is what the case says it
+#      asserts, so a single-defect case has exactly its one failing row, and a case that stops
+#      the run at steps 4 to 7, run again past that stop, fails nothing more than the knock-on
+#      failures it states; a trace a case names is the model's trace; every file under
+#      negative/ belongs to a case, in its form, and holds bytes no other file under vectors/
+#      holds; and every reason code but internal_error has a case, each bare or fail code a
+#      single-defect case, or is reported as pending: online, until the replay format is set
+#      (lib/cases/online.exs), where only a code no offline run reaches may be, or on a class
+#      module with no cases yet. The run prints each code's line.
 #
 # Then SPEC.md 6.3's worked example is read from the text and compared, value by value, with
 # worked-example.json (lib/worked_example.exs). Last, every seed the run derived a key from
-# or signed with must give a key that spec/keys.nonproduction.json lists (lib/known_answers.exs).
+# or signed with must give a key that spec/keys.nonproduction.json lists, and so must every
+# key the run built from a seed's key by point arithmetic, and every public_key and
+# previous_public_key in the files that passes SPEC.md 6.2's checks of a key's bytes, steps 2
+# to 4, whether or not the run noted it (lib/known_answers.exs).
 #
 # The generator shares no code with any verifier in this repository. It uses only Elixir,
 # :crypto and the data files under spec/, with its own JCS and its own Merkle walk, so a
 # defect in one cannot hide in both.
 
-for file <- ~w(base bitcoin regtest chain proofs vectors bitcoin_parse pointer derive
-               known_answers sound mutations spec_rows positive rederive worked_example) do
+for file <- ~w(base bitcoin regtest chain pointer edit proofs bitcoin_parse derive parse
+               schema model cases/online cases cases/sound cases/parse cases/front cases/shape
+               cases/derive vectors known_answers sound mutations spec_rows positive rederive
+               worked_example) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
-alias Generator.{Files, KnownAnswers, Rederive, Spec, Vectors, WorkedExample}
+alias Generator.{Cases, Files, KnownAnswers, Rederive, Spec, Vectors, WorkedExample}
 
 mode =
   case System.argv() do
@@ -65,17 +84,23 @@ mode =
 root = Spec.root()
 files = Vectors.files()
 
+{case_failures, coverage} = Cases.check(files)
+
 failures =
   KnownAnswers.run() ++
     Rederive.run(files) ++
+    case_failures ++
     WorkedExample.run(Spec.spec_md(), files["vectors/worked-example.json"]) ++
-    KnownAnswers.seeds()
+    KnownAnswers.seeds(files)
 
 if failures != [] do
   Enum.each(failures, &IO.puts(:stderr, "generate: " <> &1))
   IO.puts(:stderr, "generate: #{length(failures)} failed checks, so nothing was written.")
   System.halt(1)
 end
+
+# SPEC.md 13.1's check of every code: each code covered, or pending.
+Enum.each(coverage, &IO.puts/1)
 
 case mode do
   :write ->

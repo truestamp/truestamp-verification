@@ -269,10 +269,14 @@ end
 defmodule Generator.Seeds do
   @moduledoc """
   The seeds of the keys the generator uses, each 32 octets, all of them published (SPEC.md 9):
-  VECTOR_KEY's, which signs every proof, and those of the two keys that sign only blocks and
-  handovers of the first modeled chain, its genesis key G and the key H an emergency rotation
-  introduces. spec/keys.nonproduction.json lists each key as a test key, and the seed check
-  fails on a key the generator derives from a seed whose key that file does not list.
+  VECTOR_KEY's, which signs every sound proof and every other proof unless its case says
+  otherwise; those of the two keys that sign only blocks and handovers of the first modeled
+  chain, its genesis key G and the key H an emergency rotation introduces; and the other key's,
+  which signs only the proofs of the cases that call for a key other than VECTOR_KEY. The
+  mixed-order cases sign under a fifth key, the other key plus a point of order 8, built from
+  it by point arithmetic (Generator.Cases.Front). spec/keys.nonproduction.json lists each key
+  as a test key, and the seed check fails on a key the generator derives from a seed, or
+  builds from a seed's key, that that file does not list.
   """
 
   alias Generator.Keys
@@ -280,6 +284,7 @@ defmodule Generator.Seeds do
   @vector :binary.copy(<<0x42>>, 32)
   @genesis :binary.copy(<<0x41>>, 32)
   @emergency :binary.copy(<<0x43>>, 32)
+  @other :binary.copy(<<0x44>>, 32)
 
   @doc "The seed of VECTOR_KEY, 32 octets of 0x42."
   def vector, do: @vector
@@ -290,15 +295,20 @@ defmodule Generator.Seeds do
   @doc "The seed of H, 32 octets of 0x43."
   def emergency, do: @emergency
 
+  @doc "The seed of the other key, 32 octets of 0x44."
+  def other, do: @other
+
   @doc "The seed whose public key is the 32 octets `public`, or nil."
-  def of(public), do: Enum.find([@vector, @genesis, @emergency], &(Keys.public_key(&1) == public))
+  def of(public),
+    do: Enum.find([@vector, @genesis, @emergency, @other], &(Keys.public_key(&1) == public))
 end
 
 defmodule Generator.Keys do
   @moduledoc """
   Ed25519 keys and signatures (RFC 8032, pure), and the key id of SPEC.md 3.3. Each seed a key
-  is derived from, or a signature made with, is noted for the run, so that the seed check can
-  hold it to spec/keys.nonproduction.json.
+  is derived from, or a signature made with, and each key built from a seed's key by point
+  arithmetic, is noted for the run, so that the seed check can hold it to
+  spec/keys.nonproduction.json.
   """
 
   alias Generator.{Bytes, Registry}
@@ -320,6 +330,21 @@ defmodule Generator.Keys do
   def seeds_used, do: Process.get({__MODULE__, :seeds}, MapSet.new())
 
   defp note(seed), do: Process.put({__MODULE__, :seeds}, MapSet.put(seeds_used(), seed))
+
+  @doc """
+  Notes `public`, a key built from the key of `seed` by point arithmetic rather than derived
+  from a seed, such as that key plus a point of small order, under which anyone holding the
+  seed can sign; gives `public`. The seed check holds it to spec/keys.nonproduction.json as it
+  does a derived key.
+  """
+  def built(public, seed) do
+    note(seed)
+    Process.put({__MODULE__, :built}, Map.put(keys_built(), public, seed))
+    public
+  end
+
+  @doc "Every key this run has built from a seed's key, with that seed (built/2)."
+  def keys_built, do: Process.get({__MODULE__, :built}, %{})
 
   @doc "Whether `signature` verifies under `public` over `message`."
   def verify?(public, message, signature),
