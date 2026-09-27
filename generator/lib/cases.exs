@@ -17,7 +17,8 @@ defmodule Generator.Case do
   - `keyring`: `"test"` unless given; `"none"` (keyless mode); `nil`, for no keyring option;
     `{:value, keyring}` writes `negative/<id>.keyring.json` in the canonical form of SPEC.md 9;
     `{:bytes, bytes}` writes those bytes there as they are; `{:path, path}` names a keyring
-    file another case has. `"unavailable"` is online, and waits for the online cases.
+    file another case has. `"unavailable"` is online, under `prod`: no keyring option, with
+    the replay failing the keyring read at www.truestamp.com (SPEC.md 13.2).
   - `networks`: the pins of pins/0 unless given, in the form `{"commitment": {chain: network},
     "entropy": {chain: network}}`.
   - `expected_hash`: the caller's hash, or nil for none.
@@ -51,6 +52,19 @@ defmodule Generator.Case do
   - `present`: rows, each `{status, code, part, step}`, that must be among the report's rows
     whatever the defect, for a row SPEC.md names beside the one that fails (D62's passing
     LINK_HEAD at a genesis witness block whose `height` is declared wrong).
+  - `replay`, for an online case: `{:value, replay}` writes `corpus/replay/<id>.json`, the
+    replay file of SPEC.md 13.2, in the canonical form of SPEC.md 9; `{:path, path}` names
+    one another case has. The case's `config` then has `online`, its path.
+  - `no_source`, for the one online case whose point is a network with no source (SPEC.md
+    13.2): that network, `{chain, network}`, which the case pins and whose identity read its
+    replay does not hold. Every other online case's replay holds the identity read of each
+    network it pins.
+  - `edges`, for an online case that gives a report: `{submitted_after, submitted_before}`,
+    each nil or `{basis, instant}`, stated by hand, which the report's edges must equal
+    (SPEC.md 13.1).
+  - `online_rows`, for an online case that gives a report: every row of CHAIN, SOURCES and
+    WINDOW that does not pass, each `{status, code, part, step}`, in order, stated by hand,
+    which the report's must equal.
 
   Every proof in the vectors is marked `test` and signed by VECTOR_KEY unless its case says
   otherwise (SPEC.md 13.2): sign/2 signs with VECTOR_KEY unless given another seed of
@@ -70,6 +84,10 @@ defmodule Generator.Case do
     :trace,
     :same_as,
     :class,
+    :replay,
+    :edges,
+    :online_rows,
+    :no_source,
     present: [],
     knock_on: [],
     environment: "test",
@@ -142,6 +160,11 @@ defmodule Generator.Case do
 
   def keyring_member(%__MODULE__{keyring: keyring}), do: keyring
 
+  @doc "The path under vectors/ of the case's replay file, or nil for an offline case."
+  def replay_path(%__MODULE__{replay: {:path, path}}), do: path
+  def replay_path(%__MODULE__{replay: {:value, _replay}, id: id}), do: "corpus/replay/#{id}.json"
+  def replay_path(%__MODULE__{replay: nil}), do: nil
+
   @doc "Whether the case is a single-defect case (SPEC.md 13.1's check of every code)."
   def single_defect?(%__MODULE__{defect: defect}),
     do: elem(defect, 0) in [:bare, :fail]
@@ -155,9 +178,7 @@ defmodule Generator.Cases.Class do
   - cases/1 takes the context of Generator.Cases.context/1 and gives its cases
     (Generator.Case), in the order they take in vectors/cases.json.
   - codes/0 gives the reason codes its classes cover, each with a case, and each code whose
-    status is bare or fail with a single-defect case (SPEC.md 13.1). While cases/1 gives no
-    case, the check of every code reports these codes as pending on the module rather than
-    failing.
+    status is bare or fail with a single-defect case (SPEC.md 13.1).
   """
 
   @callback cases(map()) :: [struct()]
@@ -177,42 +198,53 @@ defmodule Generator.Cases do
     (SPEC.md 13.2). A case's members, in JCS order, are
     `config`, `expected`, `id` and `proof`. `config` holds `environment`, `expected_hash` when
     the case gives one, `keyring` unless the case asks for neither a keyring nor keyless mode,
-    and `networks`, `{"commitment": {chain: network}, "entropy": {chain: network}}`; no case
-    here is online. `expected` holds, for a bare rejection, `code`, and `sub_reason` when the
-    code has one; otherwise the report's `label`, its `rows`, each `[code, part, status,
-    step]` in the order of SPEC.md 10.2, passes and skips included, and for a sound proof and
-    its reformatted copies `trace`, the path of the trace file. Every path is relative to
-    vectors/.
+    `networks`, `{"commitment": {chain: network}, "entropy": {chain: network}}`, and for an
+    online case `online`, the path of its replay file. `expected` holds, for a bare rejection,
+    `code`, and `sub_reason` when the code has one; otherwise the report's `label`, its
+    `rows`, each `[code, part, status, step]` in the order of SPEC.md 10.2, passes and skips
+    included, for a sound proof and its reformatted copies `trace`, the path of the trace
+    file, and for an online case `submitted_after` and `submitted_before`, each null or
+    `{basis, instant}`. Every path is relative to vectors/.
   - under `negative/`, `<id>.proof.json`, the proof file of a case that does not name one
     already written, and `<id>.keyring.json`, the keyring file a case supplies. A proof file
     is in the served form of SPEC.md 3.1, and a keyring file in the canonical form, unless the
     case concerns the file's bytes: a defect, a reformatting or a size. A proof file's name
     says what a verifier is given, a file offered as a proof, and not that it parses, so a file
     that is not UTF-8, not one JSON text or over MAX_READ_OCTETS keeps the same name.
+  - under `corpus/replay/`, `<id>.json`, the replay file of an online case that does not name
+    one already written, in the canonical form (Generator.Replay).
 
   The checks, from the files about to be written: cases.json reads back to the ids and
   configurations the modules state; each case's expected output, derived again from its proof
-  file's bytes and its configuration as cases.json holds them, equals the case's `expected`;
-  the model's output is what the case says it asserts (Generator.Case), so a single-defect
-  case has exactly its one failing row; a case whose run stops at steps 4 to 7, where a
-  failure ends the run, whatever the form of its defect, is run again past that stop as if its
-  check had passed (Generator.Model.past/3), and the rows that fail beyond the run's own are
-  exactly its knock-on failures and, for a precedence case, the defect it states behind the
-  first, so no second defect hides behind a stop; a trace named is the model's trace; every
-  file under negative/ belongs to a case, is in its form and holds bytes no other file under
-  vectors/ holds, so a case that needs another's file names it; and every reason code but
-  `internal_error` has a case, each code whose status is bare or fail a single-defect case
-  (SPEC.md 13.1), reported per code as covered, or pending: online, where only an online case
-  can give it (Generator.Cases.Online), or on a class module that has no cases yet. A code the
-  online list names must be one only an online run reaches: no offline case gives it, and it
-  is a code of CHAIN, SOURCES or WINDOW alone, or `keyring_unavailable`, whose keyring read is
-  online.
+  file's bytes and its configuration as cases.json holds them, with its replay file for an
+  online case, equals the case's `expected`; the model's output is what the case says it
+  asserts (Generator.Case), so a single-defect case has exactly its one failing row, and an
+  online case has the edges and the rows of CHAIN, SOURCES and WINDOW it states; a case whose
+  run stops at steps 4 to 7, where a failure ends the run, whatever the form of its defect, is
+  run again past that stop as if its check had passed (Generator.Model.past/3), and the rows
+  that fail beyond the run's own are exactly its knock-on failures and, for a precedence case,
+  the defect it states behind the first, so no second defect hides behind a stop; a trace
+  named is the model's trace; every file under negative/ and corpus/replay/ belongs to a case,
+  is in its form and holds bytes no other file under vectors/ holds, so a case that needs
+  another's file names it; an online case's replay holds the identity read of every Stellar
+  and Bitcoin network the case pins, but for the one case whose `no_source` names regtest,
+  whose replay lacks that read; an online case that is the bare rejection
+  `configuration_error` has exactly one identity read step 0 refuses, every pinned network's
+  read made; and every reason code but `internal_error` has a case, each code whose status is
+  bare or fail a single-defect case (SPEC.md 13.1), reported per code, and a code that lacks
+  either fails the check. A code the online class names (Generator.Cases.Online) must be one
+  only an online run reaches: no offline case gives it, and it is a code of CHAIN, SOURCES or
+  WINDOW alone, or `keyring_unavailable`, whose keyring read is online.
   """
 
   import Generator.Check
 
   alias Generator.{Case, FileForm, JCS, Model, Spec}
-  alias Generator.Cases.Online
+  alias Generator.Model.Online, as: OnlineModel
+
+  # The class module of the online cases, whose codes only an online run reaches. It is loaded
+  # after this module, which calls it only as one of its class modules.
+  @online Generator.Cases.Online
 
   # The class modules, in the order of their classes in SPEC.md 13.3.
   @classes [
@@ -220,7 +252,8 @@ defmodule Generator.Cases do
     Generator.Cases.Parse,
     Generator.Cases.Front,
     Generator.Cases.Shape,
-    Generator.Cases.Derive
+    Generator.Cases.Derive,
+    @online
   ]
 
   @config_members ~w(environment expected_hash keyring networks online)
@@ -271,23 +304,34 @@ defmodule Generator.Cases do
     Map.put(negative, "vectors/cases.json", FileForm.encode(cases))
   end
 
-  defp negative_files(definition) do
-    proof =
-      case definition.proof do
-        {:served, envelope} -> [{Case.proof_path(definition), Case.served(envelope)}]
-        {:bytes, bytes} -> [{Case.proof_path(definition), bytes}]
-        {:path, _path} -> []
-      end
+  defp negative_files(definition),
+    do: for({path, _form, bytes} <- owned(definition), do: {"vectors/" <> path, bytes})
 
-    keyring =
-      case definition.keyring do
-        {:value, keyring} -> [{Case.keyring_member(definition), FileForm.encode(keyring)}]
-        {:bytes, bytes} -> [{Case.keyring_member(definition), bytes}]
-        _named -> []
-      end
+  # The files the case's definition writes, each `{path, form, bytes}` with its path under
+  # vectors/, and its form: `:served`, `:canonical`, or `:bytes` for a file given as bytes.
+  defp owned(definition),
+    do: proof_file(definition) ++ keyring_file(definition) ++ replay_file(definition)
 
-    for {path, bytes} <- proof ++ keyring, do: {"vectors/" <> path, bytes}
-  end
+  defp proof_file(%{proof: {:served, envelope}} = definition),
+    do: [{Case.proof_path(definition), :served, Case.served(envelope)}]
+
+  defp proof_file(%{proof: {:bytes, bytes}} = definition),
+    do: [{Case.proof_path(definition), :bytes, bytes}]
+
+  defp proof_file(_named), do: []
+
+  defp keyring_file(%{keyring: {:value, keyring}} = definition),
+    do: [{Case.keyring_member(definition), :canonical, FileForm.encode(keyring)}]
+
+  defp keyring_file(%{keyring: {:bytes, bytes}} = definition),
+    do: [{Case.keyring_member(definition), :bytes, bytes}]
+
+  defp keyring_file(_named_or_none), do: []
+
+  defp replay_file(%{replay: {:value, replay}} = definition),
+    do: [{Case.replay_path(definition), :canonical, FileForm.encode(replay)}]
+
+  defp replay_file(_named_or_none), do: []
 
   defp json(definition, files) do
     config = config(definition)
@@ -312,7 +356,8 @@ defmodule Generator.Cases do
       {"environment", definition.environment},
       {"expected_hash", definition.expected_hash},
       {"keyring", Case.keyring_member(definition)},
-      {"networks", definition.networks}
+      {"networks", definition.networks},
+      {"online", Case.replay_path(definition)}
     ]
     |> Enum.reject(fn {_name, value} -> value == nil end)
     |> Map.new()
@@ -339,6 +384,11 @@ defmodule Generator.Cases do
 
     {coverage_failures, report} = coverage(for {d, output, _failures} <- results, do: {d, output})
 
+    online =
+      for definition <- definitions,
+          definition.replay != nil,
+          do: {definition.no_source, Map.get(by_id, definition.id, %{})}
+
     failures =
       List.flatten([
         expect(
@@ -347,10 +397,18 @@ defmodule Generator.Cases do
           Enum.map(definitions, & &1.id)
         ),
         ids(definitions),
+        for(
+          class <- @classes,
+          not Enum.any?(definitions, &(&1.class == class)),
+          do: "#{inspect(class)} states no case"
+        ),
         Enum.map(results, &elem(&1, 2)),
         negative(files, definitions),
-        replay_sources(cases, files),
+        replay_sources(online, files),
         replay_sources_self_test(files),
+        configuration_identities(online, files),
+        configuration_identities_self_test(online, files),
+        replay_reads_self_test(by_id, files),
         coverage_failures
       ])
 
@@ -359,52 +417,71 @@ defmodule Generator.Cases do
 
   # SPEC.md 13.2: an online case's replay holds the identity read of every Stellar and Bitcoin
   # network the case pins, as a commitment pin or an entropy pin, so no verifier falls back on
-  # a compiled-in default source that another verifier lacks. The one exception is a case
-  # whose point is a network with no source, regtest, whose expected output is then the bare
-  # rejection configuration_error.
-  defp replay_sources(cases, files) do
-    cases
-    |> Enum.filter(&match?(%{"config" => %{"online" => _path}}, &1))
-    |> Enum.flat_map(&replay_source(&1, files))
-  end
+  # a compiled-in default source that another verifier lacks. The one exception is the case
+  # whose point is a network with no source, which names that network with `no_source`: it is
+  # regtest, the one network with no default source (SPEC.md 9), the case pins it, its replay
+  # does not hold its identity read, and the case is the bare rejection configuration_error.
+  # Each online case is `{no_source, json}`, `json` its case in cases.json.
+  defp replay_sources(online, files),
+    do: online |> Enum.map(&replay_source(&1, files)) |> List.flatten()
 
-  defp replay_source(%{"id" => id, "config" => %{"online" => online}} = json, files) do
-    case Map.fetch(files, "vectors/" <> online) do
+  defp replay_source({no_source, %{"id" => id, "config" => %{"online" => path}} = json}, files) do
+    case Map.fetch(files, "vectors/" <> path) do
       {:ok, bytes} ->
-        for {chain, network} <- missing_identities(json, JSON.decode!(bytes)),
-            do:
-              "case #{id}: its replay holds no identity read of #{chain} #{network}, which it pins"
+        held = held_identities(JSON.decode!(bytes))
+        pinned = pinned_networks(json)
+
+        missing =
+          for {chain, network} = source <- pinned, source not in held, source != no_source do
+            "case #{id}: its replay holds no identity read of #{chain} #{network}, which it pins"
+          end
+
+        [missing, no_source(id, no_source, {pinned, held}, json["expected"])]
 
       :error ->
-        ["case #{id}: its replay #{online} is no file the generator writes"]
+        ["case #{id}: its replay #{path} is no file the generator writes"]
     end
   end
 
-  # Each Stellar and Bitcoin network the case pins whose identity read its replay, `replay`,
-  # does not hold, but for a network with no source that is the case's point.
-  defp missing_identities(%{"config" => config} = json, replay) do
-    held =
-      for %{"read" => %{"kind" => kind, "network" => network}} <- replay["reads"] || [],
-          kind in ~w(bitcoin_identity stellar_identity),
-          do: {String.replace_suffix(kind, "_identity", ""), network}
+  # A case whose cases.json entry has no replay: its config check reports it.
+  defp replay_source(_case, _files), do: []
 
+  # Each Stellar and Bitcoin network, `{chain, network}`, whose identity read `replay` holds.
+  defp held_identities(replay) do
+    for %{"read" => %{"kind" => kind, "network" => network}} <- replay["reads"] || [],
+        kind in ~w(bitcoin_identity stellar_identity),
+        do: {String.replace_suffix(kind, "_identity", ""), network}
+  end
+
+  # Each Stellar and Bitcoin network the case pins, as a commitment pin or an entropy pin.
+  defp pinned_networks(%{"config" => config}) do
     for {_pin, by_chain} <- config["networks"] || %{},
         {chain, network} <- by_chain,
         chain in ~w(bitcoin stellar),
-        {chain, network} not in held,
-        not no_source?(network, json),
         uniq: true,
         do: {chain, network}
   end
 
-  defp no_source?("regtest", %{"expected" => %{"code" => "configuration_error"}}), do: true
-  defp no_source?(_network, _json), do: false
+  defp no_source(_id, nil, _networks, _expected), do: []
+
+  defp no_source(id, {chain, network} = source, {pinned, held}, expected) do
+    label = "case #{id}: its point is #{chain} #{network} with no source"
+
+    [
+      truth("#{label}, but only regtest has no default source (SPEC.md 9)", network == "regtest"),
+      truth("#{label}, but it does not pin that network", source in pinned),
+      truth("#{label}, but its replay holds that network's identity read", source not in held),
+      expect("#{label}: its expected output", expected, %{"code" => "configuration_error"})
+    ]
+  end
 
   # replay_sources/2 against cases made in memory, each pinning regtest and testnet, with a
-  # replay of the identity reads of both: it passes a case whose replay holds each, and one
-  # whose point is regtest with no source, and refuses a case whose replay lacks the identity
-  # read of Stellar testnet, which has sources, even when that case expects
-  # configuration_error, and a case that lacks regtest's but expects something else.
+  # replay of the identity reads of both: it passes a case whose replay holds each, and a case
+  # whose `no_source` is regtest and whose replay lacks regtest's read; it refuses a replay
+  # without the identity read of Stellar testnet, which has sources, even in that case; a
+  # replay without regtest's in a case whose `no_source` does not name it, even when the case
+  # expects configuration_error; and a case whose `no_source` is regtest but whose replay holds
+  # regtest's read, or whose expected output is not configuration_error.
   defp replay_sources_self_test(files) do
     reads = [
       %{
@@ -418,46 +495,179 @@ defmodule Generator.Cases do
     ]
 
     path = "corpus/replay/self-test.json"
+    all = FileForm.encode(%{"reads" => reads})
 
     without = fn kind ->
       FileForm.encode(%{"reads" => Enum.reject(reads, &(&1["read"]["kind"] == kind))})
     end
 
-    run = fn expected, replay ->
+    run = fn no_source, expected, replay ->
       json = %{
         "config" => %{"networks" => Case.pins(), "online" => path},
         "expected" => expected,
         "id" => "self-test"
       }
 
-      replay_sources([json], Map.put(files, "vectors/" <> path, replay))
+      replay_sources([{no_source, json}], Map.put(files, "vectors/" <> path, replay))
     end
 
     report = %{"label" => "verified", "rows" => []}
     bare = %{"code" => "configuration_error"}
+    regtest = {"bitcoin", "regtest"}
 
     [
       expect(
         "the replay check, on a replay that holds each pinned network's identity read",
-        run.(report, FileForm.encode(%{"reads" => reads})),
+        run.(nil, report, all),
         []
       ),
       expect(
-        "the replay check, on a case whose point is regtest with no source",
-        run.(bare, without.("bitcoin_identity")),
+        "the replay check, on the case whose point is regtest with no source",
+        run.(regtest, bare, without.("bitcoin_identity")),
         []
       ),
       truth(
         "the replay check refuses a replay without the identity read of Stellar testnet",
-        run.(report, without.("stellar_identity")) != [] and
-          run.(bare, without.("stellar_identity")) != []
+        run.(nil, report, without.("stellar_identity")) != [] and
+          run.(regtest, bare, without.("stellar_identity")) != []
       ),
       truth(
         "the replay check refuses a replay without the identity read of regtest in a case " <>
-          "that does not expect configuration_error",
-        run.(report, without.("bitcoin_identity")) != []
+          "whose no_source does not name regtest, even one that expects configuration_error",
+        run.(nil, report, without.("bitcoin_identity")) != [] and
+          run.(nil, bare, without.("bitcoin_identity")) != []
+      ),
+      truth(
+        "the replay check refuses a case whose no_source is regtest when its replay holds " <>
+          "regtest's identity read, or when it expects a report",
+        run.(regtest, bare, all) != [] and
+          run.(regtest, report, without.("bitcoin_identity")) != []
       )
     ]
+  end
+
+  # SPEC.md 13.3's online CONFIGURATION cases are single-defect: of the identity reads of the
+  # networks such a case pins, each one made whatever the others give, step 0 refuses exactly
+  # one (Generator.Model.Online.bad_identities/1), a value it forbids or, for the case whose
+  # `no_source` names it, regtest with no source.
+  defp configuration_identities(online, files) do
+    for {no_source, %{"config" => %{"online" => _path} = config, "id" => id} = json} <- online,
+        json["expected"] == %{"code" => "configuration_error"},
+        refused = OnlineModel.bad_identities(OnlineModel.replay(config, files)),
+        label = "case #{id}: the identity reads step 0 refuses",
+        failure <-
+          if(no_source,
+            do: expect(label, refused, [no_source]),
+            else: expect("#{label}, how many", length(refused), 1)
+          ),
+        do: failure
+  end
+
+  # configuration_identities/2 against copies of two online CONFIGURATION cases, each with a
+  # second defect made in its replay: the case of a Stellar testnet source that gives the
+  # production passphrase, with regtest's identity read dropped as well, and the case of
+  # regtest with no source, with the Stellar testnet source giving the production passphrase
+  # as well. Each is refused, and each case as it is passes.
+  defp configuration_identities_self_test(online, files) do
+    by_id = Map.new(online, fn {_no_source, json} = pair -> {json["id"], pair} end)
+
+    for {id, second} <- [
+          {"configuration-online-testnet-production_passphrase", :drop_regtest},
+          {"configuration-online-no_source-regtest", :production_passphrase}
+        ],
+        do: one_refusal_self_test(id, Map.get(by_id, id), second, files)
+  end
+
+  defp one_refusal_self_test(id, nil, _second, _files),
+    do: ["cases.json has no online case #{id} for the one-refusal self-test"]
+
+  defp one_refusal_self_test(id, {_no_source, json} = pair, second, files) do
+    path = "vectors/" <> json["config"]["online"]
+    %{"reads" => reads} = JSON.decode!(Map.fetch!(files, path))
+    twice = FileForm.encode(%{"reads" => Enum.flat_map(reads, &second_defect(&1, second))})
+
+    [
+      expect(
+        "the one-refusal check, on #{id} as it is",
+        configuration_identities([pair], files),
+        []
+      ),
+      truth(
+        "the one-refusal check refuses #{id} with a second defect, #{second}",
+        configuration_identities([pair], Map.put(files, path, twice)) != []
+      )
+    ]
+  end
+
+  # A replay record with a second step-0 defect made in it: regtest's identity read dropped, or
+  # the Stellar testnet source giving the production passphrase.
+  defp second_defect(%{"read" => %{"kind" => "bitcoin_identity"}}, :drop_regtest), do: []
+
+  defp second_defect(
+         %{"read" => %{"kind" => "stellar_identity"}} = record,
+         :production_passphrase
+       ) do
+    {_network, _field, production} = OnlineModel.production("stellar")
+    [put_in(record, ["answer", "value", "network_passphrase"], production)]
+  end
+
+  defp second_defect(record, _second), do: [record]
+
+  # A case cannot be built when its run makes a read its replay does not hold (SPEC.md 13.2).
+  # The replay of `window-established`, the sound item online with every read found, less one
+  # read the run makes, the ledger whose close time is its submitted-before edge, makes the
+  # model raise, and so does that replay less the identity read of Stellar testnet, a network
+  # with default sources; less the identity read of regtest, which has none, the run is the
+  # bare rejection configuration_error; and the replay as it is gives the case's output.
+  defp replay_reads_self_test(by_id, files) do
+    case Map.fetch(by_id, "window-established") do
+      {:ok, %{"config" => %{"online" => path} = config, "proof" => proof}} ->
+        bytes = Map.fetch!(files, "vectors/" <> proof)
+        %{"reads" => reads} = JSON.decode!(Map.fetch!(files, "vectors/" <> path))
+
+        run = fn drop ->
+          replay = FileForm.encode(%{"reads" => Enum.reject(reads, &drop.(&1["read"]))})
+
+          try do
+            Model.run(bytes, config, Map.put(files, "vectors/" <> path, replay))
+          rescue
+            error in ArgumentError -> {:raised, Exception.message(error)}
+          end
+        end
+
+        [
+          expect(
+            "the model, on window-established's replay as it is",
+            Model.expected(run.(fn _read -> false end)),
+            by_id["window-established"]["expected"]
+          ),
+          truth(
+            "the model refuses a replay without a read the run makes",
+            match?(
+              {:raised, "corpus/replay/window-established.json holds no answer" <> _rest},
+              run.(
+                &(&1 == %{
+                    "kind" => "stellar_ledger",
+                    "network" => "testnet",
+                    "sequence" => 1_000_255
+                  })
+              )
+            )
+          ),
+          truth(
+            "the model refuses a replay without the identity read of Stellar testnet",
+            match?({:raised, _message}, run.(&(&1["kind"] == "stellar_identity")))
+          ),
+          expect(
+            "the model, on a replay without the identity read of regtest",
+            run.(&(&1["kind"] == "bitcoin_identity")),
+            {:bare, "configuration_error", nil}
+          )
+        ]
+
+      _missing ->
+        ["cases.json has no online case window-established for the replay self-test"]
+    end
   end
 
   # The case's output, derived again from its proof file's bytes and its configuration as
@@ -509,7 +719,8 @@ defmodule Generator.Cases do
         ),
         defect(label, definition.defect, output),
         past(label, definition, {json, output}, files),
-        report_checks(label, definition, output, {files, by_id})
+        report_checks(label, definition, output, {files, by_id}),
+        online(label, definition, output)
       ]
     end
   end
@@ -613,11 +824,65 @@ defmodule Generator.Cases do
           label: definition.label,
           trace: definition.trace,
           same_as: definition.same_as,
-          present: if(definition.present != [], do: definition.present)
+          present: if(definition.present != [], do: definition.present),
+          edges: definition.edges,
+          online_rows: definition.online_rows
         ],
         value != nil,
         do: "#{label}: #{option} is given for a bare rejection"
   end
+
+  # An online case that gives a report: the edges it states and every row of CHAIN, SOURCES
+  # and WINDOW that does not pass, against the model's (SPEC.md 13.1). An offline case states
+  # neither.
+  defp online(label, %{replay: nil} = definition, _output) do
+    for {option, value} <- [
+          edges: definition.edges,
+          online_rows: definition.online_rows,
+          no_source: definition.no_source
+        ],
+        value != nil,
+        do: "#{label}: #{option} is given for an offline case"
+  end
+
+  defp online(label, definition, {:report, report}) do
+    stated =
+      for {status, code, part, step} <- definition.online_rows || [],
+          do: [code, part, status, step]
+
+    unsettled =
+      for row <- report.rows,
+          row.step in @online_steps,
+          row.status != "pass",
+          do: Model.compared(row)
+
+    [
+      truth(
+        "#{label}: it states its edges and its online rows",
+        definition.edges != nil and definition.online_rows != nil
+      ),
+      expect(
+        "#{label}: its edges",
+        {Model.edge(report.submitted_after), Model.edge(report.submitted_before)},
+        stated_edges(definition.edges)
+      ),
+      expect(
+        "#{label}: its rows of CHAIN, SOURCES and WINDOW that do not pass",
+        unsettled,
+        stated
+      )
+    ]
+  end
+
+  defp online(_label, _definition, _bare), do: []
+
+  defp stated_edges({submitted_after, submitted_before}),
+    do: {stated_edge(submitted_after), stated_edge(submitted_before)}
+
+  defp stated_edges(nil), do: nil
+
+  defp stated_edge(nil), do: nil
+  defp stated_edge({basis, instant}), do: %{"basis" => basis, "instant" => instant}
 
   defp same_as(_label, %{same_as: nil}, _report, _by_id), do: []
 
@@ -679,15 +944,16 @@ defmodule Generator.Cases do
 
   defp same(label, actual, expected), do: expect(label, actual, expected)
 
-  # Every file under negative/ is a case's, in its form: a served proof is JCS(envelope), and a
-  # keyring value is in the canonical form. A file given as bytes keeps them. And no two files
-  # under vectors/ hold the same bytes when one of them is under negative/: a case that needs a
-  # file another has names it, and an edit that changes nothing gives a sound proof's bytes.
+  # Every file under negative/ and corpus/replay/ is a case's, in its form: a served proof is
+  # JCS(envelope), and a keyring or a replay value is in the canonical form. A file given as
+  # bytes keeps them. And no two files under vectors/ hold the same bytes when one of them is
+  # a case's: a case that needs a file another has names it, and an edit that changes nothing
+  # gives a sound proof's bytes.
   defp negative(files, definitions) do
     owned = Map.new(Enum.flat_map(definitions, &forms/1))
 
     forms =
-      for {"vectors/negative/" <> _name = path, bytes} <- files do
+      for {path, bytes} <- files, owned?(path) do
         case Map.get(owned, path) do
           nil -> "#{path} belongs to no case"
           :served -> form(path, bytes, &JCS.encode/1)
@@ -701,28 +967,19 @@ defmodule Generator.Cases do
 
   defp duplicates(files) do
     for {_bytes, [_, _ | _] = paths} <- Enum.group_by(files, &elem(&1, 1), &elem(&1, 0)),
-        Enum.any?(paths, &String.starts_with?(&1, "vectors/negative/")) do
+        Enum.any?(paths, &owned?/1) do
       "#{Enum.join(Enum.sort(paths), " and ")} hold the same bytes"
     end
   end
 
-  defp forms(definition) do
-    proof =
-      case definition.proof do
-        {:served, _envelope} -> [{Case.proof_path(definition), :served}]
-        {:bytes, _bytes} -> [{Case.proof_path(definition), :bytes}]
-        {:path, _path} -> []
-      end
+  # A file that only a case's definition writes.
+  defp owned?(path),
+    do:
+      String.starts_with?(path, "vectors/negative/") or
+        String.starts_with?(path, "vectors/corpus/replay/")
 
-    keyring =
-      case definition.keyring do
-        {:value, _keyring} -> [{Case.keyring_member(definition), :canonical}]
-        {:bytes, _bytes} -> [{Case.keyring_member(definition), :bytes}]
-        _named -> []
-      end
-
-    for {path, form} <- proof ++ keyring, do: {"vectors/" <> path, form}
-  end
+  defp forms(definition),
+    do: for({path, form, _bytes} <- owned(definition), do: {"vectors/" <> path, form})
 
   defp form(path, bytes, encode) do
     if String.valid?(bytes),
@@ -738,46 +995,41 @@ defmodule Generator.Cases do
     statuses = Map.new(table, &{&1["code"], &1["status"]})
     given = given(results)
     single = for {d, _output} <- results, Case.single_defect?(d), do: defect_code(d.defect)
-    pending = pending(results)
-    owners = Enum.flat_map(@classes, & &1.codes()) ++ Online.codes()
+    owners = Enum.flat_map(@classes, & &1.codes())
 
     lines =
       for code <- codes do
         count = Enum.count(given, &(&1 == code))
         needs_single = statuses[code] in ~w(bare fail)
-        state(code, count, needs_single and code not in single, pending)
+        state(code, count, needs_single and code not in single)
       end
 
     failures =
       [
         expect(
-          "the codes the class modules and the online list cover",
+          "the codes the class modules cover",
           Enum.sort(Enum.uniq(owners)),
           Enum.sort(codes)
         ),
         expect("codes named by more than one owner", Enum.sort(owners -- Enum.uniq(owners)), []),
-        for code <- Online.codes(),
-            not Enum.any?(Online.pending(), fn {_class, _config, _proof, expected} ->
-              expected =~ code
-            end) do
-          "cases: #{code} is pending online, but no pending online case gives it"
-        end,
-        online_only(given, table),
+        online_only(given(for {d, output} <- results, d.replay == nil, do: {d, output}), table),
         for({:missing, line} <- lines, do: line)
       ]
 
     {failures, for({_state, line} <- lines, do: line)}
   end
 
-  # Each code the online list names is one only an online run reaches: no offline case gives
-  # it, and every case here is offline; and it is a code only an online run gives.
-  defp online_only(given, table) do
+  # Each code the online class names is one only an online run reaches: no offline case gives
+  # it, and it is a code only an online run gives.
+  defp online_only(offline, table) do
+    codes = Enum.flat_map([@online], & &1.codes())
+
     [
-      for code <- Online.codes(), code in given do
-        "cases: #{code} is in the online list, but an offline case gives it"
+      for code <- codes, code in offline do
+        "cases: #{code} is the online class's, but an offline case gives it"
       end,
-      for code <- Online.codes(), not online_only?(code, table) do
-        "cases: #{code} is in the online list, but an offline run can reach it"
+      for code <- codes, not online_only?(code, table) do
+        "cases: #{code} is the online class's, but an offline run can reach it"
       end
     ]
   end
@@ -809,33 +1061,13 @@ defmodule Generator.Cases do
   defp defect_code({:bare, code, _sub}), do: code
   defp defect_code({:fail, code, _part, _step}), do: code
 
-  # Each code a class module with no cases yet owns, with that module.
-  defp pending(results) do
-    filled = results |> Enum.map(fn {d, _output} -> d.class end) |> Enum.uniq()
-
-    for class <- @classes,
-        class not in filled,
-        code <- class.codes(),
-        into: %{},
-        do: {code, class}
-  end
-
-  defp state(code, count, lacks_single, pending) do
+  # A code with no case, or with a status of bare or fail and no single-defect case, fails the
+  # check, whichever class module owns it.
+  defp state(code, count, lacks_single) do
     cond do
-      count > 0 and not lacks_single ->
-        {:covered, "cases: #{code}: covered, in #{count} cases"}
-
-      code in Online.codes() ->
-        {:online, "cases: #{code}: pending online, until its online cases are written"}
-
-      Map.has_key?(pending, code) ->
-        {:class, "cases: #{code}: pending, #{inspect(pending[code])} has no cases yet"}
-
-      count > 0 ->
-        {:missing, "cases: #{code} has no single-defect case"}
-
-      true ->
-        {:missing, "cases: #{code} has no case"}
+      count == 0 -> {:missing, "cases: #{code} has no case"}
+      lacks_single -> {:missing, "cases: #{code} has no single-defect case"}
+      true -> {:covered, "cases: #{code}: covered, in #{count} cases"}
     end
   end
 end

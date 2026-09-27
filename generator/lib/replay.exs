@@ -38,10 +38,11 @@ defmodule Generator.Replay do
     hold is not an answer: the test that runs the case fails. A verifier makes only the reads
     of SPEC.md 10.2 step 0 and 10.4, and need not make every read the file holds.
 
-  The generator writes no replay file yet. Each run builds, in memory, the replay of the sound
-  item run online under the pins every sound proof passes POLICY under (example/1), from the
-  model's sources (Generator.Replay.World), and the check holds it to the form and holds each
-  rule of the form to a mutant of it that the rule refuses.
+  The replay files are the online cases' (Generator.Cases.Online), each built from the model's
+  sources (Generator.Replay.World), and the check holds every one to the form. Each run also
+  builds, in memory, the replay of the sound item run online under the pins every sound proof
+  passes POLICY under (example/1), and holds each rule of the form to a mutant of it that the
+  rule refuses.
   """
 
   import Generator.Check

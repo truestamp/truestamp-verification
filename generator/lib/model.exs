@@ -6,37 +6,46 @@ defmodule Generator.Model do
   The expected-output model: what a conforming verifier gives for a case of
   vectors/cases.json, computed by the generator's own model of the verification steps of
   SPEC.md 10.2, shared with no verifier. It extends the DERIVE engine (Generator.Derive),
-  which gives step 9's rows, with every other step of an offline run:
+  which gives step 9's rows, with every other step:
 
   - CONFIGURATION (step 0) from the case's `config`: E_v, the network pins and the keyring
     that governs, with the load checks of step 0 on every keyring loaded; an absent `keyring`
-    under `prod` is the compiled pin, spec/keyring.production.json. An online case is not
-    modeled, and a case that asks for one raises.
+    under `prod` is the compiled pin, spec/keyring.production.json, offline, and online the
+    keyring read at www.truestamp.com, which binds no key when the read fails for any reason
+    (`keyring_unavailable`); the keyring `unavailable` is that failed read, and a case that
+    names it with a replay whose keyring read succeeds raises. An online case, whose `online`
+    names its replay file, also has step 0's identity reads (Generator.Model.Online).
   - READ and PARSE (steps 1 and 2) by the model's own reader (Generator.Parse), and ENVELOPE
     (step 3) in its order of six checks. A failure at steps 0 to 3 is a bare rejection,
     `{:bare, code, sub_reason}`.
   - ENVIRONMENT, KEY_BINDING and SIGNATURE (steps 4 to 6), the gate; SHAPE (step 7), with the
     schema interpreted by Generator.Schema; POLICY (step 8) against the case's pins; DERIVE
     (step 9), each failing row with the code SPEC.md 10.2 and 10.3 give its check.
-  - The external gate is always closed, since the case is offline: every CHAIN row, the
-    KEY_EVENT_COMMITMENT row included, and every SOURCES row is `skip prior_failure` after a
-    failed row and `skip offline` otherwise; WINDOW is `skip prior_failure` after a failed row
-    and `info window_not_established` otherwise, since an offline run draws no edge.
+  - The external gate, decided once when DERIVE ends: open when the case is online and no row
+    so far fails. Open, CHAIN, SOURCES and WINDOW are the reads of the case's replay
+    (Generator.Model.Online), and a failure at CHAIN leaves SOURCES open. Closed, every CHAIN
+    row, the KEY_EVENT_COMMITMENT row included, and every SOURCES row is `skip prior_failure`
+    after a failed row and `skip offline` otherwise, and WINDOW is `skip prior_failure` after a
+    failed row and `info window_not_established` otherwise, since no edge is drawn.
   - EXPECTED_HASH (step 13) with the case's `expected_hash`, or `skip expected_hash_not_checked`
-    without one; VERDICT (step 14) gives the label from the rows and the attribution.
+    without one; VERDICT (step 14) gives the label from the rows, the attribution and the
+    submitted-before edge, and sets both edges to null when the label is `failed`.
   - A failure at steps 4 to 7 ends the run: each later step up to EXPECTED_HASH gives one row,
     `skip prior_failure`, with part null.
 
   past/3 runs a case again with no such stop, for the check of Generator.Cases that looks past
   it: every check of steps 4 to 7 is made whatever fails before it, SHAPE gives a row for each
-  failure of each of its checks, and the steps after SHAPE run as if it had passed.
+  failure of each of its checks, and the steps after SHAPE run as if it had passed. The failure
+  it looked past keeps the external gate closed, so such a run reads nothing.
 
-  A report is `%{label, attribution, rows, trace}`, each row `%{code, part, status, step}` in
-  the order of SPEC.md 10.2, and `trace` the trace of SPEC.md 10.6 (Generator.Derive.trace/2),
-  nil when DERIVE did not run.
+  A report is `%{label, attribution, rows, trace, online, submitted_after,
+  submitted_before}`, each row `%{code, part, status, step}` in the order of SPEC.md 10.2,
+  `trace` the trace of SPEC.md 10.6 (Generator.Derive.trace/2), nil when DERIVE did not run,
+  `online` whether the case is online, and each edge nil or `%{basis, instant, part}`.
   """
 
   alias Generator.{Bytes, Derive, JCS, Keys, Parse, Pointer, Registry, Schema, Spec}
+  alias Generator.Model.Online
 
   @steps ~w(CONFIGURATION READ PARSE ENVELOPE ENVIRONMENT KEY_BINDING SIGNATURE SHAPE POLICY
             DERIVE CHAIN SOURCES WINDOW EXPECTED_HASH)
@@ -108,8 +117,21 @@ defmodule Generator.Model do
   def expected({:bare, code, nil}), do: %{"code" => code}
   def expected({:bare, code, sub_reason}), do: %{"code" => code, "sub_reason" => sub_reason}
 
-  def expected({:report, report}),
-    do: %{"label" => report.label, "rows" => Enum.map(report.rows, &compared/1)}
+  def expected({:report, report}) do
+    expected = %{"label" => report.label, "rows" => Enum.map(report.rows, &compared/1)}
+
+    if report.online,
+      do:
+        Map.merge(expected, %{
+          "submitted_after" => edge(report.submitted_after),
+          "submitted_before" => edge(report.submitted_before)
+        }),
+      else: expected
+  end
+
+  @doc "An edge as SPEC.md 13.1 compares it: nil, or its `basis` and `instant`."
+  def edge(nil), do: nil
+  def edge(%{basis: basis, instant: instant}), do: %{"basis" => basis, "instant" => instant}
 
   @doc "A row as SPEC.md 13.1 compares it: `[code, part, status, step]`."
   def compared(row), do: [row.code, row.part, row.status, row.step]
@@ -117,43 +139,66 @@ defmodule Generator.Model do
   # Step 0.
 
   defp configure(config, files) do
-    if Map.has_key?(config, "online"), do: raise(ArgumentError, "an online case is not modeled")
     ev = Map.fetch!(config, "environment")
 
     if ev not in ["prod" | Spec.read("encodings.json")["ENV"]["values"]],
       do: raise(ArgumentError, "#{inspect(ev)} is no verifier's environment (SPEC.md 6.4)")
 
-    case trust(Map.get(config, "keyring"), ev, files) do
-      {:ok, trust} ->
-        {:ok,
-         %{
-           ev: ev,
-           pins: Map.fetch!(config, "networks"),
-           trust: trust,
-           expected_hash: Map.get(config, "expected_hash")
-         }}
-
-      :error ->
-        {:bare, "configuration_error", nil}
+    with {:ok, online} <- Online.sources(Online.replay(config, files)),
+         {:ok, trust} <- trust(Map.get(config, "keyring"), ev, files, online) do
+      {:ok,
+       %{
+         ev: ev,
+         pins: Map.fetch!(config, "networks"),
+         trust: trust,
+         expected_hash: Map.get(config, "expected_hash"),
+         online: online
+       }}
+    else
+      :error -> {:bare, "configuration_error", nil}
     end
   end
 
   # The keyring that governs: keyless mode, a supplied keyring (`test` or a file's path under
-  # vectors/), or with no keyring option the compiled pin under prod, and under any other
-  # E_v nothing, which is configuration_error (SPEC.md 6.4).
-  defp trust("none", _ev, _files), do: {:ok, :keyless}
+  # vectors/), or with no keyring option under prod the compiled pin offline and the keyring
+  # read at www.truestamp.com online, and under any other E_v nothing, which is
+  # configuration_error (SPEC.md 6.4 and 8.3). The keyring `unavailable` is no keyring option
+  # under prod, online, with that read failing (SPEC.md 13.2).
+  defp trust("none", _ev, _files, _online), do: {:ok, :keyless}
 
-  defp trust("unavailable", _ev, _files),
-    do: raise(ArgumentError, "the keyring unavailable is online, and not modeled")
+  defp trust(option, "prod", _files, online)
+       when option in [nil, "unavailable"] and online != nil do
+    case Online.keyring(online) do
+      :failed -> {:ok, :unavailable}
+      {:ok, bytes} -> current(load(bytes, "prod"), option, online)
+    end
+  end
 
-  defp trust(nil, "prod", _files) do
+  defp trust("unavailable", _ev, _files, _online),
+    do: raise(ArgumentError, "the keyring unavailable is an online run under prod (SPEC.md 13.2)")
+
+  defp trust(nil, "prod", _files, nil) do
     bytes = Spec.root() |> Path.join("spec/keyring.production.json") |> File.read!()
     with {:ok, keys} <- load(bytes, "prod"), do: {:ok, {:pin, keys}}
   end
 
-  defp trust(nil, _ev, _files), do: :error
-  defp trust("test", ev, files), do: supplied(Map.fetch!(files, "vectors/keyring.test.json"), ev)
-  defp trust(path, ev, files), do: supplied(Map.fetch!(files, "vectors/" <> path), ev)
+  defp trust(nil, _ev, _files, _online), do: :error
+
+  defp trust("test", ev, files, _online),
+    do: supplied(Map.fetch!(files, "vectors/keyring.test.json"), ev)
+
+  defp trust(path, ev, files, _online), do: supplied(Map.fetch!(files, "vectors/" <> path), ev)
+
+  # The keyring read online: a keyring that fails a load check is a failed read.
+  defp current(:error, _option, _online), do: {:ok, :unavailable}
+  defp current({:ok, keys}, nil, _online), do: {:ok, {:current, keys}}
+
+  defp current({:ok, _keys}, "unavailable", online),
+    do:
+      raise(
+        ArgumentError,
+        "the keyring unavailable, but #{online.path} gives a keyring that passes the load checks"
+      )
 
   defp supplied(bytes, ev) do
     with {:ok, keys} <- load(bytes, ev) do
@@ -235,7 +280,7 @@ defmodule Generator.Model do
     ]
 
     case {Enum.split_while(gate, &(&1.status != "fail")), run.past} do
-      {{passed, [failed | _later]}, false} -> stopped(opening ++ passed ++ [failed], "none")
+      {{passed, [failed | _later]}, false} -> stopped(opening ++ passed ++ [failed], "none", run)
       _passed_or_past -> shaped(document, k, run, opening ++ gate, attribution(run.trust))
     end
   end
@@ -247,16 +292,27 @@ defmodule Generator.Model do
 
   # A run that a failure at steps 4 to 7 ended: each later step up to EXPECTED_HASH gives one
   # row, skip prior_failure, with part null.
-  defp stopped(rows, attribution) do
+  defp stopped(rows, attribution, run) do
     last = List.last(rows).step
     later = @steps |> Enum.drop_while(&(&1 != last)) |> Enum.drop(1)
     skipped = for step <- later, do: row("skip", "prior_failure", nil, step)
-    %{label: "failed", attribution: attribution, rows: rows ++ skipped, trace: nil}
+
+    %{
+      label: "failed",
+      attribution: attribution,
+      rows: rows ++ skipped,
+      trace: nil,
+      online: run.online != nil,
+      submitted_after: nil,
+      submitted_before: nil
+    }
   end
 
   defp attribution(:keyless), do: "unattributed"
   defp attribution({:supplied, digest, _keys}), do: digest
   defp attribution({:pin, _keys}), do: "truestamp"
+  defp attribution({:current, _keys}), do: "truestamp"
+  defp attribution(:unavailable), do: "none"
 
   # SPEC.md 6.4.
   defp environment(proof, "prod"),
@@ -279,10 +335,13 @@ defmodule Generator.Model do
 
   defp key_binding(_k, :keyless), do: row("skip", "key_binding_not_performed", nil, "KEY_BINDING")
 
+  defp key_binding(_k, :unavailable),
+    do: row("fail", "keyring_unavailable", nil, "KEY_BINDING")
+
   defp key_binding(k, {_kind, _digest, keys}),
     do: check(k in keys, "key_binding_failed", nil, "KEY_BINDING")
 
-  defp key_binding(k, {:pin, keys}),
+  defp key_binding(k, {_kind, keys}),
     do: check(k in keys, "key_binding_failed", nil, "KEY_BINDING")
 
   defp signature(%{"proof" => proof, "signature" => %{"value" => value}}, k) do
@@ -296,7 +355,7 @@ defmodule Generator.Model do
         derived(proof, k, run, rows ++ [row("pass", nil, nil, "SHAPE")], attribution)
 
       {[{code, part} | _later], false} ->
-        stopped(rows ++ [row("fail", code, part, "SHAPE")], attribution)
+        stopped(rows ++ [row("fail", code, part, "SHAPE")], attribution, run)
 
       {failures, true} ->
         shape = for {code, part} <- failures, do: row("fail", code, part, "SHAPE")
@@ -413,6 +472,39 @@ defmodule Generator.Model do
     derive = Derive.rows(proof, k, attribution)
     derive_rows = Enum.map(derive, &derive_row/1)
     failed = Enum.any?(rows ++ policy ++ derive_rows, &(&1.status == "fail"))
+    {reads, edges} = reads(proof, run, failed, attribution)
+    rows = rows ++ policy ++ derive_rows ++ reads ++ [expected_hash(proof, run.expected_hash)]
+    label = label(rows, attribution, edges)
+
+    # VERDICT: a report labelled failed shows no window (SPEC.md 10.2 step 14).
+    edges =
+      if label == "failed", do: %{submitted_after: nil, submitted_before: nil}, else: edges
+
+    Map.merge(edges, %{
+      label: label,
+      attribution: attribution,
+      rows: rows,
+      trace: Derive.trace(proof, derive),
+      online: run.online != nil
+    })
+  end
+
+  defp label(rows, attribution, edges) do
+    cond do
+      Enum.any?(rows, &(&1.status == "fail")) -> "failed"
+      attribution == "unattributed" -> "unattributed"
+      String.starts_with?(attribution, "keyring:") -> "supplied-keyring"
+      edges.submitted_before != nil -> "verified"
+      true -> "internally-consistent"
+    end
+  end
+
+  # Steps 10 to 12, with the external gate decided once, when DERIVE ends: open when the case
+  # is online and no row so far has failed (SPEC.md 10.2).
+  defp reads(proof, %{online: online}, false, attribution) when online != nil,
+    do: open(proof, online, attribution)
+
+  defp reads(proof, _run, failed, _attribution) do
     closed = if failed, do: "prior_failure", else: "offline"
 
     window =
@@ -420,29 +512,63 @@ defmodule Generator.Model do
         do: row("skip", "prior_failure", nil, "WINDOW"),
         else: row("info", "window_not_established", nil, "WINDOW")
 
-    rows =
-      rows ++
-        policy ++
-        derive_rows ++
-        chain(proof, closed) ++
-        sources(proof, closed) ++ [window, expected_hash(proof, run.expected_hash)]
-
-    %{
-      label: label(rows, attribution),
-      attribution: attribution,
-      rows: rows,
-      trace: Derive.trace(proof, derive)
-    }
+    {chain(proof, closed) ++ sources(proof, closed) ++ [window],
+     %{submitted_after: nil, submitted_before: nil}}
   end
 
-  defp label(rows, attribution) do
-    cond do
-      Enum.any?(rows, &(&1.status == "fail")) -> "failed"
-      attribution == "unattributed" -> "unattributed"
-      String.starts_with?(attribution, "keyring:") -> "supplied-keyring"
-      true -> "internally-consistent"
-    end
+  # The gate open: each CHAIN and SOURCES row read from the replay, in document order,
+  # KEY_EVENT_COMMITMENT from its inputs, and WINDOW from the candidates of the rows that
+  # passed (Generator.Model.Online).
+  defp open(proof, online, attribution) do
+    chain =
+      for part <- in_order(proof, entries(proof) ++ genesis_bitcoin(proof)),
+          do: {part, Online.chain(proof, part, online)}
+
+    sources =
+      for part <- in_order(proof, entropy_objects(proof)),
+          do: {part, Online.source(proof, part, online)}
+
+    chain_rows = Enum.map(chain, &read_row(&1, "CHAIN"))
+    source_rows = Enum.map(sources, &read_row(&1, "SOURCES"))
+    rows = chain_rows ++ key_event_commitment(proof, chain_rows, attribution) ++ source_rows
+    failed? = Enum.any?(rows, &(&1.status == "fail"))
+
+    {window, edges} =
+      Online.window(candidates(chain), candidates(sources), failed?, subject_id(proof))
+
+    window_rows = for {status, code, part} <- window, do: row(status, code, part, "WINDOW")
+    {rows ++ window_rows, edges}
   end
+
+  defp in_order(proof, parts), do: Enum.sort_by(parts, &Pointer.order_key(proof, &1))
+
+  defp read_row({part, {status, code, _candidate}}, step), do: row(status, code, part, step)
+
+  defp candidates(outcomes),
+    do: for({_part, {"pass", nil, candidate}} <- outcomes, candidate != nil, do: candidate)
+
+  # KEY_EVENT_COMMITMENT, the last row of CHAIN, from the CHAIN rows under
+  # /signing_key_event/commitments and, for a genesis event, that of its genesis.bitcoin
+  # (SPEC.md 10.3).
+  defp key_event_commitment(%{"signing_key_event" => _event}, chain_rows, attribution) do
+    inputs =
+      Enum.filter(chain_rows, fn row ->
+        String.starts_with?(row.part, "/signing_key_event/commitments/") or
+          row.part == "/signing_key_event/block/record/metadata/genesis/bitcoin"
+      end)
+
+    {status, code} = Online.key_event_commitment(inputs, attribution)
+    [row(status, code, "/signing_key_event", "CHAIN")]
+  end
+
+  defp key_event_commitment(_proof, _chain_rows, _attribution), do: []
+
+  # SPEC.md 10.5's `subject_id`, by its pointer: the subject's id, or /block's for a block or a
+  # beacon.
+  defp subject_id(%{"type" => type} = proof) when type in ~w(block beacon),
+    do: {"/block/record/id", Pointer.get(proof, "/block/record/id")}
+
+  defp subject_id(proof), do: {"/subject/record/id", Pointer.get(proof, "/subject/record/id")}
 
   # Step 8: every network against its pin, in document order.
   defp policy(proof, pins) do

@@ -70,11 +70,7 @@ defmodule Truestamp.Verifier.VectorsLayoutTest do
     listed = first_column("| Path under `corpus/` | Holds |")
     present = "corpus/" |> under() |> Enum.map(&top/1) |> Enum.uniq()
 
-    # replay/ holds a file for each online case, and there may be none, but its row is
-    # always there.
-    assert "replay/" in listed
-    assert Enum.sort(listed -- ["replay/"]) == Enum.sort(present -- ["replay/"])
-    assert present -- listed == []
+    assert Enum.sort(listed) == Enum.sort(present)
   end
 
   test "positive/ holds a proof and its trace for each name, the proof's type or its type and a variant" do
@@ -134,6 +130,7 @@ defmodule Truestamp.Verifier.VectorsLayoutTest do
 
     files = for file <- under("corpus/replay/"), do: "corpus/replay/" <> file
 
+    assert files != []
     assert online |> Enum.map(&elem(&1, 1)) |> Enum.uniq() |> Enum.sort() == files
     for path <- files, do: assert({Path.basename(path, ".json"), path} in online, path)
   end

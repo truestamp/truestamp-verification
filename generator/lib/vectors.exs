@@ -10,8 +10,8 @@ defmodule Generator.Vectors do
   - under `positive/`, for each sound proof, `<name>.proof.json` in the served form of SPEC.md
     3.1 and `<name>.trace.json`, its trace (SPEC.md 10.6) in the file form, where `<name>` is
     its type, or its type, a hyphen and a variant (Generator.Proofs);
-  - `cases.json`, and under `negative/` the files its cases need (Generator.Cases), which are
-    built from the files above;
+  - `cases.json`, under `negative/` the files its cases need, and under `corpus/replay/` the
+    replay file of each online case (Generator.Cases), which are built from the files above;
   - under `corpus/`, the known answers for JCS, Ed25519 and base64url (Generator.Corpus), and
     the real Bitcoin bytes under `corpus/bitcoin/` (Generator.RealBitcoin).
   """

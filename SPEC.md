@@ -1981,7 +1981,8 @@ stamps `fetched_at`.
 
 Every type of proof can have a submitted-before edge. Its candidates come from the CHAIN
 rows that passed for the top-level entries, `/commitments/stellar` and
-`/commitments/bitcoin`, and the edge is the earliest of them. The entries at
+`/commitments/bitcoin`, and the edge is the earliest of them. Of two candidates at the same
+instant, the edge is the first in the order of their rows (section 10.2). The entries at
 `/signing_key_event/commitments` never give a candidate: they tell where the signing key
 came from, not when the subject was submitted.
 
@@ -2013,7 +2014,8 @@ Item, entropy and beacon proofs can have a submitted-after edge. A block proof h
 and its report says so. The candidates come from the SOURCES rows that passed, for entropy
 objects whose `entropy_hash` the verifier recomputed and matched, and which it read again
 from their source and found equal: an item's witnesses, an entropy proof's subject, and a
-beacon's observations. The edge is the latest of them.
+beacon's observations. The edge is the latest of them. Of two candidates at the same
+instant, the edge is the first in the order of their rows (section 10.2).
 
 | Source | Candidate | `basis` | Stated assumption |
 |---|---|---|---|
@@ -2082,7 +2084,8 @@ establish it, and so can a proof of the same subject that carries a Bitcoin entr
     `nist_pulse_time_read`;
   - `cached`, `fetched_at` and `source`: whether the answer of the read that gave the edge
     came from a cache, when that read was made by the verifier's clock, and its source;
-  - `instant`: the edge, an RFC 3339 UTC time at its source's precision;
+  - `instant`: the edge, an RFC 3339 UTC time at its source's precision, written as a TIME
+    (section 2.4) for Stellar and Bitcoin and as a NISTTIME for NIST;
   - `part`: the part of the CHAIN or SOURCES row whose read gave the edge, the commitment
     entry or entropy object.
 - Every surface MUST draw the edges only from these two objects, captioned "Submitted
@@ -2204,8 +2207,10 @@ its run ended:
   one; each such case breaks one rule, so its `sub_reason` is fixed. Otherwise, the report's `label`, and its
   rows, each reduced to `(code, part, status, step)`, in order: all of them, passes and
   skips included. For an online case, also each edge's instant and basis, or the edge's
-  absence. Messages and `values` are never compared, and neither is an exit code, which
-  each command-line verifier tests itself (section 12.2).
+  absence; instants compare as instants (section 11.3), so `2026-09-26T01:48:00Z` and
+  `2026-09-26T01:48:00.000Z` are the same instant. Messages and `values` are never
+  compared, and neither is an exit code, which each command-line verifier tests itself
+  (section 12.2).
 - **Traces.** Each of Truestamp's verifiers gives its trace (section 10.6) and matches each
   sound case's trace. Another verifier MAY give one, in the same form, and then MUST match
   it. Trace rows are compared in order, each member but `inputs`.
@@ -2241,7 +2246,7 @@ holds:
 | Member | Holds |
 |---|---|
 | `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network; `online`, OPTIONAL: the path of a replay file under `corpus/replay/` |
-| `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges |
+| `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges, `submitted_after` and `submitted_before`, each null or `{basis, instant}` (section 11.5) |
 | `id` | a name unique in the file |
 | `proof` | the path of its proof |
 
@@ -2256,8 +2261,9 @@ Every path a case holds is relative to `vectors/`.
   point is a network with no source, which is regtest.
 - A case whose keyring is `unavailable` is online and runs under `prod`, on an unmarked
   proof signed by VECTOR_KEY. The verifier is given no keyring option, and the replay fails
-  its default keyring read at www.truestamp.com. For Truestamp's own verifier, `unavailable`
-  is an unverified key chain (section 13.1).
+  its default keyring read at www.truestamp.com: a failed read as section 8.3 defines it,
+  which includes a keyring that fails a load check. For Truestamp's own verifier,
+  `unavailable` is an unverified key chain (section 13.1).
 - Every proof in the vectors is marked `test` and signed by VECTOR_KEY, unless its case
   says otherwise (section 6.4).
 - There are no Merkle vectors here. The tree's known answers are the Merkle library's
@@ -2327,6 +2333,8 @@ records `{answer, read}`, no two with the same `read`, in an order that carries 
 - `network` is a network of the read's chain in `spec/networks.json`. The `<host>` of a
   keyring read's `url` is the host of the origin the keyring is read from: www.truestamp.com,
   or the origin `--base-url` names (section 10.2, step 0).
+- A keyring answered from a replay is a value with no bytes of its own, so its digest, the
+  `digest` of `trust_root` (section 10.5), is never compared (section 13.1).
 - Bitcoin hashes are in display order, and Bitcoin times are Unix seconds.
 - An online case gives a Bitcoin block's median time past only as the source's report of it,
   and a verifier under an online case takes it from the replay (section 10.4).
@@ -2523,3 +2531,14 @@ section 10 reports that check. Each class below says what its cases assert.
   passes, since the caller's value is lowercased. An md5 match and a sha1 match give
   `warn expected_hash_weak_algorithm`. A run given no hash gives
   `skip expected_hash_not_checked`.
+
+**What no shared case reaches.** Every key that signs a proof in the vectors is a test key
+of `spec/keys.nonproduction.json` (section 9), which no production keyring may hold, so no
+case is attributed to Truestamp: none gives `verified` or `internally-consistent`, and none
+gives KEY_EVENT_COMMITMENT a `pass`. Truestamp's own verifier and its CLI each test those
+outcomes online with a key of their own, which exists only inside that test.
+
+**Networks.** No online case reads a production network: each proof's chain data are those
+of the modeled Stellar `testnet` and Bitcoin `regtest` chains, and a case that pins `public`
+or `mainnet` has its replay stand as that network's source (section 13.2). Section 10.4's
+rules are the same on every network, so the online cases cover them on each.

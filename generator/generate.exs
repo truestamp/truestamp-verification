@@ -11,13 +11,15 @@
 # of SPEC.md 13.3, each <name>.proof.json in the served form of SPEC.md 3.1, with its trace,
 # <name>.trace.json, where <name> is its type, or its type, a hyphen and a variant
 # (lib/vectors.exs). The proofs are cut from two modeled chains (lib/chain.exs and
-# lib/regtest.exs) and assembled in lib/proofs.exs. Then cases.json, the offline cases of
-# SPEC.md 13.3, and under negative/ the proof and keyring files its cases need (lib/cases.exs),
-# each case stated by a class module under lib/cases/ and its expected output computed by the
-# generator's own model of the verification steps (lib/model.exs, with lib/parse.exs and
-# lib/schema.exs, and the DERIVE engine of lib/derive.exs). Last, under corpus/, the known
-# answers for JCS, Ed25519 and base64url (lib/corpus.exs, with the point arithmetic of
-# lib/ed25519.exs) and the real Bitcoin bytes (lib/real_bitcoin.exs).
+# lib/regtest.exs) and assembled in lib/proofs.exs. Then cases.json, the cases of SPEC.md 13.3,
+# offline and online, under negative/ the proof and keyring files its cases need, and under
+# corpus/replay/ the replay file of each online case (lib/cases.exs), each case stated by a
+# class module under lib/cases/ and its expected output computed by the generator's own model
+# of the verification steps (lib/model.exs, with lib/parse.exs and lib/schema.exs, the DERIVE
+# engine of lib/derive.exs, and for an online case the reads of lib/model_online.exs, answered
+# from its replay). Last, under corpus/, the known answers for JCS, Ed25519 and base64url
+# (lib/corpus.exs, with the point arithmetic of lib/ed25519.exs) and the real Bitcoin bytes
+# (lib/real_bitcoin.exs).
 #
 # Every run makes these checks before it writes or compares anything, and a failure in any
 # writes nothing:
@@ -40,17 +42,20 @@
 #      each of those positions the check fails on a proof with one defect made in memory
 #      (lib/mutations.exs), made with the edits of lib/edit.exs.
 #   3. The cases. Each case's expected output is derived again from its proof file's bytes and
-#      its configuration as cases.json holds them; the model's output is what the case says it
-#      asserts, so a single-defect case has exactly its one failing row, and a case that stops
-#      the run at steps 4 to 7, run again past that stop, fails nothing more than the knock-on
-#      failures it states; a trace a case names is the model's trace; every file under
-#      negative/ belongs to a case, in its form, and holds bytes no other file under vectors/
-#      holds; and every reason code but internal_error has a case, each bare or fail code a
-#      single-defect case, or is reported as pending: online, until its online cases are
-#      written (lib/cases/online.exs), where only a code no offline run reaches may be, or on
-#      a class module with no cases yet. The run prints each code's line. An online case's
-#      replay holds the identity read of each network the case pins, but for a case whose
-#      point is regtest with no source.
+#      its configuration as cases.json holds them, an online case's from its replay file; the
+#      model's output is what the case says it asserts, so a single-defect case has exactly its
+#      one failing row, an online case has the edges and the rows of CHAIN, SOURCES and WINDOW
+#      it states by hand, and a case that stops the run at steps 4 to 7, run again past that
+#      stop, fails nothing more than the knock-on failures it states; a trace a case names is
+#      the model's trace; every file under negative/ and corpus/replay/ belongs to a case, in
+#      its form, and holds bytes no other file under vectors/ holds; an online case's replay
+#      holds the identity read of each network the case pins, but for the one case whose
+#      `no_source` names regtest, an online configuration_error case has exactly one identity
+#      read step 0 refuses, and a case whose run makes a read its replay does not hold cannot
+#      be built; the codes of the online cases (lib/cases/online.exs) are codes only an online
+#      run reaches; and every reason code but internal_error has a case, each bare or fail
+#      code a single-defect case, and a code that lacks either fails. The run prints each
+#      code's line.
 #   4. The corpus. Each JCS input reads under J1 to J6 and gives its output byte for byte;
 #      each Ed25519 case gives its verdict, step by step, under the generator's own Verify and
 #      the same pass or fail under the model's, and what its `about` says a verifier that
@@ -65,7 +70,7 @@
 #      in its subject's id inside it (lib/consistency.exs). SPEC.md 13.2's table of the kinds
 #      of read is the validator's, and the sound item's replay, built in memory from the
 #      model, holds to the replay form of SPEC.md 13.2, whose every rule refuses a mutant of
-#      it, and so does any replay file under corpus/replay/ (lib/replay.exs). Each of these
+#      it, and so does every replay file under corpus/replay/ (lib/replay.exs). Each of these
 #      checks also refuses a model, a proof, an answer or a table with one defect.
 #
 # Then SPEC.md 6.3's worked example is read from the text and compared, value by value, with
@@ -80,9 +85,9 @@
 # defect in one cannot hide in both.
 
 for file <- ~w(base ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse derive parse
-               schema model cases/online cases cases/sound cases/parse cases/front cases/shape
-               cases/derive known_answers corpus replay real_bitcoin consistency vectors sound
-               mutations spec_rows positive rederive worked_example) do
+               schema model_online model cases cases/sound cases/parse cases/front cases/shape
+               cases/derive known_answers corpus replay cases/online real_bitcoin consistency
+               vectors sound mutations spec_rows positive rederive worked_example) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
@@ -124,7 +129,7 @@ if failures != [] do
   System.halt(1)
 end
 
-# SPEC.md 13.1's check of every code: each code covered, or pending.
+# SPEC.md 13.1's check of every code: each code covered, and in how many cases.
 Enum.each(coverage, &IO.puts/1)
 
 case mode do
