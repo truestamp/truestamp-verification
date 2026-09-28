@@ -60,7 +60,9 @@
 #      be built; the codes of the online cases (lib/cases/online.exs) are codes only an online
 #      run reaches; and every reason code but internal_error has a case, each bare or fail
 #      code a single-defect case, and a code that lacks either fails. The run prints each
-#      code's line.
+#      code's line. Last, spec/network-pins.json holds SPEC.md 9's table of default network
+#      pins, a row for each E_v, its `prod` row the production networks and its `test` row
+#      the pins the sound proofs pass POLICY under.
 #   4. The corpus. Each JCS input reads under J1 to J6 and gives its output byte for byte;
 #      each Ed25519 case gives its verdict, step by step, under the generator's own Verify and
 #      the same pass or fail under the model's, and what its `about` says a verifier that

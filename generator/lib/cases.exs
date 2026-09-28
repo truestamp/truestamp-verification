@@ -102,7 +102,9 @@ defmodule Generator.Case do
 
   @doc """
   The network pins every sound proof passes POLICY under: the commitment pin of each chain,
-  and the entropy pin of each source that has a network, which here are the same.
+  and the entropy pin of each source that has a network, which here are the same. They are
+  the `test` row of SPEC.md 9's default pins, which Generator.Cases checks
+  spec/network-pins.json against.
   """
   def pins, do: @pins
 
@@ -233,7 +235,9 @@ defmodule Generator.Cases do
   read made; and every reason code but `internal_error` has a case, each code whose status is
   bare or fail a single-defect case (SPEC.md 13.1), reported per code, and a code that lacks
   either fails the check; the sub_reasons the bare cases give are exactly those
-  spec/reason-codes.json lists for their codes. A code the online class names
+  spec/reason-codes.json lists for their codes; and spec/network-pins.json holds SPEC.md 9's
+  table of default network pins, a row for each E_v, each network one of its chain's, the
+  `prod` row the production networks and the `test` row the pins of Generator.Case.pins/0. A code the online class names
   (Generator.Cases.Online) must be one only an online run reaches: no offline case gives it,
   and it is a code of CHAIN, SOURCES or WINDOW alone, or `keyring_unavailable`, whose
   keyring read is online.
@@ -411,10 +415,79 @@ defmodule Generator.Cases do
         configuration_identities(online, files),
         configuration_identities_self_test(online, files),
         replay_reads_self_test(by_id, files),
+        default_pins(),
         coverage_failures
       ])
 
     {failures, report}
+  end
+
+  # SPEC.md 9's default network pins. spec/network-pins.json has a row for `prod` and for each
+  # ENV value, each in the form of a case's `networks`, with a pin for Bitcoin and for Stellar
+  # and every network one of its chain's in spec/networks.json; each row is the row of
+  # SPEC.md 9's table for its E_v; the `prod` row pins each chain's production network, the
+  # first spec/networks.json lists; and the `test` row is Generator.Case.pins/0, under which
+  # every sound proof passes POLICY, so a case that gives those pins gives the default ones.
+  defp default_pins do
+    file = "spec/network-pins.json"
+    table = Spec.read("network-pins.json")
+    networks = Spec.read("networks.json")
+    production = Map.new(networks, fn {chain, [first | _others]} -> {chain, first} end)
+    evs = ["prod" | Spec.read("encodings.json")["ENV"]["values"]]
+
+    List.flatten([
+      expect("the rows of #{file}", Enum.sort(Map.keys(table)), Enum.sort(evs)),
+      Enum.map(table, &pins_row(&1, networks, file)),
+      expect("#{file}, SPEC.md 9's table", table, spec_pins()),
+      expect("#{file}, prod", table["prod"], %{
+        "commitment" => production,
+        "entropy" => production
+      }),
+      expect("#{file}, test", table["test"], Case.pins())
+    ])
+  end
+
+  defp pins_row({ev, row}, networks, file) do
+    [
+      expect("#{file}, #{ev}: its pins", Enum.sort(Map.keys(row)), ~w(commitment entropy)),
+      for {pin, by_chain} <- row do
+        [
+          expect(
+            "#{file}, #{ev} #{pin}: its chains",
+            Enum.sort(Map.keys(by_chain)),
+            ~w(bitcoin stellar)
+          ),
+          for {chain, network} <- by_chain do
+            truth(
+              "#{file}, #{ev} #{pin} #{chain}: #{inspect(network)} is no network of that chain",
+              network in Map.get(networks, chain, [])
+            )
+          end
+        ]
+      end
+    ]
+  end
+
+  # SPEC.md 9's table of default network pins, read from the text: each row's E_v, then its
+  # commitment pins and its entropy pins, each cell `Stellar <network>, Bitcoin <network>`.
+  defp spec_pins do
+    header = "| E_v | Commitment pins | Entropy pins |\n|---|---|---|\n"
+    [_before, rest] = String.split(Spec.spec_md(), header, parts: 2)
+
+    rest
+    |> String.split("\n")
+    |> Enum.take_while(&String.starts_with?(&1, "|"))
+    |> Map.new(fn line ->
+      [ev, commitment, entropy] =
+        line |> String.trim("|") |> String.split("|") |> Enum.map(&String.trim/1)
+
+      {String.trim(ev, "`"), %{"commitment" => cell(commitment), "entropy" => cell(entropy)}}
+    end)
+  end
+
+  defp cell(text) do
+    [[_, stellar, bitcoin]] = Regex.scan(~r/\AStellar `([a-z]+)`, Bitcoin `([a-z]+)`\z/, text)
+    %{"bitcoin" => bitcoin, "stellar" => stellar}
   end
 
   # SPEC.md 13.2: an online case's replay holds the identity read of every Stellar and Bitcoin

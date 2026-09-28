@@ -9,3 +9,4 @@ erl_crash.dump
 
 # Scratch files.
 /tmp/
+/elixir/tmp/

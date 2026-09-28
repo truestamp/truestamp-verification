@@ -691,6 +691,34 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       [[_, env, _]] = Enum.filter(rows, &(hd(&1) == "ENV"))
       assert read("encodings.json")["ENV"]["values"] == backticked(env)
     end
+
+    test "network-pins.json is section 9's table of default pins, a network of each chain" do
+      table =
+        Map.new(table_after("| E_v | Commitment pins | Entropy pins |"), fn [e_v, c, e] ->
+          {e_v |> backticked() |> hd(), %{"commitment" => pins(c), "entropy" => pins(e)}}
+        end)
+
+      assert read("network-pins.json") == table
+      environments = ["prod" | read("encodings.json")["ENV"]["values"]]
+      assert Enum.sort(Map.keys(table)) == Enum.sort(environments)
+      networks = read("networks.json")
+
+      for {_e_v, row} <- table, {_kind, chains} <- row do
+        assert Enum.sort(Map.keys(chains)) == Enum.sort(Map.keys(networks))
+        assert Enum.all?(chains, fn {chain, net} -> net in Map.fetch!(networks, chain) end)
+      end
+
+      assert table["prod"]["commitment"] == Map.new(networks, fn {c, [n | _]} -> {c, n} end)
+      assert table["prod"]["entropy"] == table["prod"]["commitment"]
+    end
+  end
+
+  # A cell of section 9's table of default pins, such as "Stellar `public`, Bitcoin
+  # `mainnet`", as a map from the chain's name to its network.
+  defp pins(cell) do
+    ~r/(\w+) `(\w+)`/
+    |> Regex.scan(cell, capture: :all_but_first)
+    |> Map.new(fn [chain, network] -> {String.downcase(chain), network} end)
   end
 
   describe "schema.json" do

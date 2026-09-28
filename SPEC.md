@@ -807,8 +807,10 @@ no marker, and otherwise says that the proof carries a marker that no Truestamp 
 uses. For a staging proof under a production verifier it is: "This proof is marked as
 issued by Truestamp's staging environment, which is for testing. It is not a production
 proof." Only for a marker of `dev`, `staging` or `test`, the CLI adds a command that works,
-such as: "To check it against the staging keyring, run again with --environment staging and
-either --keyring FILE or --base-url URL."
+an offline one, such as: "To check it against the staging keyring, run again offline with
+--environment staging and --keyring FILE." An online run of such a proof needs a source for
+each network it pins (section 9), and no public source serves the `regtest` chain that those
+environments commit to.
 
 ## 7. Constructions
 
@@ -1019,12 +1021,19 @@ The pins are a verifier's trust policy, and each is published as a file under `s
 - **Literals:** `format`, `version` 1, `signature.alg`, CONSTRUCTIONS_ACCEPTED (the digests
   of the texts under `spec/constructions/`), and `spec/schema.json`: the type registry,
   closed member sets, presence by type and patterns.
-- **Networks:** a commitment pin per chain and, separately, an entropy pin per source. No
-  account or address is pinned.
+- **Networks:** a commitment pin per chain and, separately, an entropy pin per source that
+  has a network, Stellar's and Bitcoin's. No account or address is pinned. The defaults
+  follow E_v, from `spec/network-pins.json` (below).
 - **Sources:** compiled-in defaults, or an operator-pinned Horizon, Esplora or Bitcoin Core
   server (in the CLI, `--horizon URL`, `--esplora URL` and `--bitcoin-core URL`). Every
   Stellar and Bitcoin source's identity is checked before its first read (section 10.2,
   step 0). Regtest has no default. A verifier MUST NOT let a document select a source.
+- **Which pin a source serves:** a source serves every pin of its chain whose network its
+  identity read shows. A source that gives its chain's production value serves the pins
+  of that chain's production network, and one that does not serves the chain's other
+  pins. So where a run pins one chain to two networks, as `dev` and `staging` pin Bitcoin
+  commitments to `regtest` and Bitcoin entropy to `mainnet`, each source serves the pin its
+  network matches, and a pin that no source serves has none.
 
 | Constant | Value |
 |---|---|
@@ -1056,6 +1065,31 @@ production keyring can hold them.
 
 There are no clock tolerances.
 
+**Default network pins.** `spec/network-pins.json` holds this table, one row for each E_v
+(section 6.4). Under `prod` the pins are the production networks. Under `dev` and
+`staging` they are the networks those environments of Truestamp's commit to and read
+entropy from: they commit to Stellar `testnet` and Bitcoin `regtest`, and read Bitcoin
+entropy from `mainnet`, so their Bitcoin entropy pin differs from their Bitcoin commitment
+pin. Under `test` they are the networks of the modeled chains the sound proofs of section
+13.3 are cut from, so a vector checks under the defaults. Truestamp's own test builds, which
+read Bitcoin entropy from `mainnet`, set their pins through their own configuration, as an
+operator pin (below).
+
+| E_v | Commitment pins | Entropy pins |
+|---|---|---|
+| `prod` | Stellar `public`, Bitcoin `mainnet` | Stellar `public`, Bitcoin `mainnet` |
+| `dev` | Stellar `testnet`, Bitcoin `regtest` | Stellar `testnet`, Bitcoin `mainnet` |
+| `staging` | Stellar `testnet`, Bitcoin `regtest` | Stellar `testnet`, Bitcoin `mainnet` |
+| `test` | Stellar `testnet`, Bitcoin `regtest` | Stellar `testnet`, Bitcoin `regtest` |
+
+- At CONFIGURATION a verifier takes the row for E_v as its pins (section 10.2, step 0).
+- An operator MAY pin a network in place of a default, through whatever configuration the
+  verifier offers for it. Such a pin replaces the default of that one pin, a chain's
+  commitment pin or a source's entropy pin, for the run, and every other pin keeps its
+  default. A verifier MUST NOT take a pin from the document.
+- A conformance case's `networks` gives every pin for that case (section 13.2), in place of
+  the row for its E_v.
+
 **The data files.** These files under `spec/` hold the pins:
 
 | File | Holds |
@@ -1065,6 +1099,7 @@ There are no clock tolerances.
 | `small-order-keys.json` | SMALL_ORDER_KEYS in hex, with each point's order |
 | `encodings.json` | the pattern classes of section 2.4 |
 | `networks.json` | the network names of each chain |
+| `network-pins.json` | the default network pins of each E_v, the table above, as `{<E_v>: {commitment, entropy}}`, each an object from the chain's or the source's name to its network, as a case's `networks` (section 13.2) |
 | `value-classes.json` | the value classes of section 3.7, by JSON Pointer pattern |
 | `schema.json` | the closed schema of the envelope and of every type |
 | `constructions/c0d70826d7501d5089184d1947bad3dcc33c3172269d425f16fc0025ed07df49.json` | the text of section 7.3, as its exact JCS bytes |
@@ -1215,15 +1250,16 @@ skip at step 5 included.
   bound and the signature verified. Truestamp's own verifier checks the key and the
   signature first, and stops if either fails.
 
-**0. CONFIGURATION**, before the file is read. It fixes E_v (section 6.4), the network pins
-and sources (section 9), and the keyring that governs key binding, which the verifier's
-role decides (section 8). The downloaded keyring governs an external verifier's online run
-under E_v `prod` with no supplied keyring and outside keyless mode (section 8.3). The
-verifier then reads `https://www.truestamp.com/.well-known/keyring.json` here, and the
-keyring it reads replaces the compiled pin for the run. A keyring read online that fails
-for any reason, by transport, by an HTTP error, by parse or by a load check, whether from
-that URL or from the origin `--base-url` names, is no bare rejection: no key binds, and
-KEY_BINDING fails with `keyring_unavailable` (section 8.3).
+**0. CONFIGURATION**, before the file is read. It fixes E_v (section 6.4), the network pins,
+by default the row of `spec/network-pins.json` for E_v, and the sources (section 9), and
+the keyring that governs key binding, which the verifier's role decides (section 8). The
+downloaded keyring governs an external verifier's online run under E_v `prod` with no
+supplied keyring and outside keyless mode (section 8.3). The verifier then reads
+`https://www.truestamp.com/.well-known/keyring.json` here, and the keyring it reads
+replaces the compiled pin for the run. A keyring read online that fails for any reason, by
+transport, by an HTTP error, by parse or by a load check, whether from that URL or from the
+origin `--base-url` names, is no bare rejection: no key binds, and KEY_BINDING fails with
+`keyring_unavailable` (section 8.3).
 
 Each keyring the verifier loads, the one it reads online included, MUST pass these checks
 (section 9). A keyring is read under section 10.1 and MUST be an object with exactly two
@@ -1270,6 +1306,10 @@ Each of these is `configuration_error`:
 
 It is a bare rejection with no verdict. A verifier that confirms a source's identity later
 than step 0 MUST give the output it would give had it confirmed it at step 0.
+
+A keyring file that cannot be read at all, such as one that is missing or is not a file, is
+an input that cannot be read (exit 1, section 12.2), not `configuration_error`. A keyring
+file that is read and then breaks J1 to J6 or fails a load check is `configuration_error`.
 
 **1. READ.** J1 (section 10.1), else `input_too_large`.
 
@@ -2252,7 +2292,7 @@ holds:
 
 | Member | Holds |
 |---|---|
-| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network; `online`, OPTIONAL: the path of a replay file under `corpus/replay/` |
+| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network, which the case's run takes in place of the default pins of section 9; `online`, OPTIONAL: the path of a replay file under `corpus/replay/` |
 | `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges, `submitted_after` and `submitted_before`, each null or `{basis, instant}` (section 11.5) |
 | `id` | a name unique in the file |
 | `proof` | the path of its proof |
@@ -2414,13 +2454,18 @@ section 10 reports that check. Each class below says what its cases assert.
   `key_binding_failed`. The keyring `unavailable`, online under `prod`, gives
   `keyring_unavailable` (section 13.2). The keyring `none` gives
   `skip key_binding_not_performed`, the attribution `unattributed`, and otherwise the sound
-  proof's rows.
+  proof's rows. A supplied keyring that holds the signing key with `"active": false`, beside
+  an active key, binds it: the sound proof passes with the sound proof's rows and the label
+  `supplied-keyring`, since a key binds whether or not it is active (section 6.1).
 - **SIGNATURE.** `signature_invalid`: a signature over M itself, over SHA-256(M), and over
   the hash of the proof under another signed kind's byte (0x31 or 0x62); an s equal to L,
   and s + L in place of s; `environment` removed or changed after signing, under an
   environment that passes step 4; and K copied from `keyring.test.json` over consistent
-  content signed by another key, with the keyring `test` and with none. The cases that
-  change `environment` run keyless, since only a run whose environment is `test` may load a
+  content signed by another key, with the keyring `test` and with none; and, keyless, a K
+  whose y is below 2^255 - 19 but that decodes to no point of the curve, which passes
+  ENVELOPE, since the checks of a key's bytes do not decode the point, and fails at
+  SIGNATURE, at step 4 of Verify (section 6.2). The cases that change
+  `environment` run keyless, since only a run whose environment is `test` may load a
   keyring holding VECTOR_KEY.
 - **Mixed-order agreement.** A K that is a valid key plus a point of order 8 passes keyless
   when the challenge k is 0 modulo 8, and fails `signature_invalid` otherwise, in every

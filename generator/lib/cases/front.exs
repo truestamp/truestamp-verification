@@ -52,13 +52,26 @@ defmodule Generator.Cases.Front do
     sound item unmarked, where the compiled pin governs and holds no key. The keyring `none`
     gives `skip key_binding_not_performed`, the label `unattributed`, and otherwise the sound
     item's rows under the keyring `test`, every one of them, which its `same_as` holds it to
-    (`key_binding-none`). The keyring `unavailable` is online (Generator.Cases.Online).
+    (`key_binding-none`). A supplied keyring holding VECTOR_KEY with `"active": false`,
+    sequence 0, beside the other key, active, sequence 1, as a routine rotation leaves it,
+    binds K over the sound item: KEY_BINDING passes, the label is `supplied-keyring`, and
+    every row is the sound item's, which its `same_as` holds it to
+    (`key_binding-inactive_key`), since a key binds active or not (SPEC.md 6.1). The keyring
+    `unavailable` is online (Generator.Cases.Online).
   - **SIGNATURE**, `signature_invalid`, K VECTOR_KEY: V a signature by VECTOR_KEY over M
     itself, over SHA-256(M), over the hex of `proof_hash` (SPEC.md 6.3), and over the hash of
     the proof under 0x31 and under 0x62; V with s equal to L, and with s + L in place of s;
     `environment` removed after signing, under `prod`, and changed to `dev` after signing,
     under `dev`, each keyless; and V a signature by the other key over the sound item, whose
-    `signing_key_event` introduces K, with the keyring `test` and keyless.
+    `signing_key_event` introduces K, with the keyring `test` and keyless; and, keyless over
+    the sound item without `signing_key_event`, whose event would introduce a key other than
+    K, with V VECTOR_KEY's signature over it, K the first key, counting y up from 2 with the
+    sign bit clear, that decodes to no point (`signature-key_not_on_curve-keyless`): its y is
+    below p and it
+    is none of SMALL_ORDER_KEYS, so it passes ENVELOPE, whose checks of a key's bytes do not
+    decode the point, and fails at step 4 of Verify (SPEC.md 6.2). The case's builder refuses
+    a K that is on the curve or that fails the checks of a key's bytes, and one whose V has an
+    s at L or above, so the failure is step 4's alone.
   - **Mixed-order agreement**, keyless, over the sound item without `signing_key_event`, K
     the other key plus the point of order 8 at index 4 of spec/small-order-keys.json, which
     passes the checks of a key's bytes. With R = [r]B, k = SHA-512(R || K || proof_hash) mod L
@@ -81,7 +94,8 @@ defmodule Generator.Cases.Front do
 
   @behaviour Generator.Cases.Class
 
-  alias Generator.{Bytes, Case, Ed25519, Edit, FileForm, JCS, Keys, Registry, Seeds, Spec}
+  alias Generator.{Bytes, Case, Derive, Ed25519, Edit, FileForm, JCS, Keys, Registry, Seeds}
+  alias Generator.Spec
 
   @capitals String.upcase("truestamp-ed25519-sha256-jcs")
   @alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -307,6 +321,14 @@ defmodule Generator.Cases.Front do
         keyring: nil,
         defect: failed
       ),
+      # SPEC.md 6.1: a key binds active or not, so every row is the sound item's.
+      Case.new("key_binding-inactive_key",
+        proof: {:path, path},
+        keyring: {:value, inactive_keyring()},
+        label: "supplied-keyring",
+        same_as: "sound-item",
+        defect: {:passes, [{"pass", nil, nil, "KEY_BINDING"}]}
+      ),
       # SPEC.md 13.3's "otherwise the sound proof's rows": every row but KEY_BINDING's is the
       # sound item's under the keyring test.
       Case.new("key_binding-none",
@@ -317,6 +339,18 @@ defmodule Generator.Cases.Front do
         defect: {:passes, [{"skip", "key_binding_not_performed", nil, "KEY_BINDING"}]}
       )
     ]
+  end
+
+  # VECTOR_KEY retired, `"active": false`, beside the other key, active, as a routine rotation
+  # leaves a keyring (SPEC.md 8.1).
+  defp inactive_keyring do
+    vector = %{key(Keys.public_key(Seeds.vector()), 0) | "active" => false}
+    keyring = keyring([vector, key(Keys.public_key(Seeds.other()), 1)])
+
+    unless Enum.map(keyring["keys"], & &1["active"]) == [false, true],
+      do: raise(ArgumentError, "the keyring must hold VECTOR_KEY inactive beside an active key")
+
+    keyring
   end
 
   # SIGNATURE.
@@ -340,7 +374,9 @@ defmodule Generator.Cases.Front do
       {"environment-changed", unsigned(envelope, &Map.put(&1, "environment", "dev")), "dev",
        "none"},
       {"other_key-keyring_test", by_other, "test", "test"},
-      {"other_key-keyless", {:path, @by_other}, "test", "none"}
+      {"other_key-keyless", {:path, @by_other}, "test", "none"},
+      {"key_not_on_curve-keyless", off_curve(Map.delete(proof, "signing_key_event")), "test",
+       "none"}
     ]
     |> Enum.map(fn {id, file, ev, keyring} ->
       Case.new("signature-" <> id,
@@ -350,6 +386,30 @@ defmodule Generator.Cases.Front do
         defect: {:fail, "signature_invalid", nil, "SIGNATURE"}
       )
     end)
+  end
+
+  # The envelope of `proof` with V VECTOR_KEY's signature over it and K the first key,
+  # counting y up from 2 with the sign bit clear, that decodes to no point: it passes the
+  # checks of a key's bytes, so ENVELOPE, and Verify refuses it at step 4 (SPEC.md 6.2). V's
+  # s is below L, so no step after 4 could refuse it first.
+  defp off_curve(proof) do
+    value = Case.sign(proof)["signature"]["value"]
+    key = 2..1000 |> Enum.map(&<<&1::little-256>>) |> Enum.find(&(Ed25519.decode(&1) == :error))
+    <<_r::binary-32, s::little-256>> = Bytes.unb64u(value)
+
+    cond do
+      not Derive.key_bytes?(key) ->
+        raise(ArgumentError, "the key fails the checks of a key's bytes")
+
+      Ed25519.verify(key, <<0::256>>, Bytes.unb64u(value)) != {:fail, 4} ->
+        raise(ArgumentError, "Verify does not refuse the key at step 4")
+
+      s >= @l ->
+        raise(ArgumentError, "V's s is not below L")
+
+      true ->
+        Case.envelope(proof, Bytes.b64u(key), value)
+    end
   end
 
   # The envelope with the s of its V replaced by fun.(s).
