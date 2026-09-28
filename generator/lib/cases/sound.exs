@@ -15,7 +15,12 @@ defmodule Generator.Cases.Sound do
     with `.0`, gives exactly the sound case's rows and trace (`sameness-format-<name>`). Each
     sound proof in the reference mode and in mode `none`, signed again, gives the sound case's
     rows, so its verdict (`sameness-reference-<name>`, `sameness-none-<name>`). `1e-400` in
-    claims reads as 0 and passes (`sameness-underflow`); the sound item padded with spaces to
+    claims reads as 0 and passes (`sameness-underflow`); a claims number spelled with 637
+    characters, the point halfway between 75.75960580580087 and the binary64 value below it
+    followed by 586 zeros and a 1, reads as 75.75960580580087 and passes, a spelling on which
+    macOS 27's strtod aborts (`sameness-long_spelling`); `1.7976931348623158e308`, below the
+    overflow threshold 2^1024 - 2^970, reads as the largest binary64 value and passes
+    (`sameness-largest_double`); the sound item padded with spaces to
     exactly MAX_READ_OCTETS passes with its rows and trace (`sameness-max-read-octets`); and a
     sound item whose claims nest the document to a depth of exactly MAX_DEPTH passes
     (`sameness-max-depth`).
@@ -43,6 +48,8 @@ defmodule Generator.Cases.Sound do
       Enum.map(names, &mode_case(&1, sound[&1], :reference)),
       Enum.map(names, &mode_case(&1, sound[&1], :none)),
       underflow(sound[@alone]),
+      long_spelling(sound[@alone]),
+      largest_double(sound[@alone]),
       max_read_octets(sound["item"]),
       max_depth(sound[@alone])
     ])
@@ -129,6 +136,51 @@ defmodule Generator.Cases.Sound do
 
     Case.new("sameness-underflow",
       proof: {:bytes, :binary.replace(served, ~s("underflow":0), ~s("underflow":1e-400))},
+      label: "supplied-keyring",
+      defect: {:passes, []}
+    )
+  end
+
+  # An item whose claims hold 75.75960580580087, hashed as such, written in its file with 637
+  # characters: the exact decimal of the point halfway between that value and the binary64
+  # value below it, then zeros, then a final 1, which puts it just above that point. Every
+  # verifier that reads it as its nearest binary64 value reads the signed value.
+  defp long_spelling(%{proof: proof}) do
+    value = 75.75960580580087
+    <<0::1, field::11, fraction::52>> = <<value::float-64>>
+    # The halfway point, (2m - 1) x 2^(q - 1), as digits x 10^(q - 1), since q - 1 is negative.
+    {m, q} = {fraction + Bitwise.bsl(1, 52), field - 1075}
+    digits = Integer.to_string((2 * m - 1) * Integer.pow(5, 1 - q))
+    {whole, places} = String.split_at(digits, byte_size(digits) - (1 - q))
+    halfway = whole <> "." <> places
+    spelling = halfway <> String.duplicate("0", 636 - byte_size(halfway)) <> "1"
+
+    respelled("sameness-long_spelling", proof, "long_spelling", value, spelling)
+  end
+
+  # An item whose claims hold the largest binary64 value, written in its file as
+  # 1.7976931348623158e308, which lies below the overflow threshold 2^1024 - 2^970 and reads
+  # as that value.
+  defp largest_double(%{proof: proof}) do
+    <<largest::float-64>> = <<0x7FEFFFFFFFFFFFFF::64>>
+    respelled("sameness-largest_double", proof, "largest", largest, "1.7976931348623158e308")
+  end
+
+  # A case whose file holds the item `proof` with the claims member `name` set to `value`,
+  # hashed and signed as such, and spelled in the file as `spelling`.
+  defp respelled(id, proof, name, value, spelling) do
+    served =
+      proof
+      |> Edit.put("/subject/claims/" <> name, value)
+      |> Edit.recommit_item()
+      |> Case.sign()
+      |> Case.served()
+
+    member = ~s("#{name}":) <> JCS.encode(value)
+    [_one] = :binary.matches(served, member)
+
+    Case.new(id,
+      proof: {:bytes, :binary.replace(served, member, ~s("#{name}":) <> spelling)},
       label: "supplied-keyring",
       defect: {:passes, []}
     )

@@ -9,14 +9,14 @@ defmodule Generator.Rederive do
 
   import Generator.Check
 
-  alias Generator.{Bytes, FileForm, JCS, Keys, Positive, Registry, Spec}
+  alias Generator.{Bytes, FileForm, JCS, Keys, Parse, Positive, Registry, Spec}
 
   @doc "The failures of check 2 over `files`, each file's bytes by its path."
   def run(files) do
     List.flatten([
       for({path, bytes} <- files, do: form(path, bytes)),
-      keyring_test(JSON.decode!(files["vectors/keyring.test.json"])),
-      worked_example(JSON.decode!(files["vectors/worked-example.json"])),
+      keyring_test(Parse.decode!(files["vectors/keyring.test.json"])),
+      worked_example(Parse.decode!(files["vectors/worked-example.json"])),
       Positive.run(files)
     ])
   end
@@ -34,12 +34,12 @@ defmodule Generator.Rederive do
         truth("#{path} is UTF-8", String.valid?(bytes)),
         expect(
           "#{path} in the served form, JCS(envelope)",
-          JCS.encode(JSON.decode!(bytes)),
+          JCS.encode(Parse.decode!(bytes)),
           bytes
         )
       ]
     else
-      expect("#{path} in its form", FileForm.encode(JSON.decode!(bytes)), bytes)
+      expect("#{path} in its form", FileForm.encode(Parse.decode!(bytes)), bytes)
     end
   end
 
@@ -97,8 +97,8 @@ defmodule Generator.Rederive do
       ),
       expect("V, S in base64url", s, Bytes.unhex(example["S"])),
       truth("S verifies under A over proof_hash", Keys.verify?(public, proof_hash, s)),
-      expect("the served document, JCS(envelope)", JCS.encode(JSON.decode!(document)), document),
-      expect("the document's value", JSON.decode!(document), envelope(example)),
+      expect("the served document, JCS(envelope)", JCS.encode(Parse.decode!(document)), document),
+      expect("the document's value", Parse.decode!(document), envelope(example)),
       not_verified(example, public, s),
       reformatted(example, public)
     ]
@@ -115,7 +115,7 @@ defmodule Generator.Rederive do
     }
   end
 
-  # SPEC.md 6.3: S does not verify over these messages.
+  # SPEC.md 6.3: S does not pass Ed25519 verification over these messages.
   defp not_verified(%{"M" => m, "proof" => proof, "proof_hash" => proof_hash}, public, s) do
     for {label, message} <- [
           {"M itself", m},
@@ -158,7 +158,7 @@ defmodule Generator.Rederive do
         "\r\n"
       )
 
-    reread = JSON.decode!(text)["proof"]
+    reread = Parse.decode!(text)["proof"]
     reread_hash = Registry.record_hash("proof_hash", reread)
 
     [

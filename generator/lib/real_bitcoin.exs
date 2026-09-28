@@ -44,7 +44,7 @@ defmodule Generator.RealBitcoin do
 
   import Generator.Check
 
-  alias Generator.{Bitcoin, BitcoinAnswers, BitcoinParse, Bytes, FileForm, Regtest, Replay}
+  alias Generator.{Bitcoin, BitcoinAnswers, BitcoinParse, Bytes, FileForm, Parse, Regtest, Replay}
 
   # The bytes of each block's files, in hex, from the sources `source` names.
 
@@ -496,7 +496,7 @@ defmodule Generator.RealBitcoin do
   def check(files) do
     entries =
       for {"vectors/corpus/bitcoin/" <> name, bytes} <- Enum.sort(files),
-          do: {name, JSON.decode!(bytes)}
+          do: {name, Parse.decode!(bytes)}
 
     names =
       for block <- blocks(), {what, _kind, _bytes, _expected, _about} <- block.files do

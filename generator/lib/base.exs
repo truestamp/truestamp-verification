@@ -25,7 +25,19 @@ end
 defmodule Generator.Spec do
   @moduledoc """
   The repository's root, SPEC.md and the data files under spec/.
+
+  The files under spec/ are the one place the generator reads with OTP's JSON, which hands
+  every number to the C library's strtod, and macOS 27's strtod aborts the whole VM on some
+  long literals. Those files hold short numbers only, and json!/2 refuses a text with a number
+  of more than 30 significant digits before OTP's JSON sees it. Every file the generator
+  writes is read by its own reader instead (Generator.Parse).
   """
+
+  import Generator.Check
+
+  # The most significant digits a number read by OTP's JSON may have: the digits of its
+  # mantissa, the zeros that lead it aside.
+  @max_digits 30
 
   @doc "The root of the repository, two levels above this file in generator/lib/."
   def root, do: Path.expand("../..", __DIR__)
@@ -37,13 +49,82 @@ defmodule Generator.Spec do
   def read(name) do
     case Process.get({__MODULE__, name}) do
       nil ->
-        value = root() |> Path.join("spec/" <> name) |> File.read!() |> JSON.decode!()
+        value = root() |> Path.join("spec/" <> name) |> File.read!() |> json!("spec/" <> name)
         Process.put({__MODULE__, name}, value)
         value
 
       value ->
         value
     end
+  end
+
+  @doc """
+  The value of `bytes`, a file under spec/ named by `where`, read by OTP's JSON, once no
+  number in it has more than 30 significant digits.
+  """
+  def json!(bytes, where) do
+    case long_numbers(bytes) do
+      [] ->
+        JSON.decode!(bytes)
+
+      [digits | _more] ->
+        raise ArgumentError,
+              "#{where} holds a number of #{digits} digits, more than the #{@max_digits} " <>
+                "OTP's JSON may read here: its strtod aborts on some long numbers on macOS 27"
+    end
+  end
+
+  @doc """
+  The count of significant digits of each number outside a string in `bytes` that has more
+  than 30, in order: the digits of its mantissa, the zeros that lead it aside.
+  """
+  def long_numbers(bytes), do: scan(bytes, [])
+
+  defp scan(<<>>, found), do: Enum.reverse(found)
+  defp scan(<<?", rest::binary>>, found), do: rest |> skip_string() |> scan(found)
+
+  defp scan(<<c, _rest::binary>> = text, found) when c == ?- or c in ?0..?9 do
+    {token, rest} = token(text, [])
+    [mantissa | _exponent] = String.split(token, ["e", "E"])
+    count = mantissa |> String.replace(~r/[^0-9]/, "") |> String.trim_leading("0") |> byte_size()
+    scan(rest, if(count > @max_digits, do: [count | found], else: found))
+  end
+
+  defp scan(<<_c, rest::binary>>, found), do: scan(rest, found)
+
+  defp skip_string(<<?\\, _escaped, rest::binary>>), do: skip_string(rest)
+  defp skip_string(<<?", rest::binary>>), do: rest
+  defp skip_string(<<_c, rest::binary>>), do: skip_string(rest)
+  defp skip_string(<<>>), do: <<>>
+
+  defp token(<<c, rest::binary>>, acc) when c in ~c"+-.0123456789eE", do: token(rest, [c | acc])
+  defp token(rest, acc), do: {acc |> Enum.reverse() |> List.to_string(), rest}
+
+  @doc """
+  The failures of the check of the files OTP's JSON reads: no file under spec/ holds a number
+  of more than 30 significant digits, and the scan finds each such number and passes a number
+  of 30, a string of digits, and a number whose many digits are zeros that lead it.
+  """
+  def number_check do
+    {files, _others} = Generator.Files.entries(root(), "spec")
+
+    [
+      for path <- files,
+          digits = long_numbers(File.read!(Path.join(root(), path))),
+          digits != [] do
+        "#{path} holds numbers of #{inspect(digits)} digits, more than #{@max_digits}"
+      end,
+      expect(
+        "the scan for long numbers",
+        long_numbers(
+          ~s({"a": [1234567890123456789012345678901, 123456789012345678901234567890e5], ) <>
+            ~s("b\\"": "1234567890123456789012345678901", "c": -0.0000000000000000000000000000001, ) <>
+            ~s("d": -1.234567890123456789012345678901e-7})
+        ),
+        [31, 31]
+      )
+    ]
+    |> List.flatten()
   end
 
   @doc "Whether `value` is a string of the pattern class `class` (SPEC.md 2.4)."

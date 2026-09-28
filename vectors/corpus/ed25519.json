@@ -166,6 +166,15 @@
     "verify": "fail"
   },
   {
+    "about": "The key of step_4-not_on_curve, and the signature (identity, L), whose s step 5 refuses. Step 4 comes first and refuses the key, so the first step that refuses it is 4: a verifier that checks s before the key names step 5.",
+    "id": "step_4-not_on_curve-s_equal_l",
+    "message": "9f46e27f4a5e1d937189020719959df9d4f7b65948b616d4bde9d187688e21b2",
+    "public_key": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "signature": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADt0_VcGmMSWNac96Le-d4UAAAAAAAAAAAAAAAAAAAAEA",
+    "step": 4,
+    "verify": "fail"
+  },
+  {
     "about": "The worked example's signature with s replaced by L.",
     "id": "step_5-s_equal_l",
     "message": "9f46e27f4a5e1d937189020719959df9d4f7b65948b616d4bde9d187688e21b2",
@@ -216,6 +225,15 @@
     "message": "9f46e27f4a5e1d937189020719959df9d4f7b65948b616d4bde9d187688e21b2",
     "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
     "signature": "cp7_OqOxAj5IowzH9Lqk3AfNmdm4D9Zy31Thq-C1tYLZZ6iib34rcEjfcAkiPzDO4uMa7So3nAp3MWkvXgZsAA",
+    "step": 7,
+    "verify": "fail"
+  },
+  {
+    "about": "R is the encoding of [r]B with its sign bit, bit 255, flipped, and s = r + k a for that R, so [s]B - [k]A is [r]B, whose encoding differs from R in that one bit. A verifier that compares only the first 31 octets of R, or that ignores its sign bit, accepts it.",
+    "id": "step_7-r_sign_bit_flipped",
+    "message": "9f46e27f4a5e1d937189020719959df9d4f7b65948b616d4bde9d187688e21b2",
+    "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
+    "signature": "Y0Kw8arDLI914W6QkKlwg6f-ETmlD8onZua9cjMM2hkNmy3XRlhhnIcDOTeWPF__1aQzHFIzqB9lid1E63-KAw",
     "step": 7,
     "verify": "fail"
   },

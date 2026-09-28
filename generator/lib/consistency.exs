@@ -43,7 +43,7 @@ defmodule Generator.Consistency do
   import Generator.Check
 
   alias Generator.{BitcoinAnswers, BitcoinParse, Bytes, Case, Chain, Edit, Pointer, Registry}
-  alias Generator.{Regtest, Replay, Spec}
+  alias Generator.{Parse, Regtest, Replay, Spec}
   alias Generator.Replay.World
 
   @crockford "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -72,7 +72,7 @@ defmodule Generator.Consistency do
   defp proofs(files) do
     for {"vectors/positive/" <> name, bytes} <- files,
         String.ends_with?(name, ".proof.json"),
-        do: {name, JSON.decode!(bytes)["proof"]}
+        do: {name, Parse.decode!(bytes)["proof"]}
   end
 
   # The chain.

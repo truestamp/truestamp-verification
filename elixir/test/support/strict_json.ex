@@ -4,8 +4,23 @@
 defmodule Truestamp.Verifier.Test.StrictJSON do
   @moduledoc """
   Reads a JSON text under the parsing rules J1 to J6 of SPEC.md section 10.1, for the tests
-  of the files under `spec/`, and prints a value in the canonical forms those files use.
+  of the files under `spec/` and `vectors/`, and prints a value in the canonical forms those
+  files use.
+
+  OTP's `JSON` does the syntax, and hands each number's text to the decoders here. They
+  convert it with the verifier's own `Truestamp.Verifier.Binary64.nearest/1`, never with
+  `Float.parse/1` or `:erlang.binary_to_float/1`: those reach the C library's `strtod`, which
+  on macOS 27 aborts the runtime on some long spellings, and `vectors/` holds spellings of
+  more than 600 digits. Everything else here is this module's own, so the tests still
+  compare two readers of the syntax, J4 and J6, while both read a number's value alike.
+
+  One sign is lost on the way: OTP's tokenizer hands `-0e5` to the float decoder as
+  `0.0e5`, so a zero written as `-0` followed directly by an exponent reads as `0.0` here,
+  not `-0.0`. JCS writes both as `0`, and the verifier's `Parser` reads `-0` as the integer
+  0, so no test that compares through either sees it.
   """
+
+  alias Truestamp.Verifier.Binary64
 
   @max_read_octets 262_144
   @max_depth 32
@@ -19,9 +34,24 @@ defmodule Truestamp.Verifier.Test.StrictJSON do
   @doc "Decodes `bytes`, returning `{:ok, value}` or `{:error, reason}`."
   @spec decode(binary()) :: {:ok, term()} | {:error, atom()}
   def decode(bytes) when byte_size(bytes) > @max_read_octets, do: {:error, :input_too_large}
+  def decode(bytes), do: decode_data(bytes)
 
-  def decode(bytes) do
+  @doc """
+  Decodes `bytes` under J2 to J6 alone, for a data file such as `vectors/cases.json`, which
+  is larger than MAX_READ_OCTETS: J1 binds a document, not such a file.
+  """
+  @spec decode_data(binary()) :: {:ok, term()} | {:error, atom()}
+  def decode_data(bytes) do
     if String.valid?(bytes), do: decode_valid(bytes), else: {:error, :invalid_utf8}
+  end
+
+  @doc "The value of the JSON data file at `path`, read with `decode_data/1`. Raises on a refusal."
+  @spec read_data!(Path.t()) :: term()
+  def read_data!(path) do
+    case path |> File.read!() |> decode_data() do
+      {:ok, value} -> value
+      {:error, reason} -> raise ArgumentError, "#{path}: #{inspect(reason)}"
+    end
   end
 
   defp decode_valid(bytes) do
@@ -57,16 +87,19 @@ defmodule Truestamp.Verifier.Test.StrictJSON do
     [{key, value} | acc]
   end
 
-  # An integer outside the safe range is judged, like any number, by its binary64 value.
+  # An integer outside the safe range is judged, like any number, by its binary64 value. One
+  # of more than 17 characters is outside it, and is never turned into a big integer.
+  defp integer(text) when byte_size(text) > 17, do: float(text)
+
   defp integer(text) do
     value = String.to_integer(text)
-    if abs(value) <= @max_safe_integer, do: value, else: float(text <> ".0")
+    if abs(value) <= @max_safe_integer, do: value, else: float(text)
   end
 
   defp float(text) do
-    case Float.parse(text) do
-      {value, ""} -> check_float(value)
-      _ -> @bad_number
+    case Binary64.nearest(text) do
+      {:ok, value} -> check_float(value)
+      {:error, :overflow} -> @bad_number
     end
   end
 

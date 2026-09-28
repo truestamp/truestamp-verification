@@ -132,7 +132,7 @@ defmodule Generator.Cases.Online do
 
   @behaviour Generator.Cases.Class
 
-  alias Generator.{Case, Chain, Edit, Replay, Spec}
+  alias Generator.{Case, Chain, Edit, Parse, Replay, Spec}
   alias Generator.Replay.World
 
   @codes ~w(keyring_unavailable chain_mismatch source_unreachable not_held_by_source
@@ -190,7 +190,7 @@ defmodule Generator.Cases.Online do
   # KEY_BINDING.
 
   defp key_binding(world, files) do
-    test_keyring = JSON.decode!(Map.fetch!(files, "vectors/keyring.test.json"))
+    test_keyring = Parse.decode!(Map.fetch!(files, "vectors/keyring.test.json"))
 
     for {name, answer} <- [
           {"unreachable", unreachable("HTTP 503")},

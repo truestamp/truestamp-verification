@@ -35,7 +35,10 @@ defmodule Generator.Cases.Shape do
     - `shape_invalid` at `/witnesses` for an item missing a witness that `witness_hashes`
       names, and for one with a witness that `witness_hashes` does not name;
     - `shape_invalid` for a Stellar `closed_at` of `24:00:00`, of February 30 and with 60
-      seconds, at that value;
+      seconds, and of February 29 in 1900 and in 2100, which are not leap years, at that
+      value; and `0000-02-29T00:00:00Z` passes SHAPE, since TIME covers the years 0000 to
+      9999 of the proleptic Gregorian calendar, in which 0000 is a leap year, with every
+      row the sound proof's (`shape-time-february_29-0000`);
     - `shape_invalid` at the array for a `path` of 33 nodes, walked from leaf 0 of a tree of
       2^33 leaves with the block record made to agree, so that only its length is wrong.
   - **The empty-root rule** (`empty_root-`): at `/block` (the block proof of the genesis
@@ -352,18 +355,32 @@ defmodule Generator.Cases.Shape do
     <<year::binary-4, date::binary-6, "T", clock::binary-6, seconds::binary-2, "Z">> =
       Edit.get(proof, @closed_at)
 
-    [
-      {"hour_24", year <> date <> "T24:00:00Z"},
-      {"february_30", year <> "-02-30T" <> clock <> seconds <> "Z"},
-      {"second_60", year <> date <> "T" <> clock <> "60Z"}
-    ]
-    |> Enum.map(fn {name, time} ->
-      invalid(
-        "shape-time-" <> name,
-        proof |> Edit.put(@closed_at, time) |> agree(:subject),
-        @closed_at
+    refused =
+      [
+        {"hour_24", year <> date <> "T24:00:00Z"},
+        {"february_30", year <> "-02-30T" <> clock <> seconds <> "Z"},
+        {"second_60", year <> date <> "T" <> clock <> "60Z"},
+        {"february_29-1900", "1900-02-29T00:00:00Z"},
+        {"february_29-2100", "2100-02-29T00:00:00Z"}
+      ]
+      |> Enum.map(fn {name, time} ->
+        invalid(
+          "shape-time-" <> name,
+          proof |> Edit.put(@closed_at, time) |> agree(:subject),
+          @closed_at
+        )
+      end)
+
+    passed =
+      signed(
+        "shape-time-february_29-0000",
+        proof |> Edit.put(@closed_at, "0000-02-29T00:00:00Z") |> agree(:subject),
+        {:passes, [{"pass", nil, nil, "SHAPE"}]},
+        same_as: "sound-entropy_stellar",
+        label: "supplied-keyring"
       )
-    end)
+
+    refused ++ [passed]
   end
 
   # MAX_PATH_STEPS + 1 nodes from leaf 0 of a tree of 2^33 leaves, where each step hashes the

@@ -37,7 +37,7 @@ defmodule Generator.Model.Online do
   a verifier would then read that network from a compiled-in default source.
   """
 
-  alias Generator.{BitcoinParse, Bytes, JCS, Pointer, Registry, Spec}
+  alias Generator.{BitcoinParse, Bytes, JCS, Parse, Pointer, Registry, Spec}
 
   @keyring_url "https://www.truestamp.com/.well-known/keyring.json"
   @top ~w(/commitments/bitcoin /commitments/stellar)
@@ -58,7 +58,7 @@ defmodule Generator.Model.Online do
             raise ArgumentError,
                   "the online case's replay #{path} is no file the generator writes"
 
-        %{"reads" => records} = JSON.decode!(bytes)
+        %{"reads" => records} = Parse.decode!(bytes)
 
         %{
           path: path,

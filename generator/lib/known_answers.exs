@@ -9,7 +9,8 @@ defmodule Generator.KnownAnswers do
   import Bitwise
   import Generator.Check
 
-  alias Generator.{BitcoinAnswers, Bytes, Derive, JCS, Keys, Merkle, Registry, Spec}
+  alias Generator.{Binary64, BitcoinAnswers, Bytes, Derive, JCS, Keys, Merkle, Parse}
+  alias Generator.{Registry, Spec}
 
   @vector_key "2152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12"
 
@@ -104,7 +105,17 @@ defmodule Generator.KnownAnswers do
   ]
 
   @doc "The failures of check 1."
-  def run, do: registry() ++ keys() ++ jcs() ++ merkle() ++ BitcoinAnswers.run()
+  def run do
+    List.flatten([
+      registry(),
+      keys(),
+      jcs(),
+      merkle(),
+      BitcoinAnswers.run(),
+      Binary64.KnownAnswers.run(),
+      Spec.number_check()
+    ])
+  end
 
   @doc """
   RFC 8785's own examples, which the JCS corpus quotes (Generator.Corpus): section 3.2.2's
@@ -186,14 +197,14 @@ defmodule Generator.KnownAnswers do
   # or that repeats a name, hides none.
   defp key_values(bytes) do
     parsed =
-      case JSON.decode(bytes) do
+      case Parse.decode(bytes) do
         {:ok, value} -> key_members(value)
         {:error, _reason} -> []
       end
 
     spelled =
       for [_member, literal] <- Regex.scan(@key_member, bytes),
-          {:ok, text} <- [JSON.decode(literal)],
+          {:ok, text} <- [Parse.decode(literal)],
           do: text
 
     parsed ++ spelled
@@ -252,7 +263,7 @@ defmodule Generator.KnownAnswers do
     List.flatten([
       expect(
         "JCS of RFC 8785 section 3.2.2",
-        JCS.encode(JSON.decode!(@rfc8785_input)),
+        JCS.encode(Parse.decode!(@rfc8785_input)),
         @rfc8785_output
       ),
       # RFC 8785 section 3.2.3: names sorted by UTF-16 code units, and U+0080 written as is.

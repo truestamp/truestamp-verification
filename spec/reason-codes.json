@@ -15,13 +15,29 @@
     "code": "malformed_json",
     "meaning": "the file breaks a parsing rule of section 10.1; sub_reason names the rule",
     "status": "bare",
-    "step": "PARSE"
+    "step": "PARSE",
+    "sub_reasons": [
+      "syntax",
+      "invalid_utf8",
+      "lone_surrogate",
+      "duplicate_name",
+      "number",
+      "depth"
+    ]
   },
   {
     "code": "invalid_envelope",
     "meaning": "the document is not exactly the envelope of section 3.1: a member missing or extra, alg other than the pin, K or V off its class, or K failing the checks of a key's bytes (section 6.2); sub_reason names the first check of section 10.2, step 3, that fails",
     "status": "bare",
-    "step": "ENVELOPE"
+    "step": "ENVELOPE",
+    "sub_reasons": [
+      "document",
+      "proof",
+      "signature",
+      "alg",
+      "public_key",
+      "value"
+    ]
   },
   {
     "code": "environment_mismatch",

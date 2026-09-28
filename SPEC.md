@@ -93,8 +93,10 @@ The base64url classes are unpadded (RFC 4648 section 5), and the class of the la
 character forces the unused bits to zero, so a match is exactly a canonical encoding.
 Stock decoders are not canonical: Elixir's `Base.url_decode64` ignores the unused bits,
 and Go's `RawURLEncoding.Strict()` skips CR and LF. So an implementation MUST match a
-value against its class before it decodes it. The round trip of TIME and NISTTIME rejects
-`24:00:00`, February 30 and a seconds value of 60.
+value against its class before it decodes it. TIME and NISTTIME cover the years 0000 to
+9999 in the proleptic Gregorian calendar, RFC 3339's range. Their round trip rejects
+`24:00:00`, February 30, a seconds value of 60, and February 29 of a year that is not a leap
+year, such as 1900 or 2100; year 0000 is a leap year, so `0000-02-29T00:00:00Z` passes.
 
 ### 2.5 Normative references
 
@@ -716,9 +718,9 @@ reproduces S. Three implementations gave these values: Go's `crypto/ed25519`, Er
 
 - the document still verifies re-indented with CRLF line ends, with its members reordered,
   a string spelled with a `\u` escape and `1.0` for 1;
-- S does not verify over M itself, over SHA-256(M), over the hex of `proof_hash`, over
-  SHA-256(0x31 || M) or SHA-256(0x62 || M) (the bytes of the other two signed kinds), or
-  with `environment` changed to `dev` or removed.
+- S does not pass Ed25519 verification (RFC 8032) over M itself, over SHA-256(M), over the
+  hex of `proof_hash`, over SHA-256(0x31 || M) or SHA-256(0x62 || M) (the bytes of the
+  other two signed kinds), or with `environment` changed to `dev` or removed.
 
 Under section 10.2, a verifier whose E_v is not `test` rejects the document at
 ENVIRONMENT. A `test` verifier whose keyring holds VECTOR_KEY passes it at KEY_BINDING and
@@ -1068,7 +1070,7 @@ There are no clock tolerances.
 | `constructions/c0d70826d7501d5089184d1947bad3dcc33c3172269d425f16fc0025ed07df49.json` | the text of section 7.3, as its exact JCS bytes |
 | `keyring.production.json` | the compiled pin of section 8.3, a keyring in the form of section 10.2, step 0 |
 | `keys.nonproduction.json` | the public keys of the dev, test and staging environments, as `{keys}`, one object per key: `{environment, key_id, public_key}`, with `public_key` a B64U32 and `key_id` its key id |
-| `reason-codes.json` | the table of section 12.1, one object per row, in the table's order |
+| `reason-codes.json` | the table of section 12.1, one object per row, in the table's order, with `sub_reasons` on the rows of `malformed_json` and `invalid_envelope` (section 12.1) |
 | `exit-codes.json` | the table of section 12.2, one object per row |
 
 Every file satisfies the parsing rules of section 10.1 and has one canonical form. A
@@ -1121,7 +1123,7 @@ file differently.
 | J2. The file is exactly one JSON text (RFC 8259) in UTF-8: no byte order mark, and nothing after the value but whitespace. | Stock parsers disagree at the edges. |
 | J3. The bytes are valid UTF-8, and no string holds an escaped lone surrogate. | Go's `encoding/json` silently replaces both with U+FFFD. |
 | J4. No object has two members with the same name, compared as code points after unescaping and with no normalization. | Stock parsers keep the last value, so a reader could see one `proof` while the signature covers another. |
-| J5. Every number is read as the nearest binary64 value: one that underflows reads as 0, -0 reads as 0, and one that overflows is rejected. No number's value is an integer of magnitude above MAX_INTEGER and below 10^21, however it is written. | Elixir keeps large integers exact while Go and JavaScript round them, which would split JCS and `proof_hash`. |
+| J5. Every number is read as the nearest binary64 value: one that underflows reads as 0, -0 reads as 0, and one that overflows is rejected. A number overflows when rounding it to the nearest binary64 value, ties to even, gives an infinity, that is, when its magnitude is at least 2^1024 - 2^970. No number's value is an integer of magnitude above MAX_INTEGER and below 10^21, however it is written. | Elixir keeps large integers exact while Go and JavaScript round them, which would split JCS and `proof_hash`. |
 | J6. The depth is at most MAX_DEPTH, checked before JCS. The outermost value has depth 1, each object or array is one deeper than the object or array that holds it, and no other value adds a level. | It bounds recursion and the cost of JCS, which grows quadratically with depth. |
 
 - J1 is step READ (section 10.2). A larger file is the bare rejection `input_too_large`, and
@@ -1134,6 +1136,9 @@ file differently.
   whose magnitude is at least 2^53 and below 10^21: `9007199254740992`,
   `9007199254740992.0`, `9007199254740993e0` and `1e16` among them. It accepts `1e21`, and
   reads `1e-400` as 0.
+- It reads `1.7976931348623158e308`, which lies below 2^1024 - 2^970, as the largest
+  binary64 value, 2^1024 - 2^971, and rejects `1.7976931348623159e308` and `1e400`. However
+  long a number's spelling, only its nearest binary64 value counts.
 
 **The value profile.** J3 to J6, stated for values rather than bytes, are the value
 profile. A JSON value is within it when every string in it, member names included, is a
@@ -2117,7 +2122,9 @@ as compiled constants, with a test that they equal that file.
 - The status "bare" marks a code that ends the run in a bare rejection (section 10.2, the
   gate). The other statuses are those of report rows (section 10.5).
 - `sub_reason` is present for `malformed_json` (section 10.1) and for `invalid_envelope`
-  (section 10.2, step 3), and absent otherwise.
+  (section 10.2, step 3), and absent otherwise. In `spec/reason-codes.json` the rows of
+  those two codes also hold `sub_reasons`, the names their `sub_reason` takes, in the order
+  those sections give them.
 - The run's code, which a report labelled `failed` carries (section 10.5), is chosen from
   its rows as section 10.2 says.
 - Conformance compares codes exactly (section 13). A message is for display only: it is
@@ -2370,15 +2377,19 @@ section 10 reports that check. Each class below says what its cases assert.
   members reordered, strings escaped and `1.0` for an integer gives exactly the original's
   rows and trace (section 3.1). Each sound proof in the reference mode and in mode `none`
   gives the original's verdict (section 7.2). `1e-400` in claims is read as 0 and passes.
-  A sound proof padded with whitespace to exactly MAX_READ_OCTETS passes, and so does a
-  sound item whose claims nest the document to a depth of exactly MAX_DEPTH.
+  A claims number spelled with 637 characters reads as the binary64 value nearest it,
+  75.75960580580087, and passes, and `1.7976931348623158e308` in claims reads as the
+  largest binary64 value and passes. A sound proof padded with whitespace to exactly
+  MAX_READ_OCTETS passes, and so does a sound item whose claims nest the document to a
+  depth of exactly MAX_DEPTH.
 - **READ.** A file of MAX_READ_OCTETS + 1 octets is the bare rejection `input_too_large`.
 - **PARSE.** The bare rejection `malformed_json`, with its `sub_reason`: a second `proof`
   member, a duplicate inside `proof`, and a duplicate that differs only in its escapes
   (`duplicate_name`); a lone surrogate escape (`lone_surrogate`); invalid UTF-8
   (`invalid_utf8`); a byte-order mark, and content after the JSON text (`syntax`); the
   integer literals 2^53 and 2^60, `9007199254740992.0`, `9007199254740993e0` and `1e16`,
-  and `1e400`, which overflows (`number`); nesting 33 deep (`depth`).
+  a spelling of 618 characters whose nearest binary64 value is 2^53 + 2, and `1e400`,
+  which overflows (`number`); nesting 33 deep (`depth`).
 - **ENVELOPE.** The bare rejection `invalid_envelope`, with its `sub_reason`: a document
   that is an array, a member missing or extra in the document, and a `signatures` array in
   place of `signature` (`document`); a `proof` that is not an object (`proof`); a member
@@ -2421,8 +2432,9 @@ section 10 reports that check. Each class below says what its cases assert.
   another host; an uppercase hash; a `\n` escaped onto the end of any value of a pattern
   class in `proof` other than `environment`; any OPTIONAL member other than `environment`
   as `null`; an observation whose source differs from its type or its name; `witnesses`
-  names that differ from `witness_hashes`; a TIME of `24:00:00`, of February 30, or with 60
-  seconds; and a `path` of 33 nodes.
+  names that differ from `witness_hashes`; a TIME of `24:00:00`, of February 30, with 60
+  seconds, or of February 29 in 1900 or 2100; and a `path` of 33 nodes. A TIME of
+  `0000-02-29T00:00:00Z` passes SHAPE.
 - **The empty-root rule (section 5.4).** At each of `/block`, `/witnesses/block` and
   `/signing_key_event/block`, a block record with leaves under the empty root (`leaf_count`
   1 or more) and a block record with no leaves under another root (`leaf_count` 0) each

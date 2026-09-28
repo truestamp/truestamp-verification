@@ -232,14 +232,16 @@ defmodule Generator.Cases do
   `configuration_error` has exactly one identity read step 0 refuses, every pinned network's
   read made; and every reason code but `internal_error` has a case, each code whose status is
   bare or fail a single-defect case (SPEC.md 13.1), reported per code, and a code that lacks
-  either fails the check. A code the online class names (Generator.Cases.Online) must be one
-  only an online run reaches: no offline case gives it, and it is a code of CHAIN, SOURCES or
-  WINDOW alone, or `keyring_unavailable`, whose keyring read is online.
+  either fails the check; the sub_reasons the bare cases give are exactly those
+  spec/reason-codes.json lists for their codes. A code the online class names
+  (Generator.Cases.Online) must be one only an online run reaches: no offline case gives it,
+  and it is a code of CHAIN, SOURCES or WINDOW alone, or `keyring_unavailable`, whose
+  keyring read is online.
   """
 
   import Generator.Check
 
-  alias Generator.{Case, FileForm, JCS, Model, Spec}
+  alias Generator.{Case, FileForm, JCS, Model, Parse, Spec}
   alias Generator.Model.Online, as: OnlineModel
 
   # The class module of the online cases, whose codes only an online run reaches. It is loaded
@@ -276,7 +278,7 @@ defmodule Generator.Cases do
       for {"vectors/positive/" <> name, bytes} <- files,
           String.ends_with?(name, ".proof.json"),
           into: %{} do
-        envelope = JSON.decode!(bytes)
+        envelope = Parse.decode!(bytes)
         path = "positive/" <> name
         name = String.replace_suffix(name, ".proof.json", "")
         {name, %{proof: envelope["proof"], envelope: envelope, bytes: bytes, path: path}}
@@ -372,7 +374,7 @@ defmodule Generator.Cases do
   """
   def check(files) do
     definitions = definitions(files)
-    cases = JSON.decode!(Map.fetch!(files, "vectors/cases.json"))
+    cases = Parse.decode!(Map.fetch!(files, "vectors/cases.json"))
     by_id = Map.new(cases, &{&1["id"], &1})
 
     results =
@@ -428,7 +430,7 @@ defmodule Generator.Cases do
   defp replay_source({no_source, %{"id" => id, "config" => %{"online" => path}} = json}, files) do
     case Map.fetch(files, "vectors/" <> path) do
       {:ok, bytes} ->
-        held = held_identities(JSON.decode!(bytes))
+        held = held_identities(Parse.decode!(bytes))
         pinned = pinned_networks(json)
 
         missing =
@@ -583,7 +585,7 @@ defmodule Generator.Cases do
 
   defp one_refusal_self_test(id, {_no_source, json} = pair, second, files) do
     path = "vectors/" <> json["config"]["online"]
-    %{"reads" => reads} = JSON.decode!(Map.fetch!(files, path))
+    %{"reads" => reads} = Parse.decode!(Map.fetch!(files, path))
     twice = FileForm.encode(%{"reads" => Enum.flat_map(reads, &second_defect(&1, second))})
 
     [
@@ -623,7 +625,7 @@ defmodule Generator.Cases do
     case Map.fetch(by_id, "window-established") do
       {:ok, %{"config" => %{"online" => path} = config, "proof" => proof}} ->
         bytes = Map.fetch!(files, "vectors/" <> proof)
-        %{"reads" => reads} = JSON.decode!(Map.fetch!(files, "vectors/" <> path))
+        %{"reads" => reads} = Parse.decode!(Map.fetch!(files, "vectors/" <> path))
 
         run = fn drop ->
           replay = FileForm.encode(%{"reads" => Enum.reject(reads, &drop.(&1["read"]))})
@@ -807,7 +809,7 @@ defmodule Generator.Cases do
           expect(
             "#{label}: its trace",
             report.trace,
-            JSON.decode!(Map.get(files, "vectors/" <> definition.trace, "null"))
+            Parse.decode!(Map.get(files, "vectors/" <> definition.trace, "null"))
           ),
         else: []
       ),
@@ -983,7 +985,7 @@ defmodule Generator.Cases do
 
   defp form(path, bytes, encode) do
     if String.valid?(bytes),
-      do: expect("#{path} in its form", encode.(JSON.decode!(bytes)), bytes),
+      do: expect("#{path} in its form", encode.(Parse.decode!(bytes)), bytes),
       else: ["#{path} is not UTF-8"]
   end
 
@@ -1013,10 +1015,27 @@ defmodule Generator.Cases do
         ),
         expect("codes named by more than one owner", Enum.sort(owners -- Enum.uniq(owners)), []),
         online_only(given(for {d, output} <- results, d.replay == nil, do: {d, output}), table),
+        sub_reasons(results, table),
         for({:missing, line} <- lines, do: line)
       ]
 
     {failures, for({_state, line} <- lines, do: line)}
+  end
+
+  # SPEC.md 12.1: the sub_reasons spec/reason-codes.json lists for a code are exactly those
+  # its bare cases give, so every name has a case and no case gives a name the file lacks.
+  defp sub_reasons(results, table) do
+    listed =
+      for %{"code" => code, "sub_reasons" => names} <- table, name <- names, do: {code, name}
+
+    given =
+      for {_d, {:bare, code, sub}} <- results, sub != nil, uniq: true, do: {code, sub}
+
+    expect(
+      "the sub_reasons of the bare cases, against those spec/reason-codes.json lists",
+      Enum.sort(given),
+      Enum.sort(listed)
+    )
   end
 
   # Each code the online class names is one only an online run reaches: no offline case gives

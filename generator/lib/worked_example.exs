@@ -8,6 +8,8 @@ defmodule Generator.WorkedExample do
 
   import Generator.Check
 
+  alias Generator.Parse
+
   # Each row of 6.3's table, by the label SPEC.md gives it, and the member of
   # worked-example.json that holds its value.
   defp rows do
@@ -25,7 +27,7 @@ defmodule Generator.WorkedExample do
 
   @doc "The failures of the comparison, for SPEC.md's text and worked-example.json's bytes."
   def run(spec_md, bytes) do
-    example = JSON.decode!(bytes)
+    example = Parse.decode!(bytes)
     [_before, section] = String.split(spec_md, "\n### 6.3 Worked example\n", parts: 2)
     [section, _after] = String.split(section, "\n### 6.4 ", parts: 2)
     List.flatten([input(section, example), table(section, example), document(section, example)])
@@ -35,7 +37,7 @@ defmodule Generator.WorkedExample do
     [_all, text] =
       Regex.run(~r/The input,\s+indented\s+and\s+out\s+of\s+order:\n\n```\n(.*?)\n```/s, section)
 
-    expect("SPEC.md 6.3's input", JSON.decode!(text), example["proof"])
+    expect("SPEC.md 6.3's input", Parse.decode!(text), example["proof"])
   end
 
   defp table(section, example) do

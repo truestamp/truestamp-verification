@@ -61,7 +61,7 @@ defmodule Generator.Proofs do
   # The one accepted constructions text, from its file under spec/constructions/.
   defp constructions do
     case Path.wildcard(Path.join(Spec.root(), "spec/constructions/*.json")) do
-      [path] -> path |> File.read!() |> JSON.decode!()
+      [path] -> path |> File.read!() |> Spec.json!(path)
       paths -> raise ArgumentError, "expected one constructions text, found #{length(paths)}"
     end
   end

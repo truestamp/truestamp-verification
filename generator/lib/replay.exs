@@ -47,7 +47,7 @@ defmodule Generator.Replay do
 
   import Generator.Check
 
-  alias Generator.{Case, Chain, JCS, Pointer, Spec}
+  alias Generator.{Case, Chain, JCS, Parse, Pointer, Spec}
   alias Generator.Replay.World
 
   @keyring_url "https://<host>/.well-known/keyring.json"
@@ -512,7 +512,7 @@ defmodule Generator.Replay do
   found.
   """
   def example(files) do
-    %{"proof" => proof} = JSON.decode!(Map.fetch!(files, "vectors/positive/item.proof.json"))
+    %{"proof" => proof} = Parse.decode!(Map.fetch!(files, "vectors/positive/item.proof.json"))
     world = World.new(Chain.build())
 
     proof
@@ -572,7 +572,7 @@ defmodule Generator.Replay do
         )
       end),
       for {"vectors/corpus/replay/" <> name, bytes} <- files do
-        validate(JSON.decode!(bytes), "corpus/replay/" <> name)
+        validate(Parse.decode!(bytes), "corpus/replay/" <> name)
       end
     ])
   end

@@ -39,9 +39,14 @@ defmodule Generator.Corpus do
   steps 2 and 3 gives, as OpenSSL and Go's crypto/ed25519 do (SPEC.md 6.2, common libraries),
   says what OpenSSL itself gives, through :crypto; and a case whose `about` names another lax
   verifier, one that reduces s modulo L, decodes R and compares points, or uses the
-  cofactored equation, is accepted by it, modeled here. Each base64url spelling is on its
-  class or off it as it says, a canonical one decodes to its octets and back, and a refused
-  one with a `canonical` spelling reads to that spelling's octets once its flaw is allowed.
+  cofactored equation, is accepted by it, modeled here. The case whose R is one bit off
+  (`step_7-r_sign_bit_flipped`) has [s]B - [k]A encode to R with its sign bit flipped, so a
+  verifier that compares only 31 octets of R, or ignores that bit, accepts it; the case whose
+  off-curve key comes with s = L (`step_4-not_on_curve-s_equal_l`) has an s at L or above,
+  so the order of steps 4 and 5 decides which one refuses it. Each base64url spelling is on
+  its class or off it as it says, a canonical one decodes to its octets and back, and a
+  refused one with a `canonical` spelling reads to that spelling's octets once its flaw is
+  allowed.
   """
 
   import Bitwise
@@ -54,7 +59,7 @@ defmodule Generator.Corpus do
 
   @doc "The corpus files but the real Bitcoin bytes, by their paths, for `files` built so far."
   def files(files) do
-    example = JSON.decode!(Map.fetch!(files, "vectors/worked-example.json"))
+    example = Parse.decode!(Map.fetch!(files, "vectors/worked-example.json"))
 
     jcs =
       Enum.flat_map(jcs(), fn {name, input, output} ->
@@ -194,6 +199,11 @@ defmodule Generator.Corpus do
       {"step_4-not_on_curve", off_curve(), message, identity, {:fail, 4},
        "A key whose y is below p and on no point of the curve: no x satisfies the curve's " <>
          "equation for it."},
+      {"step_4-not_on_curve-s_equal_l", off_curve(), message,
+       binary_part(identity, 0, 32) <> <<Ed25519.l()::little-256>>, {:fail, 4},
+       "The key of step_4-not_on_curve, and the signature (identity, L), whose s " <>
+         "step 5 refuses. Step 4 comes first and refuses the key, so the first step " <>
+         "that refuses it is 4: a verifier that checks s before the key names step 5."},
       {"step_5-s_equal_l", vector, message, r <> <<Ed25519.l()::little-256>>, {:fail, 5},
        "The worked example's signature with s replaced by L."},
       {"step_5-s_plus_l", vector, message, r <> <<s + Ed25519.l()::little-256>>, {:fail, 5},
@@ -212,6 +222,12 @@ defmodule Generator.Corpus do
        {:fail, 7},
        "R is [r]B plus a point of order 8, and s = r + k a, so [s]B - [k]A is [r]B, not R. " <>
          "The cofactored equation accepts it."},
+      {"step_7-r_sign_bit_flipped", vector, message, sign_bit_flipped(a, vector, message),
+       {:fail, 7},
+       "R is the encoding of [r]B with its sign bit, bit 255, flipped, and s = r + k a " <>
+         "for that R, so [s]B - [k]A is [r]B, whose encoding differs from R in that one " <>
+         "bit. A verifier that compares only the first 31 octets of R, or that ignores " <>
+         "its sign bit, accepts it."},
       {"step_7-mixed_order-k_not_multiple_of_8", mixed, message,
        Ed25519.sign_mixed(message, &(rem(&1, 8) != 0)), {:fail, 7},
        "The mixed-order test key with a challenge k that is not a multiple of 8. The " <>
@@ -278,6 +294,23 @@ defmodule Generator.Corpus do
     point = Ed25519.add(Ed25519.multiply(r, Ed25519.base()), Ed25519.torsion())
     Ed25519.sign_as(a, key, {Ed25519.encode(point), r}, message)
   end
+
+  # R = the encoding of [r]B with bit 255 flipped, and s = r + k a mod L for that R, r from the
+  # vector seed's prefix and the message.
+  defp sign_bit_flipped(a, key, message) do
+    {_a, prefix} = Ed25519.expand(Seeds.vector())
+    r = Ed25519.scalar(:crypto.hash(:sha512, [prefix, "sign bit", message]))
+
+    Ed25519.sign_as(
+      a,
+      key,
+      {flip(Ed25519.encode(Ed25519.multiply(r, Ed25519.base()))), r},
+      message
+    )
+  end
+
+  # 32 octets with bit 255, the sign bit of a point's encoding, flipped.
+  defp flip(<<n::little-256>>), do: <<bxor(n, 1 <<< 255)::little-256>>
 
   # base64url.
 
@@ -346,8 +379,8 @@ defmodule Generator.Corpus do
   def check(files) do
     List.flatten([
       check_jcs(files),
-      check_ed25519(JSON.decode!(Map.fetch!(files, "vectors/corpus/ed25519.json"))),
-      check_base64url(JSON.decode!(Map.fetch!(files, "vectors/corpus/base64url.json")))
+      check_ed25519(Parse.decode!(Map.fetch!(files, "vectors/corpus/ed25519.json"))),
+      check_base64url(Parse.decode!(Map.fetch!(files, "vectors/corpus/base64url.json")))
     ])
   end
 
@@ -359,7 +392,7 @@ defmodule Generator.Corpus do
       end
 
     stems = pairs |> Map.keys() |> Enum.map(&elem(&1, 0)) |> Enum.uniq() |> Enum.sort()
-    m = JSON.decode!(Map.fetch!(files, "vectors/worked-example.json"))["M"]
+    m = Parse.decode!(Map.fetch!(files, "vectors/worked-example.json"))["M"]
 
     [
       expect(
@@ -466,6 +499,19 @@ defmodule Generator.Corpus do
       ),
       if(about =~ "cofactored equation accepts",
         do: truth("#{label}: [8][s]B = [8]R + [8][k]A", cofactored?(key, message, signature)),
+        else: []
+      ),
+      if(about =~ "differs from R in that one bit",
+        do:
+          expect(
+            "#{label}: [s]B - [k]A encoded, with bit 255 flipped",
+            flip(Ed25519.encode(combination(key, message, signature))),
+            r
+          ),
+        else: []
+      ),
+      if(about =~ "whose s step 5 refuses",
+        do: truth("#{label}: s is not below L", s >= Ed25519.l()),
         else: []
       )
     ]

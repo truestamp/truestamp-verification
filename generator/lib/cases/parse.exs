@@ -17,8 +17,10 @@ defmodule Generator.Cases.Parse do
     surrogate escape in a claims string (`lone_surrogate`); an octet 0xff in a claims string
     (`invalid_utf8`); a byte-order mark, and a second JSON text after the first (`syntax`);
     in place of the claims number 5e-324, the integer literals 2^53 and 2^60,
-    `9007199254740992.0`, `9007199254740993e0`, `1e16`, and `1e400`, which overflows
-    (`number`); and claims that nest the document 33 deep (`depth`).
+    `9007199254740992.0`, `9007199254740993e0`, `1e16`, `9007199254740993.` followed by 600
+    zeros and a 1, a spelling of 618 characters whose nearest binary64 value is 2^53 + 2,
+    and `1e400`, which overflows (`number`); and claims that nest the document 33 deep
+    (`depth`).
   """
 
   @behaviour Generator.Cases.Class
@@ -72,6 +74,8 @@ defmodule Generator.Cases.Parse do
       {"parse-number-2-pow-53-plus-1-exponent", "number",
        edit(bytes, number, ~s("smallest":9007199254740993e0))},
       {"parse-number-1e16", "number", edit(bytes, number, ~s("smallest":1e16))},
+      {"parse-number-long_spelling", "number",
+       edit(bytes, number, ~s("smallest":9007199254740993.) <> String.duplicate("0", 600) <> "1")},
       {"parse-number-1e400", "number", edit(bytes, number, ~s("smallest":1e400))}
     ]
     |> Enum.map(fn {id, sub_reason, file} ->

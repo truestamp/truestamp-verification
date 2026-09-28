@@ -30,7 +30,8 @@ defmodule Generator.Positive do
 
   import Generator.Check
 
-  alias Generator.{Bytes, Derive, JCS, Keys, Mutations, Pointer, Registry, Sound, Spec, SpecRows}
+  alias Generator.{Bytes, Derive, JCS, Keys, Mutations, Parse, Pointer, Registry, Sound}
+  alias Generator.{Spec, SpecRows}
 
   # Each positive proof's name, and its type.
   @names %{
@@ -86,7 +87,7 @@ defmodule Generator.Positive do
   defp attribution(bytes), do: "keyring:" <> Bytes.hex(:crypto.hash(:sha256, bytes))
 
   defp decode(bytes, attribution) do
-    envelope = JSON.decode!(bytes)
+    envelope = Parse.decode!(bytes)
     proof = envelope["proof"]
     k = decode_key(get_in(envelope, ["signature", "public_key"]))
     rows = Derive.rows(proof, k || <<>>, attribution)
@@ -97,7 +98,7 @@ defmodule Generator.Positive do
 
   defp proof(name, decoded, files, named) do
     %{proof: proof, rows: rows} = decoded
-    trace = files |> Map.get("vectors/positive/#{name}.trace.json", "null") |> JSON.decode!()
+    trace = files |> Map.get("vectors/positive/#{name}.trace.json", "null") |> Parse.decode!()
 
     [
       envelope(name, decoded),

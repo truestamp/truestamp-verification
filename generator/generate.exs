@@ -25,12 +25,17 @@
 # writes nothing:
 #
 #   1. Known answers. Each primitive the generator uses (the byte registry, key ids, JCS, the
-#      Merkle Tree Hash, inclusion paths and the walk of SPEC.md 5.3, and Bitcoin's
-#      transactions, Merkle trees, merkleblocks, headers and targets) is run against answers
-#      that do not come from the generator: kept by hand from RFC 8785, from the Merkle
-#      library's vectors/merkle.json, from Bitcoin's chains and from Bitcoin Core's tests, or
-#      read from the files under spec/. A primitive that changes breaks this table instead of
-#      quietly publishing new bytes (lib/known_answers.exs).
+#      Merkle Tree Hash, inclusion paths and the walk of SPEC.md 5.3, Bitcoin's
+#      transactions, Merkle trees, merkleblocks, headers and targets, and the reading of a
+#      JSON number as its nearest binary64 value) is run against answers that do not come
+#      from the generator: kept by hand from RFC 8785, from the Merkle library's
+#      vectors/merkle.json, from Bitcoin's chains and from Bitcoin Core's tests, computed by
+#      Python's float() (known_answers/binary64.txt), or read from the files under spec/. A
+#      primitive that changes breaks this table instead of quietly publishing new bytes
+#      (lib/known_answers.exs, lib/binary64.exs). The generator reads every number itself,
+#      since the C library's strtod aborts the VM on some long numbers on macOS 27, and the
+#      vectors hold long numbers: only the files under spec/ are read with OTP's JSON, and
+#      the check fails on a number of more than 30 significant digits in any of them.
 #   2. Re-derivation. Each file is decoded from the bytes about to be written, and every value
 #      in it is derived again from those bytes alone, never from the values that built them.
 #      For a positive proof that is every DERIVE row, recomputed by an engine of its own
@@ -81,13 +86,14 @@
 # to 4, whether or not the run noted it (lib/known_answers.exs).
 #
 # The generator shares no code with any verifier in this repository. It uses only Elixir,
-# :crypto and the data files under spec/, with its own JCS and its own Merkle walk, so a
-# defect in one cannot hide in both.
+# :crypto, the data files under spec/ and its known answers under known_answers/, with its
+# own JSON reader, its own JCS and its own Merkle walk, so a defect in one cannot hide in
+# both.
 
-for file <- ~w(base ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse derive parse
-               schema model_online model cases cases/sound cases/parse cases/front cases/shape
-               cases/derive known_answers corpus replay cases/online real_bitcoin consistency
-               vectors sound mutations spec_rows positive rederive worked_example) do
+for file <- ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
+               derive parse schema model_online model cases cases/sound cases/parse cases/front
+               cases/shape cases/derive known_answers corpus replay cases/online real_bitcoin
+               consistency vectors sound mutations spec_rows positive rederive worked_example) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 

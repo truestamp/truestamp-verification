@@ -296,11 +296,49 @@ defmodule Truestamp.Verifier.SpecFilesTest do
         )
 
       assert length(rows) == String.to_integer(count)
-      assert read("reason-codes.json") == rows
+      assert Enum.map(read("reason-codes.json"), &Map.delete(&1, "sub_reasons")) == rows
 
       codes = Enum.map(rows, & &1["code"])
       assert codes == Enum.uniq(codes)
       for code <- codes, do: assert(code =~ ~r/\A[a-z]+(?:_[a-z]+)*\z/, code)
+    end
+
+    test "gives the sub_reasons of sections 10.1 and 10.2, step 3, in their order, on malformed_json and invalid_envelope alone" do
+      [_before, parse] = String.split(spec_md(), "- J2 to J6 are step PARSE.", parts: 2)
+      [parse, _after] = String.split(parse, "(J6).", parts: 2)
+      [_before, envelope] = String.split(spec_md(), "**3. ENVELOPE.**", parts: 2)
+      [envelope, _after] = String.split(envelope, "The message is", parts: 2)
+
+      parse_names = backticked(parse) -- ["malformed_json", "sub_reason"]
+
+      envelope_names =
+        ~r/^\d\. `([a-z_]+)`:/m |> Regex.scan(envelope) |> Enum.map(&List.last/1)
+
+      assert parse_names == ~w(syntax invalid_utf8 lone_surrogate duplicate_name number depth)
+      assert envelope_names == ~w(document proof signature alg public_key value)
+
+      sub_reasons =
+        for %{"code" => code} = row <- read("reason-codes.json"),
+            Map.has_key?(row, "sub_reasons"),
+            into: %{},
+            do: {code, row["sub_reasons"]}
+
+      assert sub_reasons == %{
+               "malformed_json" => parse_names,
+               "invalid_envelope" => envelope_names
+             }
+
+      # Each sub_reason a case of cases.json gives is one its code lists, and each listed
+      # sub_reason has a case.
+      cases = @root |> Path.join("vectors/cases.json") |> StrictJSON.read_data!()
+
+      given =
+        for %{"expected" => %{"code" => code, "sub_reason" => sub}} <- cases,
+            uniq: true,
+            do: {code, sub}
+
+      listed = for {code, names} <- sub_reasons, name <- names, do: {code, name}
+      assert Enum.sort(given) == Enum.sort(listed)
     end
 
     test "lists the codes in step order, by the first step each names, with the codes of any step last" do

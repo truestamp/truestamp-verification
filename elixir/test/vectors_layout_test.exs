@@ -58,7 +58,7 @@ defmodule Truestamp.Verifier.VectorsLayoutTest do
   end
 
   # cases.json is larger than MAX_READ_OCTETS, a bound on a proof file, not on it.
-  defp cases, do: @vectors |> Path.join("cases.json") |> File.read!() |> JSON.decode!()
+  defp cases, do: @vectors |> Path.join("cases.json") |> StrictJSON.read_data!()
 
   test "the table of section 13.2 names each entry at the top of vectors/, and nothing else" do
     listed = first_column("| Path | Holds |")
@@ -111,7 +111,7 @@ defmodule Truestamp.Verifier.VectorsLayoutTest do
   end
 
   test "corpus/bitcoin/ names each file by the network and height it holds" do
-    networks = @root |> Path.join("spec/networks.json") |> File.read!() |> JSON.decode!()
+    networks = @root |> Path.join("spec/networks.json") |> StrictJSON.read_data!()
     files = under("corpus/bitcoin/")
 
     assert files != []
