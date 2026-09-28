@@ -13,8 +13,9 @@ defmodule Generator.Cases.Shape do
   values is checked.
 
   - **SHAPE** (`shape-`), each with one failing row, at SHAPE:
-    - `unsupported_format` at `/format` for the format `truestamp-receipt`, and
-      `unsupported_version` at `/version` for the version 2;
+    - `unsupported_format` at `/format` for the format `truestamp-receipt`, for none and for
+      `truestamp-proof` with a `\\n` on its end, and `unsupported_version` at `/version` for the
+      version 2 and for none: checks 1 and 2 come before the schema, which also refuses each;
     - `construction_mismatch` at `/constructions` for the full text with one byte changed (the
       prefix byte of its `block_hash` row), with its `keyring` row missing, and with the two
       node orders of its `merkle_path` row swapped, and for a reference URL whose digest, that of
@@ -30,6 +31,9 @@ defmodule Generator.Cases.Shape do
       that a proof holds, ENV aside, and of an item's and an observation's `id`, so that every
       place spec/schema.json gives the class UUID7 has one (Generator.Cases checks that), at
       that value (@newlines);
+    - `shape_invalid` for a value of the right length with one character off its class, at
+      it: a key id with a capital, a NIST `outputValue` with a lowercase letter, and a
+      `handover_signature` whose last character sets a bit the 64 octets do not use;
     - `shape_invalid` for each optional member other than `environment` as null, at it:
       `constructions`, `signing_key_event`, a rotation's `prerotation_commitment` and an
       emergency rotation's `handover_signature`;
@@ -39,13 +43,27 @@ defmodule Generator.Cases.Shape do
       name, the third place the schema checks a `source`;
     - `shape_invalid` at `/witnesses` for an item missing a witness that `witness_hashes`
       names, and for one with a witness that `witness_hashes` does not name;
+    - `shape_invalid` at the key event's `type` for a prerotation and for a revocation at
+      `/signing_key_event/block`, which holds only a genesis event or a rotation, and at its
+      `sequence` for a rotation of `sequence` 0;
+    - `shape_invalid` for the genesis pairing of SPEC.md 3.3 broken each way: a genesis event
+      without `metadata.genesis`, and `metadata.genesis` beside a rotation, each at the key
+      event's `type`, and `metadata.genesis` with no key event, at the missing `key_event`;
     - `shape_invalid` for a Stellar `closed_at` of `24:00:00`, of February 30 and with 60
       seconds, and of February 29 in 1900 and in 2100, which are not leap years, at that
       value; and `0000-02-29T00:00:00Z` passes SHAPE, since TIME covers the years 0000 to
       9999 of the proleptic Gregorian calendar, in which 0000 is a leap year, with every
       row the sound proof's (`shape-time-february_29-0000`);
     - `shape_invalid` at the array for a `path` of 33 nodes, walked from leaf 0 of a tree of
-      2^33 leaves with the block record made to agree, so that only its length is wrong.
+      2^33 leaves with the block record made to agree, so that only its length is wrong;
+    - two failures of one check, each a precedence case whose row is the first in document
+      order (`shape-first_of_two-`), and each with its mirror (`-mirror`), whose row is the
+      other failure's kind: at check 3, the item's witness block with `leaf_count` 1 under
+      the empty root and its `id` in capitals, at the `id`, and, the mirror, with its
+      `previous_block_hash` in capitals, at the `merkle_root`; at check 5, the beacon with
+      February 30 in its NIST observation's `timeStamp` and in its /signing_key_event Bitcoin
+      `header_time`, at the `timeStamp`, and, the mirror, in its /commitments Bitcoin
+      `header_time`, at that `header_time`.
   - **The empty-root rule** (`empty_root-`): at `/block` (the block proof of the genesis
     block), `/witnesses/block` and `/signing_key_event/block` (the item), a block record with
     `leaf_count` 1 under the empty root, and one with `leaf_count` 0 under another root, each
@@ -128,6 +146,9 @@ defmodule Generator.Cases.Shape do
     # The schema pins `format` and `version` too (check 3).
     "shape-format" => [{"shape_invalid", "/format", "SHAPE"}],
     "shape-version" => [{"shape_invalid", "/version", "SHAPE"}],
+    "shape-format-absent" => [{"shape_invalid", "/format", "SHAPE"}],
+    "shape-format-newline" => [{"shape_invalid", "/format", "SHAPE"}],
+    "shape-version-absent" => [{"shape_invalid", "/version", "SHAPE"}],
     "gates-shape" => [{"shape_invalid", "/version", "SHAPE"}],
     # Neither a reference URL with a `\n` on its end nor null names an accepted text (check 6).
     "shape-newline-reference" => [{"construction_mismatch", "/constructions", "SHAPE"}],
@@ -167,7 +188,31 @@ defmodule Generator.Cases.Shape do
       {"derivation_mismatch", "/subject/record/witness_hashes/entropy_nist", "DERIVE"}
     ],
     # A walk of more than MAX_PATH_STEPS nodes gives no root.
-    "shape-path-33_nodes" => [{"derivation_mismatch", "/block/record/merkle_root", "DERIVE"}]
+    "shape-path-33_nodes" => [{"derivation_mismatch", "/block/record/merkle_root", "DERIVE"}],
+    # A handover signature off its class is no signature the handover check accepts.
+    "shape-wrong_character-b64u64" => [
+      {"key_event_mismatch", @k_event <> "/handover_signature", "DERIVE"}
+    ],
+    # An event that introduces no key cannot introduce K (LINK_KEY_EVENT).
+    "shape-signing_key_event-prerotation" => [
+      {"key_event_mismatch", @k_event <> "/public_key", "DERIVE"}
+    ],
+    "shape-signing_key_event-revocation" => [
+      {"key_event_mismatch", @k_event <> "/public_key", "DERIVE"}
+    ],
+    # `metadata.genesis` makes the record a genesis record, whose `height` is 0 and whose
+    # `previous_block_hash` is H(0x30, genesis).
+    "shape-genesis-beside_rotation" => [
+      {"derivation_mismatch", @k <> "/record/height", "DERIVE"},
+      {"derivation_mismatch", @k <> "/record/previous_block_hash", "DERIVE"}
+    ],
+    # February 30 is no time of the Bitcoin header, whose time the entry's is compared with.
+    "shape-first_of_two-times" => [
+      {"derivation_mismatch", "/signing_key_event/commitments/bitcoin/header_time", "DERIVE"}
+    ],
+    "shape-first_of_two-times-mirror" => [
+      {"derivation_mismatch", "/commitments/bitcoin/header_time", "DERIVE"}
+    ]
   }
 
   @impl true
@@ -241,6 +286,7 @@ defmodule Generator.Cases.Shape do
         Edit.put(item, "/version", 2),
         {:fail, "unsupported_version", "/version", "SHAPE"}
       ),
+      literals(item),
       constructions(item),
       invalid(
         "shape-uppercase_hash",
@@ -258,13 +304,186 @@ defmodule Generator.Cases.Shape do
         id
       ),
       newlines(sound),
+      characters(sound),
       nulls(sound),
       sources(sound),
       witnesses(sound),
+      key_events(sound),
+      genesis_pairing(sound),
       times(sound["entropy_stellar"].proof),
-      path(sound["item-rotation-witness"].proof)
+      path(sound["item-rotation-witness"].proof),
+      first_of_two(sound)
     ]
   end
+
+  # Checks 1 and 2 come before the schema, so an absent `format` or `version`, and a `format`
+  # with a `\n` on its end, fail at them, and not at check 3.
+  defp literals(item) do
+    [
+      {"shape-format-absent", Map.delete(item, "format"), "unsupported_format", "/format"},
+      {"shape-format-newline", Edit.put(item, "/format", item["format"] <> "\n"),
+       "unsupported_format", "/format"},
+      {"shape-version-absent", Map.delete(item, "version"), "unsupported_version", "/version"}
+    ]
+    |> Enum.map(fn {id, proof, code, part} -> signed(id, proof, {:fail, code, part, "SHAPE"}) end)
+  end
+
+  # A value of the right length with one character off its class: the first character of a
+  # key id in capitals, the first of a NIST value in lower case, and the last of a B64U64 one
+  # that sets a bit the 64 octets do not use (SPEC.md 2.4), each at the place of its `\n` case.
+  defp characters(sound) do
+    [
+      {"kid", "item-rotation-witness", "/block/record/signing_key_id", {:block, "/block"},
+       &capital/1},
+      {"nisthex", "item", "/witnesses/entropy_nist/payload/pulse/outputValue",
+       {:witness, "entropy_nist"}, &lower/1},
+      {"b64u64", "item", @k_event <> "/handover_signature", {:block, @k}, &unused_bit/1}
+    ]
+    |> Enum.map(fn {class, name, pointer, agreeing, change} ->
+      proof = sound[name].proof
+      edited = Edit.put(proof, pointer, change.(Edit.get(proof, pointer)))
+      invalid("shape-wrong_character-" <> class, agree(edited, agreeing), pointer)
+    end)
+  end
+
+  # The first character that is a lowercase hex letter, in capitals; the first that is an
+  # uppercase one, in lower case.
+  defp capital(text), do: String.replace(text, ~r/[a-f]/, &String.upcase/1, global: false)
+  defp lower(text), do: String.replace(text, ~r/[A-F]/, &String.downcase/1, global: false)
+
+  # The last of 86 characters, one of A, Q, g and w, whose low four bits are unused, made the
+  # next character of the alphabet, which sets the lowest of them.
+  defp unused_bit(text) do
+    {head, last} = String.split_at(text, 85)
+    head <> Map.fetch!(%{"A" => "B", "Q" => "R", "g" => "h", "w" => "x"}, last)
+  end
+
+  # The key events /signing_key_event/block may not hold (SPEC.md 3.3): a prerotation, whose
+  # `active_key_id` is the record's `signing_key_id`, and a revocation of the key the rotation
+  # there replaced, each in place of that rotation; and a rotation of `sequence` 0 at the
+  # /block of a block proof, with its handover signed again.
+  defp key_events(sound) do
+    item = sound["item"].proof
+    %{"previous_key_id" => previous} = Edit.get(item, @k_event)
+
+    prerotation = %{
+      "active_key_id" => Edit.get(item, @k <> "/record/signing_key_id"),
+      "prerotation_commitment" => Edit.get(item, @w <> @event <> "/prerotation_commitment"),
+      "type" => "prerotation"
+    }
+
+    revocation = %{"revoked_key_id" => previous, "type" => "revocation"}
+    sequence = "/block" <> @event <> "/sequence"
+
+    [
+      invalid(
+        "shape-signing_key_event-prerotation",
+        item |> Edit.put(@k_event, prerotation) |> agree({:block, @k}),
+        @k_event <> "/type"
+      ),
+      invalid(
+        "shape-signing_key_event-revocation",
+        item |> Edit.put(@k_event, revocation) |> agree({:block, @k}),
+        @k_event <> "/type"
+      ),
+      invalid(
+        "shape-rotation-sequence_0",
+        sound["block-rotation"].proof |> Edit.put(sequence, 0) |> agree({:event, "/block"}),
+        sequence
+      )
+    ]
+  end
+
+  # The genesis pairing of SPEC.md 3.3, each way it breaks, at the part SPEC.md 10.2 step 7
+  # gives it: a genesis event without `metadata.genesis` (the genesis block, at /block), and
+  # `metadata.genesis` beside a rotation (the item's /signing_key_event/block), each at the key
+  # event's `type`; and `metadata.genesis` with no key event (the genesis witness block), at
+  # the missing `key_event`.
+  defp genesis_pairing(sound) do
+    block = sound["block"].proof
+    genesis = Edit.get(block, "/block/record/metadata/genesis")
+    witness = @w <> "/record/metadata/key_event"
+
+    [
+      invalid(
+        "shape-genesis-missing",
+        block |> Edit.delete("/block/record/metadata/genesis") |> agree({:block, "/block"}),
+        "/block" <> @event <> "/type"
+      ),
+      invalid(
+        "shape-genesis-beside_rotation",
+        sound["item"].proof
+        |> Edit.put(@k <> "/record/metadata/genesis", genesis)
+        |> agree({:block, @k}),
+        @k_event <> "/type"
+      ),
+      invalid(
+        "shape-genesis-no_key_event",
+        sound["item-genesis-witness"].proof |> Edit.delete(witness) |> agree({:block, @w}),
+        witness
+      )
+    ]
+  end
+
+  # Two failures of one check, where the first in document order is the row (SPEC.md 10.2 step
+  # 7), and each pair's other case, its mirror, swaps which kind of failure comes first, so
+  # that a verifier that reports the failure it finds first, in whichever order it checks,
+  # fails one of the two:
+  # - check 3: the item's witness block with `leaf_count` 1 under the empty root, the failure
+  #   of an `allOf` that spec/schema.json lists before the record's `properties`, at its
+  #   `merkle_root`; with its `id` in capitals, a `properties` failure before `merkle_root` in
+  #   document order, the row is the `id`, and with its `previous_block_hash` in capitals, one
+  #   after it, the row is the `merkle_root`;
+  # - check 5: the beacon with February 30 in its NIST observation's `timeStamp` and in a
+  #   Bitcoin entry's `header_time`: at /signing_key_event, which /observations sorts before,
+  #   the row is the `timeStamp`, and at /commitments, which sorts before /observations, it is
+  #   the `header_time`.
+  defp first_of_two(sound) do
+    item = sound["item"].proof
+    id = @w <> "/record/id"
+    root = @w <> "/record/merkle_root"
+    previous = @w <> "/record/previous_block_hash"
+
+    beacon = sound["beacon"].proof
+    key_event_time = "/signing_key_event/commitments/bitcoin/header_time"
+    commitment_time = "/commitments/bitcoin/header_time"
+    nist_time = "/observations/entropy_nist/entropy/payload/pulse/timeStamp"
+
+    schema =
+      for {name, member, first, behind} <- [
+            {"schema", id, id, root},
+            {"schema-mirror", previous, root, previous}
+          ] do
+        signed(
+          "shape-first_of_two-" <> name,
+          item
+          |> Edit.put(@w <> "/record/leaf_count", 1)
+          |> Edit.put(member, String.upcase(Edit.get(item, member)))
+          |> agree({:block, @w}),
+          {:precedes, {"shape_invalid", first, "SHAPE"}, [{"shape_invalid", behind, "SHAPE"}]}
+        )
+      end
+
+    times =
+      for {name, header_time, first, behind} <- [
+            {"times", key_event_time, nist_time, key_event_time},
+            {"times-mirror", commitment_time, commitment_time, nist_time}
+          ] do
+        signed(
+          "shape-first_of_two-" <> name,
+          beacon
+          |> Edit.put(header_time, february_30(Edit.get(beacon, header_time)))
+          |> Edit.put(nist_time, february_30(Edit.get(beacon, nist_time)))
+          |> agree({:observation, "entropy_nist"}),
+          {:precedes, {"shape_invalid", first, "SHAPE"}, [{"shape_invalid", behind, "SHAPE"}]}
+        )
+      end
+
+    schema ++ times
+  end
+
+  defp february_30(<<year::binary-4, "-", _month_day::binary-5, rest::binary>>),
+    do: year <> "-02-30" <> rest
 
   defp constructions(item) do
     text = item["constructions"]

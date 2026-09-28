@@ -1170,10 +1170,11 @@ subset itself: `$schema`, `$defs`, `$ref` (to `#/$defs` only), `allOf`, `if`, `t
 pattern other than the newline guard `\n`, which appears only under `not`, begins with
 `^`, ends with `$`, and is paired with an exact length or with that guard, so a validator
 whose `$` also matches before a final newline gives the same answer. Every document this
-specification allows satisfies the schema. Three checks of SHAPE are beyond it and are
-made in code: `witnesses` has exactly the names of `witness_hashes`, each TIME and
-NISTTIME value equals the formatting of its own parse, and the constructions digest is in
-CONSTRUCTIONS_ACCEPTED (section 7.2).
+specification allows satisfies the schema. SHAPE checks `format` and `version` before it,
+though the schema holds them too (section 10.2, step 7), and three checks of SHAPE are
+beyond it and are made in code: `witnesses` has exactly the names of `witness_hashes`, each
+TIME and NISTTIME value equals the formatting of its own parse, and the constructions digest
+is in CONSTRUCTIONS_ACCEPTED (section 7.2).
 
 **Value classes.** In `spec/value-classes.json`, each member rule maps a JSON Pointer
 pattern into the proof, or into the envelope where it says `"document": "envelope"`, to a
@@ -1412,10 +1413,16 @@ one failing row:
    already failed a value of any other type, and a string that does not match the
    reference pattern, with `shape_invalid`. No other step reads this member.
 
+- Checks 1 and 2 run before the schema, so an absent `format` or `version` fails
+  `unsupported_format` at `/format` or `unsupported_version` at `/version`, not
+  `shape_invalid`, and so does a `format` with a `\n` on its end, `unsupported_format`.
 - The part of a failure at check 3 is the pointer, into P, of the member that is missing,
   extra or forbidden for the type, or else of the value that breaks its rule (for a count,
   the object or array). Its `values` name the rule. A block record that breaks the
-  empty-root rule fails at its `merkle_root`.
+  empty-root rule fails at its `merkle_root`. A block record that breaks the genesis pairing
+  of section 3.3, a `genesis` key event without `metadata.genesis` or `metadata.genesis`
+  beside another key event, fails at its key event's `type`, and `metadata.genesis` with no
+  key event fails at the missing `metadata.key_event`.
 - When check 3 or check 5 finds several failures, the row is the one whose part comes
   first in document order.
 - When SHAPE passes, it reports one row, `pass`, with part null, and the report takes the
@@ -2539,17 +2546,38 @@ section 10 reports that check. Each class below says what its cases assert.
 - **Mixed-order agreement.** A K that is a valid key plus a point of order 8 passes keyless
   when the challenge k is 0 modulo 8, and fails `signature_invalid` otherwise, in every
   verifier (section 6.2).
-- **SHAPE.** `unsupported_format` for another `format`, and `unsupported_version` for a
-  `version` other than 1. `construction_mismatch` for a full text with one byte changed,
+- **SHAPE.** `unsupported_format` for another `format`, for none, and for a `format` with a
+  `\n` escaped onto its end, and `unsupported_version` for a `version` other than 1 and for
+  none. `construction_mismatch` for a full text with one byte changed,
   with a row missing, or with the two node orders of its `merkle_path` row swapped, and for
   a reference URL whose digest is not accepted. `shape_invalid` for a reference URL on
   another host; an uppercase hash; an item `id` in capitals, and one of UUID version 4, each
   at `/subject/record/id`; a `\n` escaped onto the end of any value of a pattern
-  class in `proof` other than `environment`; any OPTIONAL member other than `environment`
-  as `null`; an observation whose source differs from its type or its name; `witnesses`
-  names that differ from `witness_hashes`; a TIME of `24:00:00`, of February 30, with 60
-  seconds, or of February 29 in 1900 or 2100; and a `path` of 33 nodes. A TIME of
-  `0000-02-29T00:00:00Z` passes SHAPE.
+  class in `proof` other than `environment`; a key id, a NIST `outputValue` and a
+  `handover_signature` of the right length with one character off their classes (a
+  capital, a lowercase letter, and a last character that sets an unused bit); any OPTIONAL
+  member other than `environment` as `null`; an observation whose source differs from its
+  type or its name; `witnesses` names that differ from `witness_hashes`; a rotation of
+  `sequence` 0; a prerotation and a revocation at `/signing_key_event/block`, at the key
+  event's `type`; the genesis pairing of section 3.3 broken each way, a genesis event
+  without `metadata.genesis` and `metadata.genesis` beside a rotation, each at the key
+  event's `type`, and `metadata.genesis` with no key event, at the missing
+  `metadata.key_event`; a TIME of `24:00:00`, of February 30, with 60 seconds, or of
+  February 29 in 1900 or 2100; and a `path` of 33 nodes. A TIME of `0000-02-29T00:00:00Z`
+  passes SHAPE.
+- **Several failures at SHAPE (section 10.2, step 7).** Four cases each carry two failures
+  of one check, and the row is the one whose part comes first in document order. At check
+  3, an item's `/witnesses/block` record with `leaf_count` 1 under the empty root and its
+  `id` in capitals fails at that `id`, before its `merkle_root`. The same record with its
+  `previous_block_hash` in capitals in place of its `id` fails at its `merkle_root`, which
+  comes first, though a verifier that checks the record's members before the empty-root
+  rule meets the `previous_block_hash` first. At check 5, a beacon with February 30 in its
+  `/signing_key_event` Bitcoin `header_time` and in its NIST observation's `timeStamp` fails
+  at the `timeStamp`, since `/observations` comes before `/signing_key_event`, though a
+  verifier that meets the commitment entries' times first meets it second. A beacon with
+  February 30 in its `/commitments` Bitcoin `header_time` and in that `timeStamp` fails at
+  the `header_time`, since `/commitments` comes before `/observations`, though a verifier
+  that meets the entropy times first meets it second.
 - **The empty-root rule (section 5.4).** At each of `/block`, `/witnesses/block` and
   `/signing_key_event/block`, a block record with leaves under the empty root (`leaf_count`
   1 or more) and a block record with no leaves under another root (`leaf_count` 0) each

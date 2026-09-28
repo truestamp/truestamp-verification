@@ -4,14 +4,19 @@
 defmodule Truestamp.Verifier.WorkedExampleTest do
   # The worked example of SPEC.md 6.3, from vectors/worked-example.json: each quantity
   # recomputed with the primitives, the stranger's recipe run on the served document, the
-  # reformattings that still verify and the messages that do not.
+  # reformattings that still verify and the messages that do not, and the steps of SPEC.md
+  # 10.2 run on the served document as 6.3 writes it, which reject it where 6.3 says.
   use ExUnit.Case, async: true
 
-  alias Truestamp.Verifier.{Base64url, Constants, Ed25519, JCS, KeyId, Parser, RecordHash}
+  alias Truestamp.Verifier
+  alias Truestamp.Verifier.{Base64url, Config, Constants, Ed25519, JCS, KeyId, Parser}
+  alias Truestamp.Verifier.{RecordHash, Row}
 
   @root Path.expand("../../..", __DIR__)
   @path Path.join(@root, "vectors/worked-example.json")
   @external_resource @path
+  @spec_md Path.join(@root, "SPEC.md")
+  @external_resource @spec_md
 
   setup_all do
     {:ok, example} = @path |> File.read!() |> Parser.decode()
@@ -106,6 +111,64 @@ defmodule Truestamp.Verifier.WorkedExampleTest do
         ] do
       refute message == proof_hash
       assert Ed25519.verify(a, message, s) == {:error, :equation}
+    end
+  end
+
+  # The served document as SPEC.md 6.3 prints it: the fenced block after its caption.
+  defp served_in_spec do
+    [_before, section] = String.split(File.read!(@spec_md), "### 6.3 Worked example", parts: 2)
+
+    [_before, after_caption] =
+      String.split(section, "The served document, JCS(envelope)", parts: 2)
+
+    [_caption, block | _rest] = String.split(after_caption, "```", parts: 3)
+    block |> String.trim_leading("\n") |> String.trim_trailing("\n")
+  end
+
+  describe "the steps of SPEC.md 10.2 on the served document" do
+    setup %{example: example} do
+      document = served_in_spec()
+      assert document == example["document"]
+      keyring = {:file, Path.join(@root, "vectors/keyring.test.json")}
+      %{document: document, keyring: keyring}
+    end
+
+    test "a test verifier holding VECTOR_KEY passes KEY_BINDING and SIGNATURE, then fails SHAPE",
+         %{document: document, keyring: keyring} do
+      config = Config.new!(environment: "test", keyring: keyring)
+      assert {:ok, run} = Verifier.run(config, document)
+      rows = Enum.map(run.rows, &Row.reduce/1)
+
+      assert [nil, nil, "pass", "KEY_BINDING"] in rows
+      assert [nil, nil, "pass", "SIGNATURE"] in rows
+
+      # Not a complete proof: a block proof also needs block and commitments (3.2), and
+      # /block comes first in document order.
+      assert ["shape_invalid", "/block", "fail", "SHAPE"] in rows
+      assert run.ended
+
+      later = rows |> Enum.drop_while(&(List.last(&1) != "SHAPE")) |> tl()
+
+      assert later ==
+               for(
+                 step <- ~w(POLICY DERIVE CHAIN SOURCES WINDOW EXPECTED_HASH),
+                 do: ["prior_failure", nil, "skip", step]
+               )
+    end
+
+    # Keyless, since a keyring holding VECTOR_KEY loads only under test (SPEC.md 6.4).
+    test "a verifier whose E_v is not test rejects it at ENVIRONMENT", %{document: document} do
+      for environment <- ~w(prod dev staging) do
+        config = Config.new!(environment: environment, keyring: :none)
+        assert {:ok, run} = Verifier.run(config, document)
+        rows = Enum.map(run.rows, &Row.reduce/1)
+
+        assert ["environment_mismatch", "/environment", "fail", "ENVIRONMENT"] in rows,
+               environment
+
+        assert ["prior_failure", nil, "skip", "SHAPE"] in rows, environment
+        assert run.ended
+      end
     end
   end
 

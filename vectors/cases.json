@@ -25753,6 +25753,327 @@
           "SIGNATURE"
         ],
         [
+          "unsupported_format",
+          "/format",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-format-absent",
+    "proof": "negative/shape-format-absent.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "unsupported_format",
+          "/format",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-format-newline",
+    "proof": "negative/shape-format-newline.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "unsupported_version",
+          "/version",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-version-absent",
+    "proof": "negative/shape-version-absent.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
           "construction_mismatch",
           "/constructions",
           "fail",
@@ -28215,6 +28536,327 @@
         ],
         [
           "shape_invalid",
+          "/block/record/signing_key_id",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-wrong_character-kid",
+    "proof": "negative/shape-wrong_character-kid.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/witnesses/entropy_nist/payload/pulse/outputValue",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-wrong_character-nisthex",
+    "proof": "negative/shape-wrong_character-nisthex.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/signing_key_event/block/record/metadata/key_event/handover_signature",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-wrong_character-b64u64",
+    "proof": "negative/shape-wrong_character-b64u64.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
           "/constructions",
           "fail",
           "SHAPE"
@@ -29115,6 +29757,648 @@
     },
     "id": "shape-witnesses-extra",
     "proof": "negative/shape-witnesses-extra.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/signing_key_event/block/record/metadata/key_event/type",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-signing_key_event-prerotation",
+    "proof": "negative/shape-signing_key_event-prerotation.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/signing_key_event/block/record/metadata/key_event/type",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-signing_key_event-revocation",
+    "proof": "negative/shape-signing_key_event-revocation.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/block/record/metadata/key_event/sequence",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-rotation-sequence_0",
+    "proof": "negative/shape-rotation-sequence_0.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/block/record/metadata/key_event/type",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-genesis-missing",
+    "proof": "negative/shape-genesis-missing.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/signing_key_event/block/record/metadata/key_event/type",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-genesis-beside_rotation",
+    "proof": "negative/shape-genesis-beside_rotation.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/witnesses/block/record/metadata/key_event",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-genesis-no_key_event",
+    "proof": "negative/shape-genesis-no_key_event.proof.json"
   },
   {
     "config": {
@@ -30164,6 +31448,434 @@
     },
     "id": "shape-path-33_nodes",
     "proof": "negative/shape-path-33_nodes.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/witnesses/block/record/id",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-first_of_two-schema",
+    "proof": "negative/shape-first_of_two-schema.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/witnesses/block/record/merkle_root",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-first_of_two-schema-mirror",
+    "proof": "negative/shape-first_of_two-schema-mirror.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/observations/entropy_nist/entropy/payload/pulse/timeStamp",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-first_of_two-times",
+    "proof": "negative/shape-first_of_two-times.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/commitments/bitcoin/header_time",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-first_of_two-times-mirror",
+    "proof": "negative/shape-first_of_two-times-mirror.proof.json"
   },
   {
     "config": {

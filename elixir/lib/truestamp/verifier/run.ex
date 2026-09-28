@@ -6,8 +6,9 @@ defmodule Truestamp.Verifier.Run do
   The state of a run (SPEC.md section 10.2): the rows so far and what the later steps read.
   CONFIGURATION (`Truestamp.Verifier.Gate.configuration/1`) creates the run from a
   `Truestamp.Verifier.Config`. Steps 1 to 3 each take it and give `{:ok, run}`, with their
-  row added, or a bare rejection. Steps 4 to 6 take it and give it back with their row
-  added. So a run that reaches the caller has passed steps 0 to 3.
+  row added, or a bare rejection. Steps 4 to 8 (`Truestamp.Verifier.Gate`,
+  `Truestamp.Verifier.Shape` and `Truestamp.Verifier.Policy`) take it and give it back with
+  their rows added. So a run that reaches the caller has passed steps 0 to 3.
 
   | Member | Holds | Set at |
   |---|---|---|
@@ -20,6 +21,7 @@ defmodule Truestamp.Verifier.Run do
   | `bound_key` | the keyring's key K bound to, or nil | KEY_BINDING |
   | `proof_hash` | the 32 octets of SHA-256(0x50 \\|\\| JCS(P)) | SIGNATURE |
   | `attribution` | nil until the gate is decided, then as section 10.5 says | SIGNATURE, or the step that ends the run |
+  | `type`, `subject_id` | the proof's `type` and its subject's `id` (section 10.5), nil until SHAPE passes | SHAPE |
   | `rows` | the `Truestamp.Verifier.Row`s so far, in step order | every step |
   | `ended` | whether a failure ended the run | a failure at steps 4 to 7 |
 
@@ -54,6 +56,8 @@ defmodule Truestamp.Verifier.Run do
           bound_key: Keyring.key() | nil,
           proof_hash: <<_::256>> | nil,
           attribution: String.t() | nil,
+          type: String.t() | nil,
+          subject_id: String.t() | nil,
           rows: [Row.t()],
           ended: boolean()
         }
@@ -70,6 +74,8 @@ defmodule Truestamp.Verifier.Run do
     bound_key: nil,
     proof_hash: nil,
     attribution: nil,
+    type: nil,
+    subject_id: nil,
     rows: [],
     ended: false
   ]

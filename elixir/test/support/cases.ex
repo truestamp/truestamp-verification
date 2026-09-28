@@ -73,6 +73,29 @@ defmodule Truestamp.Verifier.Test.Cases do
     if failed_at_gate?, do: :gate, else: :later
   end
 
+  @doc """
+  Where steps 0 to 8 decide the case: `gate_class/1`'s `:bare` and `:gate`, and for a case
+  whose gate opens, `:shape` for a failing row at SHAPE, `:policy` for one at POLICY, and
+  `:later` for every other.
+  """
+  @spec step_class(map()) :: :bare | :gate | :shape | :policy | :later
+  def step_class(kase) do
+    case gate_class(kase) do
+      :later -> later_class(kase["expected"]["rows"])
+      class -> class
+    end
+  end
+
+  defp later_class(rows) do
+    failing = for [_code, _part, "fail", step] <- rows, do: step
+
+    cond do
+      "SHAPE" in failing -> :shape
+      "POLICY" in failing -> :policy
+      true -> :later
+    end
+  end
+
   @doc "The bytes of the keyring file the case supplies, or nil for none."
   @spec keyring_bytes(map()) :: binary() | nil
   def keyring_bytes(kase) do
