@@ -82,8 +82,7 @@ for its member. Each pattern below is written bare and MUST match the whole stri
 | TIME | `[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z`, and format(parse(s)) = s | `header_time`, Stellar `closed_at` |
 | NISTTIME | TIME with a 3-digit fraction of a second before `Z` | NIST `timeStamp` |
 | NISTHEX | `[0-9A-F]{128}` | NIST `outputValue`, as NIST publishes it |
-| ULID | `[0-7][0-9A-HJKMNP-TV-Z]{25}` | item `id` |
-| UUID7 | `[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}` | block and observation `id` |
+| UUID7 | `[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}`, a UUIDv7 (RFC 9562 section 5.7) in lowercase | block, observation and item `id` |
 | INT | an integer from 0 to 9007199254740991 (MAX_INTEGER) | every number outside `subject.claims` |
 | ASCII128, ASCII16 | 1 to 128 (or 16) printable ASCII characters, with no `"` or `\` | `reason`, NIST `version` |
 | NETWORK | Stellar `public` or `testnet`; Bitcoin `mainnet`, `testnet` or `regtest` | every `network` |
@@ -113,6 +112,7 @@ and its data:
 | RFC 9162 section 2.1, the Merkle Tree Hash and its inclusion proofs | block and epoch trees (section 5) |
 | RFC 6901, JSON Pointer | pointers into the proof, in this document, in reports and in `spec/value-classes.json` |
 | RFC 3339, date and time in UTC | TIME and NISTTIME |
+| RFC 9562, Universally Unique IDentifiers (UUIDs) | UUIDv7 ids, and the time inside one |
 | JSON Schema, draft 2020-12 | `spec/schema.json` (section 9) |
 | BCP 14 (RFC 2119, RFC 8174) | requirements language (section 2.1) |
 | BIP 37 and BIP 144 | the Bitcoin merkleblock, and the transaction serialized without witness data |
@@ -282,7 +282,7 @@ item: the common members, plus
     "inclusion_proof": MERKLE_PROOF,    // Walked from the RECOMPUTED item_hash to /block/record/merkle_root
     "item_hash": HEX64,                 // CHECKED = H(0x11, record)
     "record": {"claims_hash": HEX64,    // CHECKED = H(0x10, claims)
-               "id": ULID,
+               "id": UUID7,
                "witness_hashes": {"block": HEX64, "entropy_bitcoin": HEX64, "entropy_nist": HEX64, "entropy_stellar": HEX64}}
   },                                    // witness_hashes: block R; each entropy_X present iff that source had a current observation
   "witnesses": {"block": BLOCK_NODE, "entropy_X": ENTROPY_OBJECT, ...}   // WITNESSES: exactly the names of witness_hashes
@@ -330,7 +330,7 @@ section 10.2, and LINK_CHAIN_ORDER and LINK_HEAD are links of section 10.3.
 Measured on JCS(envelope) with the genesis text of section 7.3.
 
 **Recipe.** Build each layout with every hash `a` x 64, key ids `a` x 8, K `A` x 43, V and
-`handover_signature` `A` x 86, `outputValue` `A` x 128, ids of 26 or 36 characters, TIME
+`handover_signature` `A` x 86, `outputValue` `A` x 128, ids of 36 characters, TIME
 values of 20 characters and NIST `timeStamp` of 24. Serialize the envelope with sorted
 keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
@@ -355,16 +355,16 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
-| item | 15,889 | 7,292 | 7,152 | 55,269 |
+| item | 15,899 | 7,302 | 7,162 | 55,279 |
 | entropy_nist | 14,619 | 6,022 | 5,882 | 32,928 |
 | entropy_stellar | 14,527 | 5,930 | 5,790 | 32,808 |
 | entropy_bitcoin | 14,507 | 5,910 | 5,770 | 32,795 |
 | block | 13,832 | 5,235 | 5,095 | 30,143 |
 | beacon | 16,001 | 7,404 | 7,264 | 38,257 |
 
-For items, the served size is at most 34,789 + |JCS(claims)| octets in full mode (26,192 by
-reference, 26,052 with none), plus at most 24 octets for `"environment":"staging",`. The
-worst staging item is 55,293 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
+For items, the served size is at most 34,799 + |JCS(claims)| octets in full mode (26,202 by
+reference, 26,062 with none), plus at most 24 octets for `"environment":"staging",`. The
+worst staging item is 55,303 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
 ## 4. The byte-prefix registry
@@ -2099,7 +2099,10 @@ have given a candidate, a list that is empty when the proof carries none, as for
 proof's submitted-after edge. When that row is `pass` and the time inside the subject's
 `id` (`subject_id`, section 10.5) is later than the submitted-before edge, or earlier than
 the submitted-after edge, WINDOW adds one row, `info recorded_time_outside_window`, at the
-pointer of that `id`. The time is RECORDED, so the row informs and changes no label.
+pointer of that `id`. The time is RECORDED, so the row informs and changes no label. The
+time inside an id is the leftmost 48 bits of the 16 bytes its 32 hex digits spell (its first
+12 hex digits, the hyphen skipped), an unsigned big-endian count of milliseconds since the
+Unix epoch (`unix_ts_ms`, RFC 9562 section 5.7); no other bit is a time.
 
 Instants compare exactly, at the precision each source gives: milliseconds for NIST and
 for the time inside an id, and seconds for Stellar and Bitcoin.
@@ -2474,7 +2477,8 @@ section 10 reports that check. Each class below says what its cases assert.
   `version` other than 1. `construction_mismatch` for a full text with one byte changed,
   with a row missing, or with the two node orders of its `merkle_path` row swapped, and for
   a reference URL whose digest is not accepted. `shape_invalid` for a reference URL on
-  another host; an uppercase hash; a `\n` escaped onto the end of any value of a pattern
+  another host; an uppercase hash; an item `id` in capitals, and one of UUID version 4, each
+  at `/subject/record/id`; a `\n` escaped onto the end of any value of a pattern
   class in `proof` other than `environment`; any OPTIONAL member other than `environment`
   as `null`; an observation whose source differs from its type or its name; `witnesses`
   names that differ from `witness_hashes`; a TIME of `24:00:00`, of February 30, with 60
@@ -2576,7 +2580,8 @@ section 10 reports that check. Each class below says what its cases assert.
 - **The window (section 11).** Online: both edges drawn, each case giving their instants
   and bases; the submitted-after edge later than the submitted-before edge
   (`window_inverted`), whose report, labelled `failed`, carries neither edge; the time in a
-  subject's id outside an established window (`info recorded_time_outside_window`); and a
+  subject's id outside an established window (`info recorded_time_outside_window`), once
+  by 250 ms, an id time of 01:49:00.250 against a submitted-before edge of 01:49:00; and a
   block proof, which has no submitted-after edge. Offline, every sound case gives
   `info window_not_established`.
 - **Gates.** After a failure at steps 4 to 6, or at SHAPE, each later step is one row

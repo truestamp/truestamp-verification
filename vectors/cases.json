@@ -26503,6 +26503,220 @@
         ],
         [
           "shape_invalid",
+          "/subject/record/id",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-uppercase_item_id",
+    "proof": "negative/shape-uppercase_item_id.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/subject/record/id",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-version_4_item_id",
+    "proof": "negative/shape-version_4_item_id.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
           "/block/record/previous_block_hash",
           "fail",
           "SHAPE"
@@ -26866,8 +27080,115 @@
         ]
       ]
     },
-    "id": "shape-newline-ulid",
-    "proof": "negative/shape-newline-ulid.proof.json"
+    "id": "shape-newline-item-id",
+    "proof": "negative/shape-newline-item-id.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          "shape_invalid",
+          "/subject/record/id",
+          "fail",
+          "SHAPE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "POLICY"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "shape-newline-observation-id",
+    "proof": "negative/shape-newline-observation-id.proof.json"
   },
   {
     "config": {
@@ -59844,13 +60165,7 @@
         ],
         [
           null,
-          "/witnesses/entropy_bitcoin/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/witnesses/entropy_stellar/network",
+          "/subject/entropy/network",
           "pass",
           "POLICY"
         ],
@@ -60090,73 +60405,25 @@
         ],
         [
           null,
+          "/subject/entropy/payload/sequence",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
           "/subject/inclusion_proof/tree_size",
           "pass",
           "DERIVE"
         ],
         [
           null,
-          "/subject/item_hash",
+          "/subject/observation_hash",
           "pass",
           "DERIVE"
         ],
         [
           null,
-          "/subject/record/claims_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/record/witness_hashes/block",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/record/witness_hashes/entropy_bitcoin",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/record/witness_hashes/entropy_nist",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/record/witness_hashes/entropy_stellar",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/witnesses/block/block_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/witnesses/block/record/height",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/witnesses/block/record/signing_key_id",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/witnesses/entropy_bitcoin/payload/height",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/witnesses/entropy_stellar/payload/sequence",
+          "/subject/record/entropy_hash",
           "pass",
           "DERIVE"
         ],
@@ -60192,19 +60459,7 @@
         ],
         [
           "prior_failure",
-          "/witnesses/entropy_bitcoin",
-          "skip",
-          "SOURCES"
-        ],
-        [
-          "prior_failure",
-          "/witnesses/entropy_nist",
-          "skip",
-          "SOURCES"
-        ],
-        [
-          "prior_failure",
-          "/witnesses/entropy_stellar",
+          "/subject/entropy",
           "skip",
           "SOURCES"
         ],
@@ -67631,6 +67886,413 @@
         ],
         [
           null,
+          "/subject/entropy/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/block/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/header_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/header_merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/header_time",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/transaction_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/handover_signature",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/previous_block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/previous_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/public_key",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          "not_attributable",
+          "/signing_key_event/block/record/metadata/key_event/public_key",
+          "info",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/signing_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_time",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/transaction_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/entropy/payload/sequence",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          "derivation_mismatch",
+          "/subject/inclusion_proof/tree_size",
+          "fail",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/observation_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/entropy_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          "prior_failure",
+          "/commitments/bitcoin",
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          "/commitments/stellar",
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          "/signing_key_event/commitments/bitcoin",
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          "/signing_key_event/commitments/stellar",
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          "/signing_key_event",
+          "skip",
+          "CHAIN"
+        ],
+        [
+          "prior_failure",
+          "/subject/entropy",
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          null,
+          "skip",
+          "WINDOW"
+        ],
+        [
+          "expected_hash_not_checked",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ]
+    },
+    "id": "leaf_count-tree_size-subject",
+    "proof": "negative/leaf_count-tree_size-subject.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      }
+    },
+    "expected": {
+      "label": "failed",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SHAPE"
+        ],
+        [
+          null,
+          "/commitments/bitcoin/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/commitments/stellar/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
           "/witnesses/entropy_bitcoin/network",
           "pass",
           "POLICY"
@@ -68009,413 +68671,6 @@
         ]
       ]
     },
-    "id": "leaf_count-tree_size-subject",
-    "proof": "negative/leaf_count-tree_size-subject.proof.json"
-  },
-  {
-    "config": {
-      "environment": "test",
-      "keyring": "test",
-      "networks": {
-        "commitment": {
-          "bitcoin": "regtest",
-          "stellar": "testnet"
-        },
-        "entropy": {
-          "bitcoin": "regtest",
-          "stellar": "testnet"
-        }
-      }
-    },
-    "expected": {
-      "label": "failed",
-      "rows": [
-        [
-          null,
-          null,
-          "pass",
-          "CONFIGURATION"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "READ"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "PARSE"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "ENVELOPE"
-        ],
-        [
-          null,
-          "/environment",
-          "pass",
-          "ENVIRONMENT"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "KEY_BINDING"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "SIGNATURE"
-        ],
-        [
-          null,
-          null,
-          "pass",
-          "SHAPE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/commitments/stellar/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/stellar/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/subject/entropy/network",
-          "pass",
-          "POLICY"
-        ],
-        [
-          null,
-          "/block/block_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/block/record/merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/epoch/epoch_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/epoch/record/merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/header_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/header_merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/header_time",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/inclusion_proof/tree_size",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/raw_transaction",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/raw_transaction",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/transaction_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/txoutproof",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/bitcoin/txoutproof",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/stellar/epoch/epoch_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/stellar/epoch/record/merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/commitments/stellar/inclusion_proof/tree_size",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/block_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/handover_signature",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/height",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/key_id",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/previous_block_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/previous_key_id",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/metadata/key_event/public_key",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          "not_attributable",
-          "/signing_key_event/block/record/metadata/key_event/public_key",
-          "info",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/block/record/signing_key_id",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/epoch/epoch_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/epoch/record/merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/header_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/header_merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/header_time",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/inclusion_proof/tree_size",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/raw_transaction",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/raw_transaction",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/transaction_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/txoutproof",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/bitcoin/txoutproof",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/stellar/epoch/epoch_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/stellar/epoch/record/merkle_root",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/signing_key_event/commitments/stellar/inclusion_proof/tree_size",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/entropy/payload/sequence",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          "derivation_mismatch",
-          "/subject/inclusion_proof/tree_size",
-          "fail",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/observation_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
-          "/subject/record/entropy_hash",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          "prior_failure",
-          "/commitments/bitcoin",
-          "skip",
-          "CHAIN"
-        ],
-        [
-          "prior_failure",
-          "/commitments/stellar",
-          "skip",
-          "CHAIN"
-        ],
-        [
-          "prior_failure",
-          "/signing_key_event/commitments/bitcoin",
-          "skip",
-          "CHAIN"
-        ],
-        [
-          "prior_failure",
-          "/signing_key_event/commitments/stellar",
-          "skip",
-          "CHAIN"
-        ],
-        [
-          "prior_failure",
-          "/signing_key_event",
-          "skip",
-          "CHAIN"
-        ],
-        [
-          "prior_failure",
-          "/subject/entropy",
-          "skip",
-          "SOURCES"
-        ],
-        [
-          "prior_failure",
-          null,
-          "skip",
-          "WINDOW"
-        ],
-        [
-          "expected_hash_not_checked",
-          null,
-          "skip",
-          "EXPECTED_HASH"
-        ]
-      ]
-    },
     "id": "leaf_count-moved_index-subject",
     "proof": "negative/leaf_count-moved_index-subject.proof.json"
   },
@@ -68511,7 +68766,13 @@
         ],
         [
           null,
-          "/subject/entropy/network",
+          "/witnesses/entropy_bitcoin/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/witnesses/entropy_stellar/network",
           "pass",
           "POLICY"
         ],
@@ -68751,25 +69012,73 @@
         ],
         [
           null,
-          "/subject/entropy/payload/sequence",
-          "pass",
-          "DERIVE"
-        ],
-        [
-          null,
           "/subject/inclusion_proof/tree_size",
           "pass",
           "DERIVE"
         ],
         [
           null,
-          "/subject/observation_hash",
+          "/subject/item_hash",
           "pass",
           "DERIVE"
         ],
         [
           null,
-          "/subject/record/entropy_hash",
+          "/subject/record/claims_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/block",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_bitcoin",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_nist",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_stellar",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/signing_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/entropy_bitcoin/payload/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/entropy_stellar/payload/sequence",
           "pass",
           "DERIVE"
         ],
@@ -68805,7 +69114,19 @@
         ],
         [
           "prior_failure",
-          "/subject/entropy",
+          "/witnesses/entropy_bitcoin",
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          "/witnesses/entropy_nist",
+          "skip",
+          "SOURCES"
+        ],
+        [
+          "prior_failure",
+          "/witnesses/entropy_stellar",
           "skip",
           "SOURCES"
         ],
@@ -125435,6 +125756,446 @@
     },
     "id": "window-id_on_submitted_before",
     "proof": "positive/item.proof.json"
+  },
+  {
+    "config": {
+      "environment": "test",
+      "keyring": "test",
+      "networks": {
+        "commitment": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        },
+        "entropy": {
+          "bitcoin": "regtest",
+          "stellar": "testnet"
+        }
+      },
+      "online": "corpus/replay/window-id_milliseconds_after_submitted_before.json"
+    },
+    "expected": {
+      "label": "supplied-keyring",
+      "rows": [
+        [
+          null,
+          null,
+          "pass",
+          "CONFIGURATION"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "READ"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "PARSE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "ENVELOPE"
+        ],
+        [
+          null,
+          "/environment",
+          "pass",
+          "ENVIRONMENT"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "KEY_BINDING"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SIGNATURE"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "SHAPE"
+        ],
+        [
+          null,
+          "/commitments/stellar/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/witnesses/entropy_bitcoin/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/witnesses/entropy_stellar/network",
+          "pass",
+          "POLICY"
+        ],
+        [
+          null,
+          "/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/block/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/handover_signature",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/previous_block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/previous_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/metadata/key_event/public_key",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          "not_attributable",
+          "/signing_key_event/block/record/metadata/key_event/public_key",
+          "info",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/block/record/signing_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/header_time",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/raw_transaction",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/transaction_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin/txoutproof",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/epoch/epoch_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/epoch/record/merkle_root",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/inclusion_proof/tree_size",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/item_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/claims_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/block",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_bitcoin",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_nist",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/subject/record/witness_hashes/entropy_stellar",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/handover_signature",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/height",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/previous_block_hash",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/previous_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/metadata/key_event/public_key",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/block/record/signing_key_id",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/witnesses/entropy_stellar/payload/sequence",
+          "pass",
+          "DERIVE"
+        ],
+        [
+          null,
+          "/commitments/stellar",
+          "pass",
+          "CHAIN"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/bitcoin",
+          "pass",
+          "CHAIN"
+        ],
+        [
+          null,
+          "/signing_key_event/commitments/stellar",
+          "pass",
+          "CHAIN"
+        ],
+        [
+          "not_attributable",
+          "/signing_key_event",
+          "info",
+          "CHAIN"
+        ],
+        [
+          null,
+          "/witnesses/entropy_bitcoin",
+          "pass",
+          "SOURCES"
+        ],
+        [
+          null,
+          "/witnesses/entropy_nist",
+          "pass",
+          "SOURCES"
+        ],
+        [
+          null,
+          "/witnesses/entropy_stellar",
+          "pass",
+          "SOURCES"
+        ],
+        [
+          null,
+          null,
+          "pass",
+          "WINDOW"
+        ],
+        [
+          "recorded_time_outside_window",
+          "/subject/record/id",
+          "info",
+          "WINDOW"
+        ],
+        [
+          "expected_hash_not_checked",
+          null,
+          "skip",
+          "EXPECTED_HASH"
+        ]
+      ],
+      "submitted_after": {
+        "basis": "stellar_ledger_close_read",
+        "instant": "2026-09-26T01:48:30Z"
+      },
+      "submitted_before": {
+        "basis": "stellar_ledger_close_read",
+        "instant": "2026-09-26T01:49:00Z"
+      }
+    },
+    "id": "window-id_milliseconds_after_submitted_before",
+    "proof": "negative/window-id_milliseconds_after_submitted_before.proof.json"
   },
   {
     "config": {

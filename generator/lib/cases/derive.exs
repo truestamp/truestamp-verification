@@ -30,16 +30,18 @@ defmodule Generator.Cases.Derive do
   - **Paths** (`paths-`). A `path` node changed; a `leaf_index` changed so that the walk takes
     another route to another root; a `leaf_index` equal to `tree_size`; and a `path` one node
     too long and one too short. Each fails `derivation_mismatch` where the walk ends: for the
-    subject's walk (item) and an observation's (beacon, Stellar's), at
-    `/block/record/merkle_root`; for a top-level entry's (block, Bitcoin's) and a
+    subject's walk (item, but entropy_stellar for the changed `leaf_index`, since I is the
+    last of h4's three leaves, whose path no other index walks) and an observation's (beacon,
+    Stellar's), at `/block/record/merkle_root`; for a top-level entry's (block, Bitcoin's) and a
     signing-key-event entry's (item-genesis-witness, Stellar's, since its leaf k0 has another
     route), at the entry's `epoch/record/merkle_root`.
   - **The committed leaf count** (`leaf_count-`). At the block level for a subject and a
     beacon observation, and at the epoch level for each chain's entry at both positions: a
     `tree_size` other than its record's `leaf_count` whose walk still reaches the root (4, for
-    the first of three leaves), and the moved leaf index (the last of three leaves presented as
-    `{"leaf_index": 1, "tree_size": 2}`), each at that `tree_size`, every walk but the moved
-    one's keeping its `leaf_index`. A /signing_key_event entry of the sound set walks from h5,
+    the first or the middle of three leaves; for a subject, S1 of entropy_stellar), and the
+    moved leaf index (the last of three leaves presented as `{"leaf_index": 1, "tree_size":
+    2}`; for a subject, I of item), each at that `tree_size`, every walk but the moved one's
+    keeping its `leaf_index`. A /signing_key_event entry of the sound set walks from h5,
     the last of E2's three leaves, or from k0, the first of F1's two, and neither path fits
     another size, so the `tree_size` lie there starts from block with E2's leaves put in the
     order h5, h3, h4, the root, the epoch hash and the Bitcoin transaction made to agree, and
@@ -152,6 +154,10 @@ defmodule Generator.Cases.Derive do
      "/signing_key_event/commitments/stellar/inclusion_proof", {"block_hash", @ske <> "/record"},
      "/signing_key_event/commitments/stellar/epoch/record/merkle_root"}
   ]
+
+  # The subject whose leaf_index the Paths cases reroute: the item I is the last of h4's three
+  # leaves, whose path no other leaf_index walks, so the reroute takes S1, the middle one.
+  @rerouted %{"subject" => {"entropy_stellar", {"observation_hash", "/subject/record"}}}
 
   # The rotation h5 at each block position.
   @rotations [
@@ -319,14 +325,16 @@ defmodule Generator.Cases.Derive do
   defp paths do
     for {words, name, q, leaf, part} <- @walks,
         path = q <> "/path",
-        {defect, edit} <- [
-          {"node", &flip(&1, path <> "/0")},
-          {"leaf_index", &reroute(&1, q, leaf)},
-          {"leaf_index_at_tree_size", &put(&1, q <> "/leaf_index", get(&1, q <> "/tree_size"))},
-          {"path_too_long", &put(&1, path, get(&1, path) ++ [get(&1, path <> "/0")])},
-          {"path_too_short", &put(&1, path, Enum.drop(get(&1, path), -1))}
+        {rerouted, rerouted_leaf} = Map.get(@rerouted, words, {name, leaf}),
+        {defect, on, edit} <- [
+          {"node", name, &flip(&1, path <> "/0")},
+          {"leaf_index", rerouted, &reroute(&1, q, rerouted_leaf)},
+          {"leaf_index_at_tree_size", name,
+           &put(&1, q <> "/leaf_index", get(&1, q <> "/tree_size"))},
+          {"path_too_long", name, &put(&1, path, get(&1, path) ++ [get(&1, path <> "/0")])},
+          {"path_too_short", name, &put(&1, path, Enum.drop(get(&1, path), -1))}
         ],
-        do: {"paths-#{defect}-#{words}", name, {@dm, part}, edit}
+        do: {"paths-#{defect}-#{words}", on, {@dm, part}, edit}
   end
 
   # The inclusion proof at `q` given another leaf_index below its tree_size, whose walk from
@@ -352,11 +360,11 @@ defmodule Generator.Cases.Derive do
     roots = for c <- ~w(bitcoin stellar), do: "/commitments/#{c}/epoch/record/merkle_root"
 
     [
-      {"leaf_count-tree_size-subject", "item", {@dm, subject <> "/tree_size"},
-       &resize(&1, subject, {"item_hash", "/subject/record"}, move: false)},
-      {"leaf_count-moved_index-subject", "entropy_stellar", {@dm, subject <> "/tree_size"},
+      {"leaf_count-tree_size-subject", "entropy_stellar", {@dm, subject <> "/tree_size"},
+       &resize(&1, subject, {"observation_hash", "/subject/record"}, move: false)},
+      {"leaf_count-moved_index-subject", "item", {@dm, subject <> "/tree_size"},
        &moved(&1, subject)},
-      {"leaf_count-record-subject", "entropy_stellar", {:fails, roots},
+      {"leaf_count-record-subject", "item", {:fails, roots},
        &(&1 |> moved(subject) |> recount())},
       {"leaf_count-tree_size-observation", "beacon", {@dm, nist <> "/inclusion_proof/tree_size"},
        &resize(&1, nist <> "/inclusion_proof", {"observation_hash", nist <> "/record"},

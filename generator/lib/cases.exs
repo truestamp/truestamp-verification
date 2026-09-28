@@ -237,15 +237,17 @@ defmodule Generator.Cases do
   either fails the check; the sub_reasons the bare cases give are exactly those
   spec/reason-codes.json lists for their codes; and spec/network-pins.json holds SPEC.md 9's
   table of default network pins, a row for each E_v, each network one of its chain's, the
-  `prod` row the production networks and the `test` row the pins of Generator.Case.pins/0. A code the online class names
-  (Generator.Cases.Online) must be one only an online run reaches: no offline case gives it,
-  and it is a code of CHAIN, SOURCES or WINDOW alone, or `keyring_unavailable`, whose
-  keyring read is online.
+  `prod` row the production networks and the `test` row the pins of Generator.Case.pins/0;
+  and every place spec/schema.json gives the class UUID7 has a SHAPE case of a `\\n` on the
+  end of its value, a failure the schema no longer gives with that place's `$ref` taken out.
+  A code the online class names (Generator.Cases.Online) must be one only an online run
+  reaches: no offline case gives it, and it is a code of CHAIN, SOURCES or WINDOW alone, or
+  `keyring_unavailable`, whose keyring read is online.
   """
 
   import Generator.Check
 
-  alias Generator.{Case, FileForm, JCS, Model, Parse, Spec}
+  alias Generator.{Case, FileForm, JCS, Model, Parse, Pointer, Schema, Spec}
   alias Generator.Model.Online, as: OnlineModel
 
   # The class module of the online cases, whose codes only an online run reaches. It is loaded
@@ -416,10 +418,45 @@ defmodule Generator.Cases do
         configuration_identities_self_test(online, files),
         replay_reads_self_test(by_id, files),
         default_pins(),
+        uuid7_newlines(definitions, files),
         coverage_failures
       ])
 
     {failures, report}
+  end
+
+  # SPEC.md 13.3's SHAPE case of a `\n` on the end of a value, at every place spec/schema.json
+  # gives the class UUID7: for each schema whose `$ref` is `#/$defs/UUID7`, a case that fails
+  # shape_invalid at SHAPE at a value with a `\n` on its end, a failure that spec/schema.json
+  # gives and no longer gives with that one `$ref` taken out. So taking out the case of a
+  # place, such as `shape-newline-item-id`, fails this check.
+  defp uuid7_newlines(definitions, files) do
+    root = Spec.read("schema.json")
+    places = Schema.refs(root, "#/$defs/UUID7")
+
+    newlines =
+      for %{defect: {:fail, "shape_invalid", part, "SHAPE"}} = definition <- definitions,
+          bytes = Map.get(files, "vectors/" <> Case.proof_path(definition)),
+          is_binary(bytes),
+          document = Parse.decode!(bytes),
+          value = Pointer.get(document["proof"], part),
+          is_binary(value) and String.ends_with?(value, "\n"),
+          do: {document, "/proof" <> part}
+
+    [
+      truth("spec/schema.json gives the class UUID7 somewhere", places != []),
+      for {path, pointer} <- places do
+        without = Schema.without(root, path)
+
+        truth(
+          "a SHAPE case of a `\\n` on the end of the UUID7 at spec/schema.json##{pointer}",
+          Enum.any?(newlines, fn {document, at} ->
+            at in Schema.failures(document, root) and
+              at not in Schema.failures(document, without)
+          end)
+        )
+      end
+    ]
   end
 
   # SPEC.md 9's default network pins. spec/network-pins.json has a row for `prod` and for each

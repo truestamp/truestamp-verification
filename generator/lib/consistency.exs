@@ -39,14 +39,11 @@ defmodule Generator.Consistency do
     one defect made in memory.
   """
 
-  import Bitwise
   import Generator.Check
 
   alias Generator.{BitcoinAnswers, BitcoinParse, Bytes, Case, Chain, Edit, Pointer, Registry}
   alias Generator.{Parse, Regtest, Replay, Spec}
   alias Generator.Replay.World
-
-  @crockford "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
   @doc "The failures of the consistency check over `files`, every file about to be written."
   def run(files) do
@@ -390,21 +387,19 @@ defmodule Generator.Consistency do
 
   defp subject_id(proof), do: Pointer.get(proof, "/subject/record/id")
 
-  # The time inside an id, in milliseconds: the first 48 bits of a UUIDv7, or of a ULID.
+  # The time inside a UUIDv7 id, in milliseconds: its leftmost 48 bits, `unix_ts_ms`.
   defp id_time(<<head::binary-8, "-", middle::binary-4, "-", _rest::binary>>),
     do: String.to_integer(head <> middle, 16)
 
-  defp id_time(<<time::binary-10, _random::binary-16>>) do
-    for <<c <- time>>, reduce: 0 do
-      acc -> acc * 32 + elem(:binary.match(@crockford, <<c>>), 0)
-    end
-  end
-
   defp id_time(_id), do: nil
 
-  # A ULID's first 10 characters for the time `ms`.
-  defp ulid_time(ms),
-    do: for(i <- 9..0//-1, into: "", do: binary_part(@crockford, ms >>> (5 * i) &&& 31, 1))
+  # The UUIDv7 id `id` with the time `ms` in its leftmost 48 bits, every other bit kept.
+  defp id_at(id, ms) do
+    <<head::binary-8, middle::binary-4>> =
+      ms |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(12, "0")
+
+    head <> "-" <> middle <> binary_part(id, 13, 23)
+  end
 
   # The self-test.
 
@@ -460,8 +455,7 @@ defmodule Generator.Consistency do
       {"a genesis.bitcoin's header_hash", "genesis/bitcoin: the hash of the block", block,
        "/block/record/metadata/genesis/bitcoin/header_hash", &String.replace(&1, "0", "1")},
       {"the time in the item's id an hour later", "lies inside the window", item,
-       "/subject/record/id",
-       fn id -> ulid_time(id_time(id) + 3_600_000) <> binary_part(id, 10, 16) end}
+       "/subject/record/id", fn id -> id_at(id, id_time(id) + 3_600_000) end}
     ]
 
     [

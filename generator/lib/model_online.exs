@@ -41,7 +41,6 @@ defmodule Generator.Model.Online do
 
   @keyring_url "https://www.truestamp.com/.well-known/keyring.json"
   @top ~w(/commitments/bitcoin /commitments/stellar)
-  @crockford "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
   @doc """
   The replay `config` names, read from `files`, with the case's pins, or nil for an offline
@@ -451,15 +450,10 @@ defmodule Generator.Model.Online do
     DateTime.to_unix(time, :millisecond)
   end
 
-  # The time inside an id, in milliseconds: the first 48 bits of a UUIDv7, or of a ULID.
+  # The time inside a UUIDv7 id, in milliseconds: its leftmost 48 bits, `unix_ts_ms`
+  # (SPEC.md 11.3).
   defp id_time(<<head::binary-8, "-", middle::binary-4, "-", _rest::binary>>),
     do: String.to_integer(head <> middle, 16)
-
-  defp id_time(<<time::binary-10, _random::binary-16>>) do
-    for <<c <- time>>, reduce: 0 do
-      acc -> acc * 32 + elem(:binary.match(@crockford, <<c>>), 0)
-    end
-  end
 
   # Reads and answers.
 

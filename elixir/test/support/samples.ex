@@ -290,7 +290,7 @@ defmodule Truestamp.Verifier.Test.Samples do
       "item_hash" => hex64("item"),
       "record" => %{
         "claims_hash" => hex64("claims hash"),
-        "id" => "01J8Z3N4Q5R6S7T8V9W0XYZABC",
+        "id" => uuid7(30),
         "witness_hashes" => witness_hashes
       }
     }

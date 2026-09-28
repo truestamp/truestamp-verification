@@ -47,9 +47,10 @@ TypeScript beside the Elixir one.
 A verifier needs these standards and this repository's data: JSON (RFC 8259), the JSON
 Canonicalization Scheme (RFC 8785), SHA-256 (FIPS 180-4), pure Ed25519 (RFC 8032), unpadded
 base64url (RFC 4648 section 5), the Merkle Tree Hash and inclusion proofs of RFC 9162
-section 2.1, JSON Pointer (RFC 6901), RFC 3339 times, JSON Schema draft 2020-12, BIP 37
-merkleblocks and the transaction serialization without witness data of BIP 144, and, for
-the online checks, the Bitcoin and Stellar protocols and NIST's Randomness Beacon.
+section 2.1, JSON Pointer (RFC 6901), RFC 3339 times, UUIDv7 ids and the time inside one
+(RFC 9562), JSON Schema draft 2020-12, BIP 37 merkleblocks and the transaction
+serialization without witness data of BIP 144, and, for the online checks, the Bitcoin and
+Stellar protocols and NIST's Randomness Beacon.
 `SPEC.md` section 2.5 lists them with what each is used for. Any conforming implementation
 of each will do; none of them requires a particular library.
 

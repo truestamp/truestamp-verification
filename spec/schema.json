@@ -502,7 +502,7 @@
               "$ref": "#/$defs/HEX64"
             },
             "id": {
-              "$ref": "#/$defs/ULID"
+              "$ref": "#/$defs/UUID7"
             },
             "witness_hashes": {
               "additionalProperties": false,
@@ -1187,12 +1187,6 @@
     "TXOUTPROOF": {
       "$ref": "#/$defs/HEXBYTES",
       "maxLength": 2048
-    },
-    "ULID": {
-      "maxLength": 26,
-      "minLength": 26,
-      "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
-      "type": "string"
     },
     "UUID7": {
       "maxLength": 36,

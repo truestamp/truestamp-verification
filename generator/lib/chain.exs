@@ -24,7 +24,7 @@ defmodule Generator.Chain do
   | 01:48:05 | observation N1 of NIST pulse 1,200,018 (01:48:00) | |
   | 01:48:35 | observation S1 of Stellar ledger 1,000,222 (closed 01:48:30) | |
   | 01:49:00 | item I submitted, with h3 at the head: witnesses h3, N1, S1, B1 | |
-  | 01:50:00 | h4: I, N1, S1 | |
+  | 01:50:00 | h4: N1, S1, I | |
   | 01:50:30 | h5, rotation from H to VECTOR_KEY, with H's handover signature | |
   | 01:51:10 | epoch E2 = h3, h4, h5 is written to both chains | |
   | 01:51:15 | | Stellar testnet ledger 1,000,255 holds E2's hash |
@@ -44,9 +44,10 @@ defmodule Generator.Chain do
   VECTOR_KEY, whose genesis event commits to H as the next key, and VECTOR_KEY signs k0 and
   k1. VECTOR_KEY signs every proof.
 
-  Positions: h5 is the last of the three leaves of E2, and B1 and S1 the last of the three
+  Positions: h5 is the last of the three leaves of E2, and B1 and I the last of the three
   leaves of h1 and h4, so SPEC.md 13.3's moved leaf index has a sound proof to start from at
-  both levels, for an epoch entry, a subject and a beacon observation.
+  both levels, for an epoch entry, a subject and a beacon observation. S1, the middle leaf of
+  h4, is a subject whose leaf_index can take another route.
 
   Sources: NIST chain 2 gives pulse 1,200,000 at 01:30:00.000 and one a minute after; Stellar
   testnet closes ledger 1,000,000 at 01:30:00 and one every 5 seconds after. A NIST
@@ -54,8 +55,9 @@ defmodule Generator.Chain do
   a label, since only the regtest chain is modeled byte for byte (Generator.Regtest).
 
   Leaves are sorted by key, byte-wise, as Truestamp sorts them: a block's by the id of each
-  item or observation, an epoch's by block id. Ids are UUIDv7 (ULID for an item), with the
-  time of the table and the rest of their bits from SHA-256 of a label.
+  item or observation, an epoch's by block id. Ids are UUIDv7, with the time of the table in
+  their leftmost 48 bits and the rest of their bits from SHA-256 of a label, so the leaves of
+  a block fall in time order.
   """
 
   alias Generator.{Bitcoin, Bytes, Keys, Merkle, Registry, Regtest, Seeds}
@@ -150,7 +152,7 @@ defmodule Generator.Chain do
 
   defp time_text(unix), do: unix |> DateTime.from_unix!() |> DateTime.to_iso8601()
 
-  # Ids: a UUIDv7 and a ULID at a time, with the rest of their bits from a label.
+  # Ids: a UUIDv7 at a time, with the rest of its bits from a label.
 
   defp uuid7(unix, label) do
     <<a::12, b::62, _rest::bits>> = :crypto.hash(:sha256, "vectors id " <> label)
@@ -159,16 +161,6 @@ defmodule Generator.Chain do
     Enum.map_join([{0, 8}, {8, 4}, {12, 4}, {16, 4}, {20, 12}], "-", fn {at, n} ->
       binary_part(hex, at, n)
     end)
-  end
-
-  @crockford ~c"0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-
-  defp ulid(unix, label) do
-    <<random::80, _rest::bits>> = :crypto.hash(:sha256, "vectors id " <> label)
-
-    for <<(n::5 <- <<0::2, unix * 1000::48, random::80>>)>>,
-      into: "",
-      do: <<Enum.at(@crockford, n)>>
   end
 
   # Entropy objects (SPEC.md 3.5), and observations of them. An observation keeps its source
@@ -310,7 +302,7 @@ defmodule Generator.Chain do
 
     record = %{
       "claims_hash" => Bytes.hex(Registry.record_hash("claims_hash", claims)),
-      "id" => ulid(at(clock), "item " <> label),
+      "id" => uuid7(at(clock), "item " <> label),
       "witness_hashes" => Map.put(witness_hashes, "block", witness_block.hash)
     }
 

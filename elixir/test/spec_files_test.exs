@@ -242,6 +242,56 @@ defmodule Truestamp.Verifier.SpecFilesTest do
     end
   end
 
+  describe "the sizes of section 3.8" do
+    test "hold the table's own arithmetic, and the bounds for items that follow from it" do
+      rows =
+        Map.new(
+          table_after(
+            "| Proof | Typical, full | Typical, reference | Typical, none | Worst, full |"
+          ),
+          fn [proof | sizes] -> {proof, Enum.map(sizes, &octets/1)} end
+        )
+
+      assert Map.keys(rows) ==
+               Enum.sort(~w(item entropy_nist entropy_stellar entropy_bitcoin block beacon))
+
+      # The constructions text in full is 8,597 octets longer than its reference, and the
+      # reference 140 longer than none, whatever the proof.
+      for {proof, [full, reference, none, _worst]} <- rows do
+        assert full - reference == 8_597, proof
+        assert reference - none == 140, proof
+      end
+
+      text = String.replace(spec_md(), ~r/\s+/, " ")
+
+      [claims] =
+        Regex.run(~r/\*\*Worst:\*\* ([0-9,]+)-octet claims/, text, capture: :all_but_first)
+
+      [full, reference, none, staging, marker, worst_staging] =
+        Regex.run(
+          ~r/For items, the served size is at most ([0-9,]+) \+ \|JCS\(claims\)\| octets in full mode \(([0-9,]+) by reference, ([0-9,]+) with none\), plus at most ([0-9,]+) octets for `([^`]+)`\. The worst staging item is ([0-9,]+) octets, under MAX_DOCUMENT_OCTETS/,
+          text,
+          capture: :all_but_first
+        )
+
+      [_full, _reference, _none, worst] = rows["item"]
+      claims = octets(claims)
+      assert claims == 20_480
+
+      # Each bound is the worst item of its mode less its claims.
+      assert octets(full) == worst - claims
+      assert octets(reference) == worst - 8_597 - claims
+      assert octets(none) == worst - 8_597 - 140 - claims
+
+      assert octets(staging) == byte_size(marker)
+      assert marker == ~s("environment":"staging",)
+      assert octets(worst_staging) == worst + 24
+      assert octets(worst_staging) <= read("constants.json")["MAX_DOCUMENT_OCTETS"]
+    end
+  end
+
+  defp octets(text), do: text |> String.replace(",", "") |> String.to_integer()
+
   # The values a section 9 row gives its names: numbers with thousands separators, the hex
   # after `=` for MAX_INTEGER, a backticked hex key, or nil for the row that names a file.
   defp spec_values([_name], value) do
@@ -618,7 +668,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       assert names == Enum.sort(Map.keys(encodings))
 
       for [name, rule, _used] <- rows,
-          name in ~w(HEX64 KID HEXBYTES B64U32 B64U64 TIME NISTHEX ULID UUID7) do
+          name in ~w(HEX64 KID HEXBYTES B64U32 B64U64 TIME NISTHEX UUID7) do
         assert encodings[name]["pattern"] == rule |> backticked() |> hd(), name
       end
 
@@ -1089,8 +1139,10 @@ defmodule Truestamp.Verifier.SpecFilesTest do
       {"a genesis event of sequence 1",
        put_in(s["block"], ["proof", "block", "record", "metadata", "key_event", "sequence"], 1)},
       {"a rotation of sequence 0", put_in(item, rotation ++ ["sequence"], 0)},
-      {"a ULID with a U",
-       put_in(item, ["proof", "subject", "record", "id"], "01J8Z3N4Q5R6S7T8V9W0XYZABU")},
+      {"an item id of UUID version 4",
+       put_in(item, ["proof", "subject", "record", "id"], "01920000-0000-4000-8000-000000000030")},
+      {"an item id in capitals",
+       put_in(item, ["proof", "subject", "record", "id"], "0192ABCD-0000-7000-8000-00000000003A")},
       {"a TIME with a fraction",
        put_in(
          item,

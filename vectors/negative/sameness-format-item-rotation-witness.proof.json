@@ -1,6 +1,6 @@
 {
    "sign\u0061ture": {
-      "v\u0061lue": "\u0061Z4AuEtgTZNSZg-99oIVMkL7-LZK2uej3Ew9TdQuAmrjlu6t3J2sgXMgDJuMZgsgN\u0061PsJQ3tHnidMWkmcxYmAQ",
+      "v\u0061lue": "y_OISD13ojqpBpbU4XfMPTAX2IS9RFMwDpAMrrr-V_UCIGXeKlz7FpjcPpE2zWArTCdpPHBo-RhuGhN6yUPRCQ",
       "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
       "\u0061lg": "truest\u0061mp-ed25519-sh\u0061256-jcs"
    },
@@ -39,7 +39,7 @@
          "block": {
             "record": {
                "signing_key_id": "fbd680e8",
-               "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+               "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                "met\u0061d\u0061t\u0061": {
                   "key_event": {
                      "type": "rot\u0061tion",
@@ -48,10 +48,10 @@
                      "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
                      "previous_public_key": "Ivwpd5Lwtv_Av8_bftsMCqFOAlo2XsDjQuhuOCnLdLY",
                      "previous_key_id": "9602c03e",
-                     "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+                     "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                      "key_id": "fbd680e8",
                      "height": 5.0,
-                     "h\u0061ndover_sign\u0061ture": "v-kjK9ZFgSR1SDB07gXLLKSntIUqJTv8-l0Uebr3ilSSTjYhfShcrDZk0R-XLb6MlPZvubDYHQHOFcbZTPv6Cw"
+                     "h\u0061ndover_sign\u0061ture": "lGwR5OSy9L_PQXi4cA8jZCdM6wU-P4FVhtR\u00614WMVb3D04NTxq90SXJ_dLYETb5leVcMVCj9PTjYTVELk1Pm1AA"
                   }
                },
                "merkle_root": "e3b0c44298fc1c149\u0061fbf4c8996fb92427\u0061e41e4649b934c\u0061495991b7852b855",
@@ -59,7 +59,7 @@
                "id": "01\u00610db68-2270-796b-\u0061428-e3946340\u0061287",
                "height": 5.0
             },
-            "block_h\u0061sh": "395271e2bc7b7484653511\u0061bd0\u006130b5b47818\u006157b38388117dfe161\u0061\u0061f5c\u0061735"
+            "block_h\u0061sh": "38029526ddf5d8904f2b325b2\u006131e628bd49c\u00618fd9\u00618b772\u0061cf9359633\u006125552"
          }
       },
       "version": 1.0,
@@ -70,12 +70,12 @@
                "entropy_stell\u0061r": "2bfcd684973d6e7234cb0d27174cd2b317cf53219ddd8609d6728\u0061286b046d\u0061b",
                "entropy_nist": "1d2d1432\u00617ee7221ec781b943d017779b83930b6478f7e58b567e08587fe1482",
                "entropy_bitcoin": "c5e73ce\u006168\u0061\u0061f7999c859639b8b7816f356be9b40d0ff8304b9001377\u0061e040c\u0061",
-               "block": "395271e2bc7b7484653511\u0061bd0\u006130b5b47818\u006157b38388117dfe161\u0061\u0061f5c\u0061735"
+               "block": "38029526ddf5d8904f2b325b2\u006131e628bd49c\u00618fd9\u00618b772\u0061cf9359633\u006125552"
             },
-            "id": "01M3DPJ36G7M2MTJFYADF798E9",
+            "id": "01\u00610db69-0cd0-73d0-9535-27f94d79d287",
             "cl\u0061ims_h\u0061sh": "81fbf\u006191464dd41c3560f2030453684393bcef9f54\u0061bffd93\u00615f41bf45\u006124814"
          },
-         "item_h\u0061sh": "43958c8f386b9239553593d1139b7626f07d92405c77d630e5c708de18e474d6",
+         "item_h\u0061sh": "c507df\u00618cc\u0061\u006144d3d48f6e5\u00611\u00616b3b374881c02b80857233234930c92\u0061f5\u0061e\u00619",
          "inclusion_proof": {
             "tree_size": 1.0,
             "p\u0061th": [],
@@ -90,53 +90,53 @@
       "signing_key_event": {
          "commitments": {
             "stell\u0061r": {
-               "tr\u0061ns\u0061ction_h\u0061sh": "2eb4b\u00614b5d200c85fce1b01\u006126085f6f4fb970bd2440b06f3290036569\u00610327c",
+               "tr\u0061ns\u0061ction_h\u0061sh": "860d4085c0\u0061f0b5f8c\u0061dff2bb0647cf75bbd16901817684dc4e180c200c70681",
                "network": "testnet",
                "ledger": 1000255.0,
                "inclusion_proof": {
                   "tree_size": 3.0,
                   "p\u0061th": [
-                     "076f39085\u006158b66533c2f5ee6d7\u0061fc3978e4b32b64d572f2d18c8bd8282c\u0061309"
+                     "bbe839c78f255d6ccc6ff55e6\u0061e097f969266486cf6dc4e1\u006158b0\u006173f1f66cd9"
                   ],
                   "le\u0061f_index": 2.0
                },
                "epoch": {
                   "record": {
-                     "merkle_root": "557975d2\u006125d4dfe1\u00615022391f740ff63c1039b414c\u00615e7597c8dfef81d2c58c",
+                     "merkle_root": "bc5d02c06782dc89c5f4\u00616810d7df4e3b9826\u00612943cb2f6fdf0f98bcec1c115b",
                      "le\u0061f_count": 3.0
                   },
-                  "epoch_h\u0061sh": "\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fe"
+                  "epoch_h\u0061sh": "488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364"
                }
             },
             "bitcoin": {
-               "txoutproof": "00000020cb1b81b9b036\u0061\u0061f305b73e573694bdb0064db4cf65b18b4403960552\u0061b78b\u00617c85bb7e62591b288602e5f1e014e8e1df9f51e04bc657686\u006179d003f4f60921194025b76\u0061ffff7f200100000005000000043\u00613f2e9d5be6\u00617f8e5e5b0f\u006159fc1df5\u006170\u00612328d11ec1d7\u0061cb321bd9ff\u0061345f466265687908\u0061918d209c7\u0061f1265cf88b27f3\u0061859408345e7b08e0156c5e649c53c4f86cde\u0061e7cb462f\u0061d\u0061d9f88130f01d868cf3948620255\u0061465b2f8b5e899cdd5f214e2f\u00618d44cf7b6cf382\u0061c0d56ef\u00610b249cc5fd96db53d5037f9471776e012b",
-               "tr\u0061ns\u0061ction_h\u0061sh": "9c895e8b2f5b465\u006125208694f38c861df03081f8d9d\u0061f\u006162b47c\u0061ede6cf8c453",
-               "r\u0061w_tr\u0061ns\u0061ction": "0200000001d4482484866f76536c37fbd382\u0061288fe2\u006145792c58be397f03\u00612d5\u0061e735316700100000000fdffffff023ce8052\u00610100000016001479063\u006189f84f\u0061c2081623dff7fc5585724e982570000000000000000226\u006120\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fedd000000",
+               "txoutproof": "00000020cb1b81b9b036\u0061\u0061f305b73e573694bdb0064db4cf65b18b4403960552\u0061b78b\u00617cc19\u00612d4755f1ec7d94\u0061b0\u0061c6e330\u0061c7528b08d5fb79db0578c4601508ee1874d4025b76\u0061ffff7f200000000005000000043\u00613f2e9d5be6\u00617f8e5e5b0f\u006159fc1df5\u006170\u00612328d11ec1d7\u0061cb321bd9ff\u0061345f466265687908\u0061918d209c7\u0061f1265cf88b27f3\u0061859408345e7b08e0156c5e649cd9c\u006173dc410e237d5\u00619c4311df0e79e527d24cbf57d1271c2f5c9d4f\u0061\u0061\u00613f464dd5f214e2f\u00618d44cf7b6cf382\u0061c0d56ef\u00610b249cc5fd96db53d5037f9471776e012b",
+               "tr\u0061ns\u0061ction_h\u0061sh": "64f4\u00613\u0061\u00614f9d5c2f1c27d157bf4cd227e5790edf11439c5\u00617d230e41dc73c\u0061d9",
+               "r\u0061w_tr\u0061ns\u0061ction": "0200000001d4482484866f76536c37fbd382\u0061288fe2\u006145792c58be397f03\u00612d5\u0061e735316700100000000fdffffff023ce8052\u00610100000016001479063\u006189f84f\u0061c2081623dff7fc5585724e982570000000000000000226\u006120488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364dd000000",
                "network": "regtest",
                "inclusion_proof": {
                   "tree_size": 3.0,
                   "p\u0061th": [
-                     "076f39085\u006158b66533c2f5ee6d7\u0061fc3978e4b32b64d572f2d18c8bd8282c\u0061309"
+                     "bbe839c78f255d6ccc6ff55e6\u0061e097f969266486cf6dc4e1\u006158b0\u006173f1f66cd9"
                   ],
                   "le\u0061f_index": 2.0
                },
                "height": 222.0,
                "he\u0061der_time": "2026-09-26T01:52:00Z",
-               "he\u0061der_merkle_root": "192109f6f403d0796\u00616857c64be0519fdfe1e814e0f1e50286281b59627ebb85",
-               "he\u0061der_h\u0061sh": "71\u006180\u0061d2d916468d1d9bc3161198033188fb4cf3e9\u0061312\u00610fec0c86f9d6f8c11",
+               "he\u0061der_merkle_root": "4d87e18e5001468c57b09db75f8db02875\u0061c30e3c60\u0061\u0061b947decf155472d9\u0061c1",
+               "he\u0061der_h\u0061sh": "066ee8ed37e3b69\u0061\u0061ef26bc\u006128f2818674e61412e1be5bc8f17b0e4cc5971386",
                "epoch": {
                   "record": {
-                     "merkle_root": "557975d2\u006125d4dfe1\u00615022391f740ff63c1039b414c\u00615e7597c8dfef81d2c58c",
+                     "merkle_root": "bc5d02c06782dc89c5f4\u00616810d7df4e3b9826\u00612943cb2f6fdf0f98bcec1c115b",
                      "le\u0061f_count": 3.0
                   },
-                  "epoch_h\u0061sh": "\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fe"
+                  "epoch_h\u0061sh": "488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364"
                }
             }
          },
          "block": {
             "record": {
                "signing_key_id": "fbd680e8",
-               "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+               "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                "met\u0061d\u0061t\u0061": {
                   "key_event": {
                      "type": "rot\u0061tion",
@@ -145,10 +145,10 @@
                      "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
                      "previous_public_key": "Ivwpd5Lwtv_Av8_bftsMCqFOAlo2XsDjQuhuOCnLdLY",
                      "previous_key_id": "9602c03e",
-                     "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+                     "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                      "key_id": "fbd680e8",
                      "height": 5.0,
-                     "h\u0061ndover_sign\u0061ture": "v-kjK9ZFgSR1SDB07gXLLKSntIUqJTv8-l0Uebr3ilSSTjYhfShcrDZk0R-XLb6MlPZvubDYHQHOFcbZTPv6Cw"
+                     "h\u0061ndover_sign\u0061ture": "lGwR5OSy9L_PQXi4cA8jZCdM6wU-P4FVhtR\u00614WMVb3D04NTxq90SXJ_dLYETb5leVcMVCj9PTjYTVELk1Pm1AA"
                   }
                },
                "merkle_root": "e3b0c44298fc1c149\u0061fbf4c8996fb92427\u0061e41e4649b934c\u0061495991b7852b855",
@@ -156,7 +156,7 @@
                "id": "01\u00610db68-2270-796b-\u0061428-e3946340\u0061287",
                "height": 5.0
             },
-            "block_h\u0061sh": "395271e2bc7b7484653511\u0061bd0\u006130b5b47818\u006157b38388117dfe161\u0061\u0061f5c\u0061735"
+            "block_h\u0061sh": "38029526ddf5d8904f2b325b2\u006131e628bd49c\u00618fd9\u00618b772\u0061cf9359633\u006125552"
          }
       },
       "form\u0061t": "truest\u0061mp-proof",
@@ -193,7 +193,7 @@
       },
       "commitments": {
          "stell\u0061r": {
-            "tr\u0061ns\u0061ction_h\u0061sh": "ecce06c92e2e98c098214e\u0061546104505ef30716851687c91e4604e999d0c69e6",
+            "tr\u0061ns\u0061ction_h\u0061sh": "480e1d5338f71f361eed6232484c6ed9698\u0061dd3f5d2c85bff41b9c4049060e6\u0061",
             "network": "testnet",
             "ledger": 1000267.0,
             "inclusion_proof": {
@@ -203,24 +203,24 @@
             },
             "epoch": {
                "record": {
-                  "merkle_root": "8846d13c2212e0\u00612c\u0061257706007642d0d8\u0061\u00619c6e2e0784bf9\u006148571f3f58602f",
+                  "merkle_root": "83\u006112b838d7b7e52e4f375420eb55244816e4df7\u0061e4757\u0061f8\u00619e053f9\u0061688565",
                   "le\u0061f_count": 1.0
                },
-               "epoch_h\u0061sh": "c06\u006118ebc92e7be323cbf\u0061313877d2c6d3fc54f1\u006117648655c5924876e152d92"
+               "epoch_h\u0061sh": "cfefb2cd\u0061e28fc7624138977\u006120ffd154fb27\u0061\u00617852398897d68c61d065c086f"
             }
          }
       },
       "block": {
          "record": {
             "signing_key_id": "fbd680e8",
-            "previous_block_h\u0061sh": "395271e2bc7b7484653511\u0061bd0\u006130b5b47818\u006157b38388117dfe161\u0061\u0061f5c\u0061735",
+            "previous_block_h\u0061sh": "38029526ddf5d8904f2b325b2\u006131e628bd49c\u00618fd9\u00618b772\u0061cf9359633\u006125552",
             "met\u0061d\u0061t\u0061": {},
-            "merkle_root": "0dee4b67fb8421645be5676d2d22b108523219\u006115b4b4e\u006184769e6\u00612b8ffe663",
+            "merkle_root": "cd55d5c38d98ed85ee7c78\u006108bd536d193c304dc7ff7085b\u006197d814f398b092\u0061",
             "le\u0061f_count": 1.0,
             "id": "01\u00610db69-8200-7dd2-9ff8-e\u00615d21b285f2",
             "height": 6.0
          },
-         "block_h\u0061sh": "d5\u0061817e0bf96b3fb8e23ccf88c08273e439dded717be\u0061b0e778534709ceeed53"
+         "block_h\u0061sh": "22\u0061ff8c1347\u0061d\u006155bd0e4d23b10f62\u0061cef0e242\u0061bfb810d0f7ec7b53c042822b"
       }
    }
 }

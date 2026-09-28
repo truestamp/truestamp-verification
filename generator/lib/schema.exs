@@ -30,10 +30,46 @@ defmodule Generator.Schema do
   @doc """
   The pointers, into `value`, of every failure of spec/schema.json over it, in no set order.
   """
-  def failures(value) do
-    root = Spec.read("schema.json")
-    check(root, value, "", root)
+  def failures(value), do: failures(value, Spec.read("schema.json"))
+
+  @doc """
+  The pointers, into `value`, of every failure of `root` over it, a schema in the form of
+  spec/schema.json: failures/1 with another schema, such as spec/schema.json with one rule
+  taken out.
+  """
+  def failures(value, root), do: check(root, value, "", root)
+
+  @doc """
+  The places in `root` whose schema has the `$ref` `ref`, each as the path of names and
+  indices that leads to it, for `without/3`, and its JSON Pointer into `root`.
+  """
+  def refs(root, ref), do: refs(root, ref, [], "")
+
+  defp refs(%{"$ref" => ref} = schema, ref, path, pointer),
+    do: [{Enum.reverse(path), pointer} | refs(Map.delete(schema, "$ref"), ref, path, pointer)]
+
+  defp refs(map, ref, path, pointer) when is_map(map),
+    do:
+      Enum.flat_map(map, fn {name, sub} -> refs(sub, ref, [name | path], child(pointer, name)) end)
+
+  defp refs(list, ref, path, pointer) when is_list(list) do
+    list
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {sub, i} -> refs(sub, ref, [i | path], "#{pointer}/#{i}") end)
   end
+
+  defp refs(_value, _ref, _path, _pointer), do: []
+
+  @doc "`root` with the `$ref` of the schema at `path` (from refs/2) taken out."
+  def without(root, path), do: update(root, path, &Map.delete(&1, "$ref"))
+
+  defp update(value, [], fun), do: fun.(value)
+
+  defp update(map, [name | rest], fun) when is_map(map),
+    do: Map.update!(map, name, &update(&1, rest, fun))
+
+  defp update(list, [i | rest], fun) when is_list(list),
+    do: List.update_at(list, i, &update(&1, rest, fun))
 
   defp check(true, _value, _pointer, _root), do: []
   defp check(false, _value, pointer, _root), do: [pointer]

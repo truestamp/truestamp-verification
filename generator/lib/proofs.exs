@@ -15,9 +15,9 @@ defmodule Generator.Proofs do
   | entropy_bitcoin | h1 | B1 | |
   | block-emergency-rotation | h2, an emergency rotation with no handover signature | h2 | |
   | beacon-empty | h3, prerotation | no observation | |
-  | item | h4 | I | h3, prerotation |
+  | item | h4 | I, the last of the block's three leaves | h3, prerotation |
   | entropy_nist | h4 | N1 | |
-  | entropy_stellar | h4 | S1, the last of the block's three leaves | |
+  | entropy_stellar | h4 | S1, the middle of the block's three leaves | |
   | block-rotation | h5, rotation | h5 | |
   | item-rotation-witness | h6 | K, the block's one leaf | h5, rotation |
   | item-genesis-witness | k1 | J, the block's one leaf | k0, genesis |

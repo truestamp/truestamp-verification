@@ -1,6 +1,6 @@
 {
    "sign\u0061ture": {
-      "v\u0061lue": "3PBtA7r2ep2J39s78nDDMcT2417wmPKof0x9iqIECt8QZ2cq6ibTvpOYXoQLzRO3BEbpRSrGEUT_4UXg_\u0061uTDg",
+      "v\u0061lue": "sVyNmjosLmZCeCKdyKMpt2ZJddqlAtkWp2IsSbNbN9m-_nh4iWmNN_vyw_eAhQjGUh3dKeUtdQF8CMfT1jEiAQ",
       "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
       "\u0061lg": "truest\u0061mp-ed25519-sh\u0061256-jcs"
    },
@@ -33,53 +33,53 @@
       "signing_key_event": {
          "commitments": {
             "stell\u0061r": {
-               "tr\u0061ns\u0061ction_h\u0061sh": "2eb4b\u00614b5d200c85fce1b01\u006126085f6f4fb970bd2440b06f3290036569\u00610327c",
+               "tr\u0061ns\u0061ction_h\u0061sh": "860d4085c0\u0061f0b5f8c\u0061dff2bb0647cf75bbd16901817684dc4e180c200c70681",
                "network": "testnet",
                "ledger": 1000255.0,
                "inclusion_proof": {
                   "tree_size": 3.0,
                   "p\u0061th": [
-                     "076f39085\u006158b66533c2f5ee6d7\u0061fc3978e4b32b64d572f2d18c8bd8282c\u0061309"
+                     "bbe839c78f255d6ccc6ff55e6\u0061e097f969266486cf6dc4e1\u006158b0\u006173f1f66cd9"
                   ],
                   "le\u0061f_index": 2.0
                },
                "epoch": {
                   "record": {
-                     "merkle_root": "557975d2\u006125d4dfe1\u00615022391f740ff63c1039b414c\u00615e7597c8dfef81d2c58c",
+                     "merkle_root": "bc5d02c06782dc89c5f4\u00616810d7df4e3b9826\u00612943cb2f6fdf0f98bcec1c115b",
                      "le\u0061f_count": 3.0
                   },
-                  "epoch_h\u0061sh": "\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fe"
+                  "epoch_h\u0061sh": "488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364"
                }
             },
             "bitcoin": {
-               "txoutproof": "00000020cb1b81b9b036\u0061\u0061f305b73e573694bdb0064db4cf65b18b4403960552\u0061b78b\u00617c85bb7e62591b288602e5f1e014e8e1df9f51e04bc657686\u006179d003f4f60921194025b76\u0061ffff7f200100000005000000043\u00613f2e9d5be6\u00617f8e5e5b0f\u006159fc1df5\u006170\u00612328d11ec1d7\u0061cb321bd9ff\u0061345f466265687908\u0061918d209c7\u0061f1265cf88b27f3\u0061859408345e7b08e0156c5e649c53c4f86cde\u0061e7cb462f\u0061d\u0061d9f88130f01d868cf3948620255\u0061465b2f8b5e899cdd5f214e2f\u00618d44cf7b6cf382\u0061c0d56ef\u00610b249cc5fd96db53d5037f9471776e012b",
-               "tr\u0061ns\u0061ction_h\u0061sh": "9c895e8b2f5b465\u006125208694f38c861df03081f8d9d\u0061f\u006162b47c\u0061ede6cf8c453",
-               "r\u0061w_tr\u0061ns\u0061ction": "0200000001d4482484866f76536c37fbd382\u0061288fe2\u006145792c58be397f03\u00612d5\u0061e735316700100000000fdffffff023ce8052\u00610100000016001479063\u006189f84f\u0061c2081623dff7fc5585724e982570000000000000000226\u006120\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fedd000000",
+               "txoutproof": "00000020cb1b81b9b036\u0061\u0061f305b73e573694bdb0064db4cf65b18b4403960552\u0061b78b\u00617cc19\u00612d4755f1ec7d94\u0061b0\u0061c6e330\u0061c7528b08d5fb79db0578c4601508ee1874d4025b76\u0061ffff7f200000000005000000043\u00613f2e9d5be6\u00617f8e5e5b0f\u006159fc1df5\u006170\u00612328d11ec1d7\u0061cb321bd9ff\u0061345f466265687908\u0061918d209c7\u0061f1265cf88b27f3\u0061859408345e7b08e0156c5e649cd9c\u006173dc410e237d5\u00619c4311df0e79e527d24cbf57d1271c2f5c9d4f\u0061\u0061\u00613f464dd5f214e2f\u00618d44cf7b6cf382\u0061c0d56ef\u00610b249cc5fd96db53d5037f9471776e012b",
+               "tr\u0061ns\u0061ction_h\u0061sh": "64f4\u00613\u0061\u00614f9d5c2f1c27d157bf4cd227e5790edf11439c5\u00617d230e41dc73c\u0061d9",
+               "r\u0061w_tr\u0061ns\u0061ction": "0200000001d4482484866f76536c37fbd382\u0061288fe2\u006145792c58be397f03\u00612d5\u0061e735316700100000000fdffffff023ce8052\u00610100000016001479063\u006189f84f\u0061c2081623dff7fc5585724e982570000000000000000226\u006120488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364dd000000",
                "network": "regtest",
                "inclusion_proof": {
                   "tree_size": 3.0,
                   "p\u0061th": [
-                     "076f39085\u006158b66533c2f5ee6d7\u0061fc3978e4b32b64d572f2d18c8bd8282c\u0061309"
+                     "bbe839c78f255d6ccc6ff55e6\u0061e097f969266486cf6dc4e1\u006158b0\u006173f1f66cd9"
                   ],
                   "le\u0061f_index": 2.0
                },
                "height": 222.0,
                "he\u0061der_time": "2026-09-26T01:52:00Z",
-               "he\u0061der_merkle_root": "192109f6f403d0796\u00616857c64be0519fdfe1e814e0f1e50286281b59627ebb85",
-               "he\u0061der_h\u0061sh": "71\u006180\u0061d2d916468d1d9bc3161198033188fb4cf3e9\u0061312\u00610fec0c86f9d6f8c11",
+               "he\u0061der_merkle_root": "4d87e18e5001468c57b09db75f8db02875\u0061c30e3c60\u0061\u0061b947decf155472d9\u0061c1",
+               "he\u0061der_h\u0061sh": "066ee8ed37e3b69\u0061\u0061ef26bc\u006128f2818674e61412e1be5bc8f17b0e4cc5971386",
                "epoch": {
                   "record": {
-                     "merkle_root": "557975d2\u006125d4dfe1\u00615022391f740ff63c1039b414c\u00615e7597c8dfef81d2c58c",
+                     "merkle_root": "bc5d02c06782dc89c5f4\u00616810d7df4e3b9826\u00612943cb2f6fdf0f98bcec1c115b",
                      "le\u0061f_count": 3.0
                   },
-                  "epoch_h\u0061sh": "\u0061e181679737\u0061f000821ee049f0889f54fc\u0061b10699c5dfb\u00613e5113b9fe22626fe"
+                  "epoch_h\u0061sh": "488e6583\u0061192071810724dd392b551c4c\u0061119c\u00616688deb9034683eb42eb\u00611364"
                }
             }
          },
          "block": {
             "record": {
                "signing_key_id": "fbd680e8",
-               "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+               "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                "met\u0061d\u0061t\u0061": {
                   "key_event": {
                      "type": "rot\u0061tion",
@@ -88,10 +88,10 @@
                      "public_key": "IVL40Zt5HSRFMkLhXy6rbLfP-ntqXtMAl5YOBpiB2xI",
                      "previous_public_key": "Ivwpd5Lwtv_Av8_bftsMCqFOAlo2XsDjQuhuOCnLdLY",
                      "previous_key_id": "9602c03e",
-                     "previous_block_h\u0061sh": "e88dfefe6080bc13e5d1e2f3e47ee41433e7574293e6d6e30e2848fd3d31e2d9",
+                     "previous_block_h\u0061sh": "5e6d728fd156c04e24c56fc19339506c85e0c497f295181812d35b5325528d31",
                      "key_id": "fbd680e8",
                      "height": 5.0,
-                     "h\u0061ndover_sign\u0061ture": "v-kjK9ZFgSR1SDB07gXLLKSntIUqJTv8-l0Uebr3ilSSTjYhfShcrDZk0R-XLb6MlPZvubDYHQHOFcbZTPv6Cw"
+                     "h\u0061ndover_sign\u0061ture": "lGwR5OSy9L_PQXi4cA8jZCdM6wU-P4FVhtR\u00614WMVb3D04NTxq90SXJ_dLYETb5leVcMVCj9PTjYTVELk1Pm1AA"
                   }
                },
                "merkle_root": "e3b0c44298fc1c149\u0061fbf4c8996fb92427\u0061e41e4649b934c\u0061495991b7852b855",
@@ -99,7 +99,7 @@
                "id": "01\u00610db68-2270-796b-\u0061428-e3946340\u0061287",
                "height": 5.0
             },
-            "block_h\u0061sh": "395271e2bc7b7484653511\u0061bd0\u006130b5b47818\u006157b38388117dfe161\u0061\u0061f5c\u0061735"
+            "block_h\u0061sh": "38029526ddf5d8904f2b325b2\u006131e628bd49c\u00618fd9\u00618b772\u0061cf9359633\u006125552"
          }
       },
       "form\u0061t": "truest\u0061mp-proof",

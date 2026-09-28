@@ -11,7 +11,8 @@ defmodule Generator.Cases.Online do
 
   Unless a case says otherwise it runs under E_v `test` with the keyring `test`, pins regtest
   and testnet for every chain and source (Generator.Case.pins/0), and its proof is a sound
-  proof as it is. Its replay is built from the model's world (Generator.Replay.World): every
+  proof as it is; one window case changes the proof, and writes its own file. Its replay is
+  built from the model's world (Generator.Replay.World): every
   read Generator.Replay.reads/2 says a verifier makes for that proof when each answer is found
   and matches, each pinned network's identity read among them, answered as the world answers
   it, then only what the case changes. A read of a network whose identity read is not found
@@ -117,12 +118,16 @@ defmodule Generator.Cases.Online do
     recorded_time_outside_window` at `/subject/record/id`; the same median time past later
     than the id over item-rotation-witness, with no submitted-before edge, which gives no
     such row; ledger 1,000,255 closed at 01:49:00, the id's own time, which gives none
-    either; over entropy_nist, ledger 1,000,255 closed at 01:48:00, the instant of its NIST
-    pulse, so that the two edges are one instant, which is not inverted; and block 232's
-    median time past at 01:51:15, the close of ledger 1,000,255, so that the two candidates
-    of the submitted-before edge tie and the first in row order, /commitments/bitcoin's,
-    gives it. Five of these answers could not come from a real chain, and each case says
-    so where it is built.
+    either; item-rotation-witness with the time in its id set to 01:49:00.250, the hashes
+    above its record made to agree and signed again, and ledger 1,000,267 closed at 01:49:00
+    with a memo of the new epoch hash, which gives the row, since the time inside an id
+    compares to the millisecond (SPEC.md 11.3); over entropy_nist, ledger 1,000,255 closed at
+    01:48:00, the instant of its NIST pulse, so that the two edges are one instant, which is
+    not inverted; and block 232's median time past at 01:51:15, the close of ledger
+    1,000,255, so that the two candidates of the submitted-before edge tie and the first in
+    row order, /commitments/bitcoin's, gives it. Six of these cases hold answers that could
+    not come from a real chain (the millisecond case holds two), and each case says so where
+    it is built.
   - **Gates** (`gates-online-`): a CHAIN failure (beacon, /commitments/stellar's memo) with
     every SOURCES row still read and passing; and the files of `gates-policy`'s POLICY
     failure and `gates-derive`'s DERIVE failure, run online, whose every CHAIN and SOURCES
@@ -700,6 +705,17 @@ defmodule Generator.Cases.Online do
     median = fn read, at -> %{read => &%{&1 | "median_time_past" => unix(at)}} end
     outside = {"info", "recorded_time_outside_window", "/subject/record/id", "WINDOW"}
 
+    # item-rotation-witness with the time in its id set to 01:49:00.250, and the hashes above
+    # its record made to agree: h6, whose one leaf the item is, and E3, which h6 is alone in
+    # and only its Stellar entry commits, so no other entry holds the old epoch.
+    later_id =
+      alone
+      |> Edit.put(
+        "/subject/record/id",
+        id_at(Edit.get(alone, "/subject/record/id"), "2026-09-26T01:49:00.250Z")
+      )
+      |> Edit.reitem()
+
     [
       passes("window-established", item_path,
         replay: replay(world, item, %{}),
@@ -762,6 +778,27 @@ defmodule Generator.Cases.Online do
         replay: replay(world, item, closed.("2026-09-26T01:49:00Z")),
         edges: {@s222, {"stellar_ledger_close_read", "2026-09-26T01:49:00Z"}},
         rows: [@kec_info]
+      ),
+      # Deliberately impossible on a real chain: ledger 1,000,267 closes at 01:49:00, 30 s
+      # after ledger 1,000,222, which is 45 ledgers earlier, though Stellar closes each ledger
+      # in whole seconds after the one before it. That is how this case puts the time in the
+      # id, 01:49:00.250, a fraction of a second after the submitted-before edge, which a
+      # verifier that compared id times in whole seconds would miss (SPEC.md 11.3). Also
+      # impossible: the Stellar transaction keeps the hash the unchanged proof carried, and
+      # the replay answers it with the new epoch hash as its memo, which the model's chain
+      # would not give; no verifier recomputes a Stellar transaction's hash.
+      passes(
+        "window-id_milliseconds_after_submitted_before",
+        {:served, Case.sign(later_id)},
+        replay:
+          replay(world, later_id, %{
+            ledger(Edit.get(later_id, @top_stellar <> "/ledger")) =>
+              &%{&1 | "closed_at" => "2026-09-26T01:49:00Z"},
+            transaction(later_id, @top_stellar) =>
+              &%{&1 | "memo" => Edit.get(later_id, @top_stellar <> "/epoch/epoch_hash")}
+          }),
+        edges: {@s222, {"stellar_ledger_close_read", "2026-09-26T01:49:00Z"}},
+        rows: [@kec_info, outside]
       ),
       # The NIST pulse's instant, 01:48:00.000, and the ledger's, 01:48:00, are one instant at
       # different precisions, so the window has no width and is not inverted (SPEC.md 11.3).
@@ -836,14 +873,15 @@ defmodule Generator.Cases.Online do
   # Case builders.
 
   # A case with no failing row, labelled supplied-keyring, whose rows of CHAIN, SOURCES and
-  # WINDOW that do not pass are `rows`.
+  # WINDOW that do not pass are `rows`, and whose proof is the file at `path` or the envelope
+  # `{:served, envelope}`.
   defp passes(id, path, options) do
     {rows, options} = Keyword.pop!(options, :rows)
 
     Case.new(
       id,
       [
-        proof: {:path, path},
+        proof: if(is_binary(path), do: {:path, path}, else: path),
         defect: {:passes, rows},
         label: "supplied-keyring",
         online_rows: rows
@@ -990,6 +1028,21 @@ defmodule Generator.Cases.Online do
     do:
       {"bitcoin_block",
        %{"hash" => Edit.get(proof, e <> "/payload/hash"), "network" => "regtest"}}
+
+  # The UUIDv7 `id` with the instant `time` in its leftmost 48 bits, its first 12 hex digits,
+  # as milliseconds since the Unix epoch (SPEC.md 11.3), and every other bit kept.
+  defp id_at(<<_head::binary-8, "-", _middle::binary-4, rest::binary>>, time) do
+    {:ok, instant, 0} = DateTime.from_iso8601(time)
+
+    <<head::binary-8, middle::binary-4>> =
+      instant
+      |> DateTime.to_unix(:millisecond)
+      |> Integer.to_string(16)
+      |> String.downcase()
+      |> String.pad_leading(12, "0")
+
+    head <> "-" <> middle <> rest
+  end
 
   # Answers.
 

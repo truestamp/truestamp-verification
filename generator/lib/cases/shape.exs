@@ -23,8 +23,13 @@ defmodule Generator.Cases.Shape do
       accepted reference URL with a `\\n` on its end;
     - `shape_invalid` at `/commitments/stellar/transaction_hash` for that hash in capitals, a
       value no offline check recomputes, so that only SHAPE rejects it;
+    - `shape_invalid` at `/subject/record/id` for the item's `id` in capitals, and for it with
+      the version nibble 4 in place of 7, a UUID of version 4, each with the hashes above the
+      item's record made to agree: UUID7 is lowercase and version 7 alone (SPEC.md 2.4);
     - `shape_invalid` for a `\\n` on the end of one value of each pattern class of SPEC.md 2.4
-      that a proof holds, ENV aside, at that value (@newlines);
+      that a proof holds, ENV aside, and of an item's and an observation's `id`, so that every
+      place spec/schema.json gives the class UUID7 has one (Generator.Cases checks that), at
+      that value (@newlines);
     - `shape_invalid` for each optional member other than `environment` as null, at it:
       `constructions`, `signing_key_event`, a rotation's `prerotation_commitment` and an
       emergency rotation's `handover_signature`;
@@ -89,13 +94,17 @@ defmodule Generator.Cases.Shape do
   @empty_root "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
   # One value of each pattern class of SPEC.md 2.4 that a proof holds, ENV aside, whose `\n`
-  # case is ENVIRONMENT's: the class, the sound proof, the value's pointer, and the values that
-  # depend on it (agree/2). The reference URL of SPEC.md 7.2 is in constructions/1.
+  # case is ENVIRONMENT's, and an item's and an observation's `id`, the UUID7s of the item
+  # record and of the observation record, so that each place spec/schema.json gives UUID7 has a
+  # case: the class (for those ids, `item-id` and `observation-id`), the sound proof, the
+  # value's pointer, and the values that depend on it (agree/2). The reference URL of SPEC.md
+  # 7.2 is in constructions/1.
   @newlines [
     {"hex64", "item-rotation-witness", "/block/record/previous_block_hash", {:block, "/block"}},
     {"kid", "item-rotation-witness", "/block/record/signing_key_id", {:block, "/block"}},
     {"uuid7", "item-rotation-witness", "/block/record/id", {:block, "/block"}},
-    {"ulid", "item", "/subject/record/id", :item},
+    {"item-id", "item", "/subject/record/id", :item},
+    {"observation-id", "entropy_nist", "/subject/record/id", :observation_record},
     {"hexbytes", "item", "/commitments/bitcoin/txoutproof", :none},
     {"b64u32", "item", @k <> @event <> "/public_key", {:event, @k}},
     {"b64u64", "item", @k <> @event <> "/handover_signature", {:block, @k}},
@@ -203,6 +212,9 @@ defmodule Generator.Cases.Shape do
   # An entropy proof's subject: its hashes, the root its walk reaches, and /block.
   defp agree(proof, :subject), do: Edit.resubject(proof)
 
+  # An entropy proof's subject record: its `observation_hash`, the root, and /block.
+  defp agree(proof, :observation_record), do: Edit.reobserve(proof)
+
   # A beacon observation, whose block's tree holds exactly the beacon's observations, so the
   # tree is built again from them, with every observation's path, and then /block.
   defp agree(proof, {:observation, name}), do: Edit.reobservation(proof, name)
@@ -215,6 +227,8 @@ defmodule Generator.Cases.Shape do
   defp shape(sound) do
     item = sound["item"].proof
     transaction_hash = "/commitments/stellar/transaction_hash"
+    id = "/subject/record/id"
+    <<head::binary-14, "7", tail::binary>> = Edit.get(item, id)
 
     [
       signed(
@@ -232,6 +246,16 @@ defmodule Generator.Cases.Shape do
         "shape-uppercase_hash",
         Edit.put(item, transaction_hash, String.upcase(Edit.get(item, transaction_hash))),
         transaction_hash
+      ),
+      invalid(
+        "shape-uppercase_item_id",
+        item |> Edit.put(id, String.upcase(Edit.get(item, id))) |> agree(:item),
+        id
+      ),
+      invalid(
+        "shape-version_4_item_id",
+        item |> Edit.put(id, head <> "4" <> tail) |> agree(:item),
+        id
       ),
       newlines(sound),
       nulls(sound),
