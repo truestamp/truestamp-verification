@@ -367,6 +367,47 @@ reference, 26,062 with none), plus at most 24 octets for `"environment":"staging
 worst staging item is 55,303 octets, under MAX_DOCUMENT_OCTETS, so every committed subject
 has a proof that fits.
 
+### 3.9 The item code
+
+An item code is a short name for an item, for people and links. No proof carries it, no
+step of section 10 reads it, and it is never a verdict input, a report member or evidence.
+It is computed from the recomputed `item_hash`:
+
+1. Take the leftmost 75 bits of the 32 bytes `item_hash` spells, the most significant bit
+   of the first byte first, as 15 values of 5 bits, most significant first.
+2. Let m(v) shift v left one bit and, if the result is 32 or more, XOR it with 37, which
+   multiplies v by x in GF(2^5) modulo x^5 + x^2 + 1. Start with r = 0; for each of the 15
+   values v in order, set r to m(r) XOR v. The check value is m(r). The final m is
+   required: without it an exchange of the last two symbols is not caught.
+3. Write the 16 values, the 15 then the check value, with the alphabet
+   `0123456789ABCDEFGHJKMNPQRSTVWXYZ` (a value's symbol is the character at that position),
+   as one run of 16 characters with no separator.
+
+That is the item code, and its only spelling in output. A reader reads only ASCII, and
+trims nothing. The characters that can stand in a value are the symbols of the alphabet,
+the lowercase forms of its letters, the letters `I`, `L` and `O` in either case, and three
+separators: the space (U+0020), the hyphen (`-`) and the underscore (`_`). A reader MAY
+read the value as 16 symbols in four groups of four with at most one separator at each of
+the three places between the groups, and nowhere else: not before the first symbol, not
+after the last, not inside a group and never two together, so such a value is at most 19
+characters. It MAY read each lowercase letter, in any mix of case, as its capital, and then
+read `I` and `L`, in either case, as `1` and `O`, in either case, as `0`. A tab, a line
+feed, a carriage return, every other ASCII character and every character that is not ASCII
+make the value not an item code, and no reader ignores one or reads it as another
+character. A reader MUST refuse the value unless, after the permissions it takes, exactly
+16 symbols of the alphabet remain, for which the loop of step 2, run over all 16 values,
+ends with r = 0; it then gives the code in its one spelling, in uppercase. That refusal
+catches every single wrong symbol and every exchange of two different symbols, at any
+distance.
+
+Truestamp's service holds at most one item per code. Two different `item_hash` values can
+still share one, and whoever chooses an item's `id` can make two share one with about
+2^37.5 work. A match therefore shows only that the recomputed `item_hash` begins with those
+75 bits. It does not show that a proof passes, who issued it, that the item exists, or when
+it was submitted. Anything that needs identity compares the whole `item_hash`. Known
+answers are in `vectors/item-codes.json` (section 13.2), and each of Truestamp's verifiers
+has a test that it gives every one of them.
+
 ## 4. The byte-prefix registry
 
 The table of section 4.3 is canonical here, and is also published as `spec/prefixes.json`.
@@ -2151,6 +2192,10 @@ establish it, and so can a proof of the same subject that carries a Bitcoin entr
   submitted before that instant, never that Truestamp attested it.
 - A beacon's window reads: "No one, Truestamp included, could compute this value before
   <the submitted-after edge>. Truestamp chooses the block contents and could bias it."
+- A surface MAY show an item proof's item code (section 3.9), computed only from the
+  recomputed `item_hash` and captioned as the item code. It appears beside `item_hash`,
+  never in its place and never with a pass status. It is never a member or row of a report.
+  Equal item codes are never read as the same item; only equal `item_hash` values are.
 
 ## 12. Reason codes and exit codes
 
@@ -2270,10 +2315,12 @@ its run ended:
   conforming one.
 - **Citation.** A claim of conformance names the commit of this repository and the digest
   of `MANIFEST.sha256` whose cases the verifier passed.
-- **Beyond the vectors.** Each of Truestamp's verifiers also has the tests that sections 4,
-  7.2, 7.3, 10.6 and 12.1 name, and a test that its compiled constants, exit codes and
-  accepted constructions digests equal the files under `spec/`. The agent-sufficiency test
-  of section 7.4 is separate: it tests the constructions text, not a verifier.
+- **Beyond the vectors.** Each of Truestamp's verifiers also has the tests that sections
+  3.9, 4, 7.2, 7.3, 10.6 and 12.1 name, and a test that its compiled constants, exit codes
+  and accepted constructions digests equal the files under `spec/`. `vectors/item-codes.json`
+  holds known answers, not conformance cases; a claim of conformance does not depend on it.
+  The agent-sufficiency test of section 7.4 is separate: it tests the constructions text,
+  not a verifier.
 
 ### 13.2 The vectors
 
@@ -2284,11 +2331,13 @@ These files are under `vectors/`, and `MANIFEST.sha256` holds the digest of each
 | `cases.json` | every case: its proof, its configuration and its expected output |
 | `keyring.test.json` | a keyring in the form of section 10.2, step 0, whose one key is VECTOR_KEY, so it is valid only when the verifier's environment is `test` |
 | `worked-example.json` | the values of section 6.3, one member each: `proof` (the input), `M`, `proof_hash`, `sk` (in hex), `A`, `K`, `key_id` (the key id of A), `S`, `V` and `document` (the served document) |
+| `item-codes.json` | known answers for the item code of section 3.9, which are not cases (section 13.1); its form is described below |
 | `positive/` | the sound proofs of section 13.3, each as `<name>.proof.json` with its trace as `<name>.trace.json`, where `<name>` is the proof's type, or its type, a hyphen and a variant, such as `beacon-empty`, `block-rotation` or `item-genesis-witness`; a proof file is in the served form of section 3.1, JCS(envelope) in UTF-8 with no final newline, so it is not always ASCII; a trace file is in the canonical form of section 9 |
 | `negative/` | each proof and each keyring a case supplies that no other file holds, as `<id>.proof.json` or `<id>.keyring.json`, where `<id>` is the id of a case that uses it; each file is in its usual form, the served form for a proof and the canonical form for a keyring, unless the case concerns the file's bytes (a defect, a reformatting or a size) |
 | `corpus/` | known answers for JCS, strict Ed25519 (section 6.2) and base64url; real Bitcoin transactions, merkleblocks and headers for the parsers of section 10.2; and the replay files of the online cases, which hold the answers to their chain, source and keyring reads; each file is described below |
 
-`cases.json`, `keyring.test.json` and `worked-example.json` are in that canonical form too.
+`cases.json`, `keyring.test.json`, `worked-example.json` and `item-codes.json` are in that
+canonical form too.
 
 `cases.json` is an array of cases, and the order of the cases carries no meaning. A case
 holds:
@@ -2396,6 +2445,23 @@ records `{answer, read}`, no two with the same `read`, in an order that carries 
 - Under an online case a verifier makes only the reads of sections 10.2, step 0, and 10.4,
   and need not make every read its replay holds.
 - A read the file does not hold has no answer: the test that makes it fails.
+
+**Item codes.** `item-codes.json` is an object with three members, each an array:
+
+- `derive`: `{about, item_code, item_hash}`, an `item_hash` and its item code, with `proof`
+  too when the hash is the recomputed `item_hash` of a sound proof of type item under
+  `positive/`, the path of that proof, relative to `vectors/`. There is a row for every
+  sound proof of type item under `positive/`, for 32 zero bytes and for 32 bytes of 0xff,
+  and rows whose codes, together, use every symbol of the alphabet.
+- `accepted`: `{about, input, item_code}`, a value that a reader taking every permission of
+  section 3.9 reads, and the item code it reads it as. A reader that takes fewer
+  permissions refuses the values that need the others. Every value is at most 19
+  characters, and one is exactly 19.
+- `refused`: `{about, input}`, a value that every reader refuses.
+
+`input` is the value's bytes in hex, since some values hold a control character, a
+character above U+007E or bytes that are not UTF-8. They are the value's UTF-8 bytes unless
+`about` says they are not UTF-8, and `about` says in words what the value is.
 
 ### 13.3 The cases
 

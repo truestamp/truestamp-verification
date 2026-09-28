@@ -19,7 +19,9 @@
 # engine of lib/derive.exs, and for an online case the reads of lib/model_online.exs, answered
 # from its replay). Last, under corpus/, the known answers for JCS, Ed25519 and base64url
 # (lib/corpus.exs, with the point arithmetic of lib/ed25519.exs) and the real Bitcoin bytes
-# (lib/real_bitcoin.exs).
+# (lib/real_bitcoin.exs). And item-codes.json, the known answers for the item code of SPEC.md
+# 3.9, which are not cases (lib/cases/item_codes.exs, with the generator's own item code,
+# lib/item_code.exs).
 #
 # Every run makes these checks before it writes or compares anything, and a failure in any
 # writes nothing:
@@ -70,7 +72,12 @@
 #      skips steps 2 and 3 gives is OpenSSL's own verdict; each base64url spelling is on its
 #      class or off it as it says (lib/corpus.exs); and every conclusion a Bitcoin file
 #      states is derived again from its bytes by the rederive check's parser, with the files
-#      of a block tied together (lib/real_bitcoin.exs).
+#      of a block tied together (lib/real_bitcoin.exs). Each item code in item-codes.json is
+#      derived again from its hash, a hash that names a sound item proof is that proof's
+#      recomputed item_hash, the item-id handoff's four known answers, kept by hand, are rows,
+#      each accepted value reads as its code and each refused value is refused, and at each
+#      derived code every single wrong symbol and every exchange of two different symbols is
+#      refused (lib/cases/item_codes.exs).
 #   5. The model and the replay form. The modeled regtest chain holds together, each median
 #      time past the model serves is the median of its header times, every read a verifier
 #      makes online for a sound proof is answered by the model's sources and agrees with the
@@ -93,15 +100,16 @@
 # own JSON reader, its own JCS and its own Merkle walk, so a defect in one cannot hide in
 # both.
 
-for file <- ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
+for file <-
+      ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
                derive parse schema model_online model cases cases/sound cases/parse cases/front
-               cases/shape cases/derive known_answers corpus replay cases/online real_bitcoin
-               consistency vectors sound mutations spec_rows positive rederive worked_example) do
+               cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
+               cases/online real_bitcoin consistency vectors sound mutations spec_rows positive rederive worked_example) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
 alias Generator.{Cases, Consistency, Corpus, Files, KnownAnswers, RealBitcoin, Rederive, Replay}
-alias Generator.{Spec, Vectors, WorkedExample}
+alias Generator.{Cases.ItemCodes, Spec, Vectors, WorkedExample}
 
 mode =
   case System.argv() do
@@ -126,6 +134,7 @@ failures =
     Rederive.run(files) ++
     case_failures ++
     Corpus.check(files) ++
+    ItemCodes.check(files) ++
     RealBitcoin.check(files) ++
     Replay.check(files) ++
     Consistency.run(files) ++

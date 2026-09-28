@@ -13,12 +13,15 @@ defmodule Generator.Vectors do
   - `cases.json`, under `negative/` the files its cases need, and under `corpus/replay/` the
     replay file of each online case (Generator.Cases), which are built from the files above;
   - under `corpus/`, the known answers for JCS, Ed25519 and base64url (Generator.Corpus), and
-    the real Bitcoin bytes under `corpus/bitcoin/` (Generator.RealBitcoin).
+    the real Bitcoin bytes under `corpus/bitcoin/` (Generator.RealBitcoin);
+  - `item-codes.json`, the known answers for the item code of SPEC.md 3.9, which are not
+    cases (Generator.Cases.ItemCodes), built from the sound item proofs.
   """
 
   alias Generator.{
     Bytes,
     Cases,
+    Cases.ItemCodes,
     Chain,
     Corpus,
     FileForm,
@@ -63,6 +66,7 @@ defmodule Generator.Vectors do
     |> Map.merge(data)
     |> then(&Map.merge(&1, Cases.files(&1)))
     |> then(&Map.merge(&1, Corpus.files(&1)))
+    |> then(&Map.merge(&1, ItemCodes.files(&1)))
     |> Map.merge(RealBitcoin.files())
   end
 
