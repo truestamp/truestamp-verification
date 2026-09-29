@@ -2323,9 +2323,10 @@ its run ended:
   `2026-09-26T01:48:00.000Z` are the same instant. Messages and `values` are never
   compared, and neither is an exit code, which each command-line verifier tests itself
   (section 12.2).
-- **Traces.** Each of Truestamp's verifiers gives its trace (section 10.6) and matches each
-  sound case's trace. Another verifier MAY give one, in the same form, and then MUST match
-  it. Trace rows are compared in order, each member but `inputs`.
+- **Traces.** Each of Truestamp's verifiers gives its trace (section 10.6) and matches the
+  trace of each case whose expected output names one (section 13.2). Another verifier MAY
+  give one, in the same form, and then MUST match it. Trace rows are compared in order,
+  each member but `inputs`.
 - **Every code.** Every reason code of section 12.1 except `internal_error` has at least one
   case, and each code whose status is "bare" or `fail` has a single-defect case.
   `internal_error` has none: it marks a fault in the verifier, which no input causes in a
@@ -2387,11 +2388,11 @@ Every path a case holds is relative to `vectors/`.
   real proofs.
 - `generator/generate.exs` writes the vectors. It shares no code with any verifier and has
   its own Merkle walk, so a defect in one cannot hide in both. With `--check` it writes
-  nothing: it regenerates every file in memory and compares bytes with the files on disk,
-  fails on any file under `vectors/` it does not write and on any entry there that is
-  neither a regular file nor a directory, and asserts that section 6.3's
-  worked example equals `worked-example.json`. Once the reference verifiers in this
-  repository exist, `--check` also runs them over `cases.json`.
+  nothing under `vectors/`: it regenerates every file in memory and compares bytes with the
+  files on disk, fails on any file under `vectors/` it does not write and on any entry there
+  that is neither a regular file nor a directory, and asserts that section 6.3's
+  worked example equals `worked-example.json`. `--check` also runs the reference verifiers
+  in this repository over the offline cases of `cases.json` (section 13.1).
 
 **The corpus.** These are the files under `corpus/`. Each is in the canonical form of
 section 9, except the files under `jcs/`, which are their bytes:

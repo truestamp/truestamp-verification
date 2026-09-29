@@ -23304,7 +23304,8 @@
           "skip",
           "EXPECTED_HASH"
         ]
-      ]
+      ],
+      "trace": "positive/item.trace.json"
     },
     "id": "key_binding-inactive_key",
     "proof": "positive/item.proof.json"
@@ -23777,7 +23778,8 @@
           "skip",
           "EXPECTED_HASH"
         ]
-      ]
+      ],
+      "trace": "positive/item.trace.json"
     },
     "id": "key_binding-none",
     "proof": "positive/item.proof.json"
@@ -42983,7 +42985,8 @@
           "pass",
           "EXPECTED_HASH"
         ]
-      ]
+      ],
+      "trace": "positive/item-rotation-witness.trace.json"
     },
     "id": "expected_hash-capitals",
     "proof": "positive/item-rotation-witness.proof.json"
@@ -43457,7 +43460,8 @@
           "warn",
           "EXPECTED_HASH"
         ]
-      ]
+      ],
+      "trace": "positive/item.trace.json"
     },
     "id": "expected_hash-md5",
     "proof": "positive/item.proof.json"

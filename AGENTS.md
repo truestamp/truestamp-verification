@@ -30,7 +30,7 @@ under `elixir/` is an example to consult, not a source to translate.
    `vectors/keyring.test.json`. `MANIFEST.sha256` holds the SHA-256 of every file under
    `spec/` and `vectors/`: `shasum -a 256 -c MANIFEST.sha256`, run from the repository
    root, checks your copy.
-4. `elixir/` is the reference verifier, still being built. Read it to settle a question the
+4. `elixir/` is the reference verifier, an offline one. Read it to settle a question the
    text leaves you unsure of, after reading the section of `SPEC.md` that governs it.
    `elixir/lib/truestamp/verifier.ex` names the module for each step it makes. Run in
    `elixir/`, `mix truestamp.verify FILE` verifies a proof offline. Its standard output is
@@ -40,10 +40,17 @@ under `elixir/` is an example to consult, not a source to translate.
    form of `vectors/positive/<name>.trace.json`. With no option the run is under the
    environment `prod`, so every vector fails `environment_mismatch`; give a vector its
    case's options, such as `--environment test --keyring ../vectors/keyring.test.json`.
-   The command takes no network pins, so a case whose `networks` differ from its
-   environment's defaults gives other rows through it; run the cases through the library
-   with each case's full configuration, as `elixir/test/support/cases.ex` does.
-   `mix help truestamp.verify` lists the options.
+   The command takes no network pins. Of the 20 offline cases whose `networks` differ from
+   their environment's defaults, 6, the `policy-*-entropy_*` cases, give other rows through
+   it; the other 14 give the same rows. To run the cases with their full
+   configuration, network pins included, run `MIX_ENV=test mix truestamp.conformance
+   ../vectors/cases.json` in `elixir/`. Its standard output is one JSON document: an array
+   with an entry `{id, output}` for each offline case, in the file's order, where `output`
+   is what section 13.1 compares, a bare rejection's `code` and `sub_reason`, or the
+   `label` and every row as `[code, part, status, step]`, with the trace rows but `inputs`
+   for a case that names a trace. It compares nothing itself; `task check` compares it
+   with `cases.json`. `mix help truestamp.verify` lists the command's options, and
+   `mix help truestamp.conformance` describes the entry point.
 
 ## Building a verifier or library
 
@@ -80,7 +87,9 @@ under `elixir/` is an example to consult, not a source to translate.
     `online` and `trace` when present (the member table of section 13.2). `keyring` may
     instead be `test` (the test keyring), `none` (keyless mode) or `unavailable`. A case
     is online exactly when it has `online`. Cases share files, so never build a path from
-    a case's id. `elixir/test/support/cases.ex` is one harness.
+    a case's id. `elixir/test/support/cases.ex` is one harness, and the reference
+    verifier's output for every offline case, from `mix truestamp.conformance` (above), is
+    one to diff yours against.
   - Give your verifier each proof and keyring file as the bytes you read, never as a
     value your harness parsed and wrote again: many cases concern the bytes themselves.
   - `cases.json` is larger than MAX_READ_OCTETS, so read it with an ordinary data reader,
@@ -97,7 +106,9 @@ under `elixir/` is an example to consult, not a source to translate.
   10.6): one row for each value DERIVE checks, with its construction, declared value,
   inputs, part, recomputed value and status. When a sound proof fails, compare your
   derivation with the trace to find the first value that differs. A verifier that gives a
-  trace matches it in order, every member but `inputs`.
+  trace matches it in order, every member but `inputs`, for each case whose expected
+  output names a trace: the sound cases, their reformatted copies, and four passing cases
+  that run a sound proof unchanged (two keyring cases and two expected-hash cases).
 - A claim of conformance names the commit of this repository and the digest of
   `MANIFEST.sha256` (`shasum -a 256 MANIFEST.sha256`) whose cases the verifier passed.
 
@@ -106,8 +117,13 @@ under `elixir/` is an example to consult, not a source to translate.
 - Install the tools in `.tool-versions` with `MISE_ERLANG_COMPILE=false mise install`,
   then run `task setup`.
 - `task check` is the gate: formatting, house style, the vectors and the manifest,
-  compile, credo in strict mode, unused dependencies, and the tests. It passes before any
-  change is done.
+  compile, credo in strict mode, unused dependencies, and the tests. Its check of the
+  vectors also runs the reference verifier over every offline case, through
+  `mix truestamp.conformance`, and fails on any case whose output differs from
+  `cases.json`, so it needs the verifier's dependencies (`task setup`). Its last line says
+  which kind of failure it met. It passes before any change is done. One test,
+  `elixir/test/conformance_check_test.exs`, runs that whole check on a broken copy of the
+  repository; `task test -- --exclude generator_check` leaves it out.
 - Never edit `vectors/` or `MANIFEST.sha256` by hand. After changing `generator/` or
   anything under `spec/`, which the generator reads, run `task generate`, which rewrites
   `vectors/` and the manifest, then `task check`. The generator does not delete a file it

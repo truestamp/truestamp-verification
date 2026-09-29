@@ -1,18 +1,18 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.VerdictCasesTest do
+defmodule Truestamp.Verifier.ReportCasesTest do
   # Steps 0 to 14 (SPEC.md 10.2) and the report of 10.5, through Truestamp.Verifier.run/2
   # and run_file/2 and through the command (Truestamp.Verifier.Command.execute/3), over every
-  # offline case of vectors/cases.json, one test per case:
+  # offline case of vectors/cases.json, one test per case. What 13.1 compares of each case,
+  # its code and sub_reason, or its label, rows and trace, is conformance_test.exs's; here:
   #
-  # - a bare rejection: its code and sub_reason, the output {code, message, sub_reason}
-  #   with sub_reason only where the code has one, and exit code 8 for
-  #   configuration_error and 4 for the others (12.2);
-  # - every other case: ALL its rows as (code, part, status, step), in order, steps 0 to
-  #   14, and its label; for a sound case its trace, every member (13.1 compares every
-  #   member but `inputs`, and these match too), and the command's --trace FILE, byte for
-  #   byte the case's trace file.
+  # - run/2 over the proof's bytes gives exactly what run_file/2 gives over its file;
+  # - a bare rejection: the output {code, message, sub_reason} with sub_reason only where
+  #   the code has one, and exit code 8 for configuration_error and 4 for the others (12.2);
+  # - every other case: for a case whose expected output names a trace, its trace, every
+  #   member, `inputs` included (13.1 compares every member but `inputs`, and these match
+  #   too), and the command's --trace FILE, byte for byte the case's trace file.
   #
   # And the report as the command writes it, parsed from its stdout, checked against the
   # case, never against Truestamp.Verifier.Report: stdout is JCS of that value and a line
@@ -22,13 +22,14 @@ defmodule Truestamp.Verifier.VerdictCasesTest do
   # `subject_id` the proof's once SHAPE passed, else null; `trust_root` that of the case's
   # keyring, from the bytes of the file it names; and each written row exactly
   # {code, message, part, status, step, values}, `code` absent exactly on a pass, reduced
-  # to (code, part, status, step) equal to the case's rows.
+  # to (code, part, status, step) equal to the case's rows, and the report's label the
+  # case's.
   #
   # Online cases are not the reference verifier's (13.1), so none runs here.
   use ExUnit.Case, async: true
 
   alias Truestamp.Verifier
-  alias Truestamp.Verifier.{Command, ExitCodes, JCS, Parser, Report, Row}
+  alias Truestamp.Verifier.{Command, ExitCodes, JCS, Parser, Report}
   alias Truestamp.Verifier.Test.{Cases, StrictJSON}
 
   @external_resource Cases.path()
@@ -59,8 +60,6 @@ defmodule Truestamp.Verifier.VerdictCasesTest do
 
   @compiled_pin Path.expand("../../../spec/keyring.production.json", __DIR__)
   @external_resource @compiled_pin
-
-  defp strip_inputs(trace), do: Enum.map(trace, &Map.delete(&1, "inputs"))
 
   defp sha256(bytes), do: :sha256 |> :crypto.hash(bytes) |> Base.encode16(case: :lower)
 
@@ -177,14 +176,9 @@ defmodule Truestamp.Verifier.VerdictCasesTest do
         expected = @kase["expected"]
         assert {:ok, run} = run(@kase)
 
-        assert Enum.map(run.rows, &Row.reduce/1) == expected["rows"]
-        assert run.label == expected["label"]
-
         if path = expected["trace"] do
           file = Path.join(Cases.vectors(), path)
-          trace = StrictJSON.read_data!(file)
-          assert strip_inputs(run.trace) == strip_inputs(trace)
-          assert run.trace == trace
+          assert run.trace == StrictJSON.read_data!(file)
 
           written = temporary_file("trace.json")
           {_code, _stdout, _stderr} = Command.execute(Cases.config(@kase), path(@kase), written)

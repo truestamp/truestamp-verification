@@ -52,10 +52,10 @@ defmodule Generator.Cases.Front do
     sound item unmarked, where the compiled pin governs and holds no key. The keyring `none`
     gives `skip key_binding_not_performed`, the label `unattributed`, and otherwise the sound
     item's rows under the keyring `test`, every one of them, which its `same_as` holds it to
-    (`key_binding-none`). A supplied keyring holding VECTOR_KEY with `"active": false`,
+    (`key_binding-none`), and the sound item's trace. A supplied keyring holding VECTOR_KEY with `"active": false`,
     sequence 0, beside the other key, active, sequence 1, as a routine rotation leaves it,
     binds K over the sound item: KEY_BINDING passes, the label is `supplied-keyring`, and
-    every row is the sound item's, which its `same_as` holds it to
+    every row is the sound item's, which its `same_as` holds it to, and so is the trace
     (`key_binding-inactive_key`), since a key binds active or not (SPEC.md 6.1). The keyring
     `unavailable` is online (Generator.Cases.Online).
   - **SIGNATURE**, `signature_invalid`, K VECTOR_KEY: V a signature by VECTOR_KEY over M
@@ -326,6 +326,7 @@ defmodule Generator.Cases.Front do
         proof: {:path, path},
         keyring: {:value, inactive_keyring()},
         label: "supplied-keyring",
+        trace: Case.trace_path(path),
         same_as: "sound-item",
         defect: {:passes, [{"pass", nil, nil, "KEY_BINDING"}]}
       ),
@@ -335,6 +336,7 @@ defmodule Generator.Cases.Front do
         proof: {:path, path},
         keyring: "none",
         label: "unattributed",
+        trace: Case.trace_path(path),
         same_as: {"sound-item", except: ["KEY_BINDING"]},
         defect: {:passes, [{"skip", "key_binding_not_performed", nil, "KEY_BINDING"}]}
       )

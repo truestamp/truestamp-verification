@@ -4,15 +4,18 @@
 defmodule Truestamp.Verifier.Config do
   @moduledoc """
   A run's configuration: what step CONFIGURATION (SPEC.md section 10.2, step 0) fixes
-  before the file is read. The command of the reference verifier sets it from its options,
-  and nothing else does: no configuration file, environment variable or document sets any
-  member (sections 6.4 and 8.3).
+  before the file is read. Two things set it, and nothing else does: the command of the
+  reference verifier, `mix truestamp.verify`, from its options; and the conformance entry
+  point, `mix truestamp.conformance` (Truestamp.Verifier.Conformance.config/2), from each
+  case's `config` in a cases file (section 13.2), network pins included. No configuration
+  file of the verifier's own, environment variable or document sets any member (sections
+  6.4 and 8.3).
 
   | Member | Option | Default | Holds |
   |---|---|---|---|
   | `environment` | `--environment NAME` | `"prod"` | E_v (section 6.4): `prod`, or an ENV value |
   | `keyring` | `--keyring FILE`, `--no-keyring` | nil | the keyring source (below) |
-  | `networks` | none yet | the row of `spec/network-pins.json` for E_v | the network pins (section 9) |
+  | `networks` | none: the command has no network option | the row of `spec/network-pins.json` for E_v | the network pins (section 9) |
   | `expected_hash` | `--expected-hash HEX` | nil | the caller's hash for EXPECTED_HASH |
 
   The keyring source is one of:
@@ -35,8 +38,9 @@ defmodule Truestamp.Verifier.Config do
   run's environment, whichever order the options come in: under `prod` the production
   networks, and under `dev`, `staging` and `test` the networks those environments use, with
   a Bitcoin entropy pin of `mainnet` under `dev` and `staging` beside a Bitcoin commitment
-  pin of `regtest`. A `networks` option gives every pin in place of that row, as a
-  conformance case's `networks` does (section 13.2). No document sets a pin.
+  pin of `regtest`. The `networks` option of `new/1`, which of the two entry points only
+  the conformance entry point gives, sets every pin in place of that row, from a
+  conformance case's `networks` (section 13.2). No document sets a pin.
 
   Each option may be given once: a repeated option is refused, so two keyring sources, or
   two environments, never resolve by their order.

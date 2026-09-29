@@ -4,8 +4,10 @@
 # The vector generator of SPEC.md 13.2. It writes the files under vectors/ and checks them.
 #
 #     elixir generator/generate.exs            # write the files under vectors/
-#     elixir generator/generate.exs --check    # write nothing, and fail unless vectors/ holds
-#                                              # exactly the files the first form writes
+#     elixir generator/generate.exs --check    # write nothing under vectors/, and fail
+#                                              # unless vectors/ holds exactly the files the
+#                                              # first form writes and the reference verifier
+#                                              # passes its offline cases
 #
 # The files: keyring.test.json and worked-example.json, and under positive/ the sound proofs
 # of SPEC.md 13.3, each <name>.proof.json in the served form of SPEC.md 3.1, with its trace,
@@ -95,6 +97,17 @@
 # previous_public_key in the files that passes SPEC.md 6.2's checks of a key's bytes, steps 2
 # to 4, whether or not the run noted it (lib/known_answers.exs).
 #
+# With --check, once it has compared the files, it runs the reference verifier over the
+# offline cases of vectors/cases.json (SPEC.md 13.1 and 13.2), as its own process: `mix
+# truestamp.conformance` in elixir/, which runs each case with its full configuration,
+# network pins included, and prints what 13.1 compares of each. The check fails on any case
+# whose output differs from cases.json, naming the case and the first row that differs, and
+# proves it can fail on hand-mutated copies of that output (lib/conformance.exs). Its closing
+# line says which kind of failure it met: vectors it cannot read, no usable output from the
+# verifier, output that differs, or a failure of its own self-test. Only --check runs it,
+# since it reads the files on disk, which the first form is about to replace. Running the
+# verifier can compile it under elixir/_build, but --check writes nothing under vectors/.
+#
 # The generator shares no code with any verifier in this repository. It uses only Elixir,
 # :crypto, the data files under spec/ and its known answers under known_answers/, with its
 # own JSON reader, its own JCS and its own Merkle walk, so a defect in one cannot hide in
@@ -104,12 +117,13 @@ for file <-
       ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
                derive parse schema model_online model cases cases/sound cases/parse cases/front
                cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
-               cases/online real_bitcoin consistency vectors sound mutations spec_rows positive rederive worked_example) do
+               cases/online real_bitcoin consistency vectors sound mutations spec_rows positive rederive worked_example
+               conformance) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
-alias Generator.{Cases, Consistency, Corpus, Files, KnownAnswers, RealBitcoin, Rederive, Replay}
-alias Generator.{Cases.ItemCodes, Spec, Vectors, WorkedExample}
+alias Generator.{Cases, Conformance, Consistency, Corpus, Files, KnownAnswers, RealBitcoin}
+alias Generator.{Cases.ItemCodes, Rederive, Replay, Spec, Vectors, WorkedExample}
 
 mode =
   case System.argv() do
@@ -209,6 +223,15 @@ case mode do
 
     Enum.each(stale ++ unreadable ++ stray, &IO.puts(:stderr, "generate: " <> &1))
 
+    # The reference verifier over the offline cases, as they stand on disk.
+    {conformance, closing, summary} =
+      case Conformance.run(root) do
+        {:ok, summary} -> {[], nil, summary}
+        {kind, failures} -> {failures, Conformance.closing(kind), nil}
+      end
+
+    Enum.each(conformance, &IO.puts(:stderr, "generate: " <> &1))
+
     if stale != [] do
       IO.puts(:stderr, "vectors/ is stale: run `task generate` and commit the result.")
     end
@@ -229,7 +252,11 @@ case mode do
       )
     end
 
-    if stale == [] and unreadable == [] and stray == [] do
+    if closing, do: IO.puts(:stderr, closing)
+
+    if stale == [] and unreadable == [] and stray == [] and conformance == [] do
+      IO.puts(summary)
+
       IO.puts(
         "vectors/ holds the #{map_size(files)} files the generator writes, and its checks pass."
       )

@@ -11,7 +11,7 @@ defmodule Truestamp.Verifier.DeriveCasesTest do
   #   external gate is undecided;
   # - :policy, :derive and :passes, every other case: exactly the expected rows of steps 0
   #   to 9, DERIVE's included, in order (the later steps' rows are
-  #   verdict_cases_test.exs's); the external gate `:prior_failure` exactly when a row so
+  #   conformance_test.exs's); the external gate `:prior_failure` exactly when a row so
   #   far fails (10.2); for a case that gives a trace, exactly that trace, `inputs`
   #   included (13.1 compares every member but `inputs`, and these match too).
   #

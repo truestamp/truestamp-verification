@@ -43,8 +43,11 @@ defmodule Generator.Case do
     reads it. The check of Generator.Cases holds the run past the stop to exactly these rows
     beyond the one it stops at, so no second defect hides behind the stop.
   - `label`: the label the case says its report has, checked when given.
-  - `trace`: the path of the trace file the report's trace must equal, for a sound proof and
-    for its reformatted copies; it becomes the `trace` member of the case's `expected`.
+  - `trace`: the path of the trace file the report's trace must equal, for a sound proof, for
+    its reformatted copies, and for a passing case that runs a sound proof unchanged (the
+    keyring cases `key_binding-inactive_key` and `key_binding-none`, and the expected-hash
+    cases `expected_hash-md5` and `expected_hash-capitals`); it becomes the `trace` member of
+    the case's `expected`, and SPEC.md 13.1 compares the trace of each case that names one.
   - `same_as`: the id of a case whose rows this case's rows must equal, as SPEC.md 13.3's
     sameness cases say; or `{id, except: steps}`, where the rows of the steps named may differ
     and every other row must equal that case's, each step keeping its number of rows, as for
@@ -154,6 +157,13 @@ defmodule Generator.Case do
   def proof_path(%__MODULE__{proof: {:path, path}}), do: path
   def proof_path(%__MODULE__{id: id}), do: "negative/#{id}.proof.json"
 
+  @doc """
+  The path under vectors/ of the trace file of the sound proof at `proof_path`, a path under
+  positive/: `<name>.proof.json` gives `<name>.trace.json`.
+  """
+  def trace_path("positive/" <> _rest = proof_path),
+    do: String.replace_suffix(proof_path, ".proof.json", ".trace.json")
+
   @doc "The path under vectors/ of the case's keyring file, or its `keyring` member."
   def keyring_member(%__MODULE__{keyring: {:path, path}}), do: path
 
@@ -204,8 +214,8 @@ defmodule Generator.Cases do
     online case `online`, the path of its replay file. `expected` holds, for a bare rejection,
     `code`, and `sub_reason` when the code has one; otherwise the report's `label`, its
     `rows`, each `[code, part, status, step]` in the order of SPEC.md 10.2, passes and skips
-    included, for a sound proof and its reformatted copies `trace`, the path of the trace
-    file, and for an online case `submitted_after` and `submitted_before`, each null or
+    included, for a sound proof, its reformatted copies and a passing case that runs a sound
+    proof unchanged `trace`, the path of the trace file, and for an online case `submitted_after` and `submitted_before`, each null or
     `{basis, instant}`. Every path is relative to vectors/.
   - under `negative/`, `<id>.proof.json`, the proof file of a case that does not name one
     already written, and `<id>.keyring.json`, the keyring file a case supplies. A proof file

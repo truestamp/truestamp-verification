@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 defmodule Truestamp.Verifier.ItemCodeTest do
-  # The item code (SPEC.md 3.9): every row of vectors/item-codes.json, read through the
-  # verifier's own Parser, one test per row. A derive row's hash gives its code from its 32
-  # bytes and from its HEX64, and a derive row that names a proof holds that proof's item_hash
-  # as this verifier recomputes it; an accepted value reads as its code; a refused value is
-  # refused. Then each part of 3.9's rule, on hashes and values of this test's own: the 75
-  # bits, the check symbol, the readings, the separators, the characters and the length.
+  # The item code (SPEC.md 3.9). vectors/item-codes.json, read through the verifier's own
+  # Parser: its rows and members, and a derive row that names a proof holds that proof's
+  # item_hash as this verifier recomputes it; each row's known answer, one test per row, is
+  # conformance_test.exs's. Then each part of 3.9's rule, on hashes and values of this test's
+  # own: the 75 bits, the check symbol, the readings, the separators, the characters and the
+  # length.
   use ExUnit.Case, async: true
 
   import Bitwise, only: [bxor: 2]
@@ -125,44 +125,9 @@ defmodule Truestamp.Verifier.ItemCodeTest do
   end
 
   describe "the derive rows" do
-    for {row, index} <- Enum.with_index(@codes["derive"], 1) do
-      @row row
-      test "derive #{index}: #{row["about"]}" do
-        %{"item_code" => code, "item_hash" => hex} = @row
-        assert ItemCode.from_item_hash(hex) == {:ok, code}
-        assert ItemCode.from_item_hash(unhex(hex)) == {:ok, code}
-        # The code is its own one spelling.
-        assert ItemCode.parse(code) == {:ok, code}
-        assert ItemCode.valid?(code)
-      end
-    end
-
     test "that name a proof hold its item_hash as this verifier recomputes it" do
       for %{"item_hash" => hex, "proof" => proof} <- @codes["derive"] do
         assert Map.fetch!(@item_hashes, proof) == hex, proof
-      end
-    end
-  end
-
-  describe "the accepted rows" do
-    for {row, index} <- Enum.with_index(@codes["accepted"], 1) do
-      @row row
-      test "accepted #{index}: #{row["about"]}" do
-        input = unhex(@row["input"])
-        assert ItemCode.parse(input) == {:ok, @row["item_code"]}
-        assert ItemCode.valid?(input)
-      end
-    end
-  end
-
-  describe "the refused rows" do
-    for {row, index} <- Enum.with_index(@codes["refused"], 1) do
-      @row row
-      test "refused #{index}: #{row["about"]}" do
-        input = unhex(@row["input"])
-        assert {:error, reason} = ItemCode.parse(input)
-        assert reason in @reasons
-        refute ItemCode.valid?(input)
       end
     end
   end

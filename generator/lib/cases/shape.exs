@@ -88,7 +88,8 @@ defmodule Generator.Cases.Shape do
     characters too long and one a character short, a hash given for a block proof and for an
     entropy proof, and for an item whose claims have no `hash` and one whose `hash_type` is not
     listed, each `fail expected_hash_mismatch`; the sha256 hash in capitals passes; the md5
-    match and a sha1 match each `warn expected_hash_weak_algorithm`. A run given no hash,
+    match and a sha1 match each `warn expected_hash_weak_algorithm`. The capitals and md5
+    cases run a sound proof unchanged, so each names that proof's trace. A run given no hash,
     `skip expected_hash_not_checked`, is every sound case.
 
   A case that changes a /block record leaves the entries of /signing_key_event, where they hold
@@ -796,11 +797,16 @@ defmodule Generator.Cases.Shape do
       mismatch_case("not_item-entropy_nist", {:path, sound["entropy_nist"].path}, md5),
       mismatch_case("no_hash", served(no_hash), sha256),
       mismatch_case("unlisted_type", served(crc32), "00000000"),
-      match_case("capitals", {:path, alone_path}, String.upcase(sha256), "pass", nil),
-      match_case("md5", {:path, item_path}, md5, "warn", "expected_hash_weak_algorithm"),
+      match_case("capitals", {:path, alone_path}, String.upcase(sha256), "pass", nil)
+      |> named_trace(alone_path),
+      match_case("md5", {:path, item_path}, md5, "warn", "expected_hash_weak_algorithm")
+      |> named_trace(item_path),
       match_case("sha1", served(weak), sha1, "warn", "expected_hash_weak_algorithm")
     ]
   end
+
+  # A match over a sound proof unchanged gives that proof's trace, which the case names.
+  defp named_trace(kase, proof_path), do: %{kase | trace: Case.trace_path(proof_path)}
 
   # An item whose claims changed, with the hashes above them made to agree, signed again.
   defp served(proof), do: {:served, proof |> Edit.recommit_item() |> Case.sign()}

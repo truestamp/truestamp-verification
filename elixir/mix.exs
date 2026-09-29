@@ -23,10 +23,16 @@ defmodule Truestamp.Verifier.MixProject do
     [extra_applications: [:crypto]]
   end
 
-  # `mix truestamp.verify` compiles the project with a quiet shell before it runs, so a run
-  # that compiles writes no compiler line to standard output, which carries only the
-  # command's JSON document. Compiler warnings and errors still go to standard error.
-  defp aliases, do: ["truestamp.verify": [&quiet_compile/1, "truestamp.verify"]]
+  # `mix truestamp.verify` and `mix truestamp.conformance` compile the project with a quiet
+  # shell before they run, so a run that compiles writes no compiler line to standard
+  # output, which carries only the task's JSON document. Compiler warnings and errors still
+  # go to standard error.
+  defp aliases do
+    [
+      "truestamp.verify": [&quiet_compile/1, "truestamp.verify"],
+      "truestamp.conformance": [&quiet_compile/1, "truestamp.conformance"]
+    ]
+  end
 
   defp quiet_compile(_args) do
     shell = Mix.shell()
