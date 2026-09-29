@@ -11,13 +11,30 @@ who writes or audits a verifier, Truestamp's own included, works from this repos
 
 **Status:** under construction. `SPEC.md` is a draft, and nothing here is normative yet.
 
+## Built for AI agents as well as people
+
+This repository is written so that an AI agent, given only `SPEC.md`, the data under
+`spec/` and the known answers under `vectors/`, can derive working code for a Truestamp
+verifier, or a library for verification, in almost any language, and prove that code
+against the conformance cases before anyone relies on it. A reference verifier is the
+worked example an agent consults where the text leaves it unsure: today the Elixir one
+under `elixir/`, and later ones in Go and TypeScript. `AGENTS.md` tells an agent how to use,
+test and change the repository.
+
+A narrower form of the same aim is the agent-sufficiency test that `SPEC.md` section 7.4
+will define: a fresh agent holding only one proof, its constructions text, a keyring and
+recorded chain and source answers writes a verifier that recomputes every value the
+constructions text defines for that proof and derives both edges of its submission
+window.
+
 ## Layout
 
 | Path | What it holds |
 |---|---|
 | `SPEC.md` | The specification, and the only document in the repository meant to be normative. |
+| `AGENTS.md` | Instructions for AI agents that use the repository to build a verifier or library, or change it. |
 | `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks and the default network pins of each environment, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
-| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the cases of section 13.3, offline and online, each with its configuration and expected output; under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json` by the case's id; and under `corpus/` known answers for JCS, Ed25519 and base64url, real Bitcoin transactions, merkleblocks and headers, each with where it came from and what a parser concludes from it, and under `corpus/replay/` the replay file of each online case, the answers to its chain, source and keyring reads; and `item-codes.json`, known answers for the item code of section 3.9, which are not conformance cases. |
+| `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the cases of section 13.3, offline and online, each with its configuration and expected output; under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json`, each named by the id of a case that uses it, though cases share files and each case names its files by path (section 13.2); and under `corpus/` known answers for JCS, Ed25519 and base64url, real Bitcoin transactions, merkleblocks and headers, each with where it came from and what a parser concludes from it, and under `corpus/replay/` the replay file of each online case, the answers to its chain, source and keyring reads; and `item-codes.json`, known answers for the item code of section 3.9, which are not conformance cases. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
 | `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors, from the modules in `generator/lib/`, and `manifest.exs` writes the manifest. `generator/known_answers/` holds known answers the generator's checks read, today `binary64.txt`, JSON numbers and their nearest binary64 values as Python's `float()` gives them, written by `binary64.py` beside it. |
 | `elixir/` | The Elixir reference verifier, a Mix project. Today it holds the verifier's building blocks (the strict reader and its exact number conversion, JCS, base64url, the record rule, key ids, strict Ed25519, TIME, the item code of `SPEC.md` section 3.9, and the compiled `spec/` tables); steps 0 to 6 of `SPEC.md` section 10.2, the gate, with the run configuration, whose network pins default to the row of `spec/network-pins.json` for the run's environment, and the keyring loader with the compiled production pin; steps 7 and 8, SHAPE, with the verifier's own checker for `spec/schema.json` and the accepted constructions digests, and POLICY; step 9, DERIVE, every recomputation, key-event check and link through one engine that gives the trace of `SPEC.md` section 10.6, with its own parsers for a Bitcoin transaction and merkleblock; the tests of those steps over every offline case, with the trace of each sound proof; the tests that tie `spec/` to `SPEC.md`; and one test of the Merkle library it depends on. |
