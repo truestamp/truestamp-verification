@@ -7,7 +7,7 @@ defmodule Truestamp.Verifier.CompiledConstantsTest do
   # own reader, and the values SPEC.md states in its text.
   use ExUnit.Case, async: true
 
-  alias Truestamp.Verifier.{Constants, Ed25519, Parser, Prefixes, ReasonCodes}
+  alias Truestamp.Verifier.{Constants, Ed25519, ExitCodes, Parser, Prefixes, ReasonCodes}
   alias Truestamp.Verifier.Test.StrictJSON
 
   @root Path.expand("../../..", __DIR__)
@@ -218,6 +218,43 @@ defmodule Truestamp.Verifier.CompiledConstantsTest do
     test "equals spec/small-order-keys.json, in its order" do
       file = for %{"hex" => hex} <- spec_file("small-order-keys.json"), do: hex
       assert Enum.map(Ed25519.small_order_keys(), &Base.encode16(&1, case: :lower)) == file
+    end
+  end
+
+  describe "the exit codes" do
+    test "equal spec/exit-codes.json, in its order" do
+      compiled = for {code, run} <- ExitCodes.table(), do: %{"code" => code, "run" => run}
+      assert compiled == spec_file("exit-codes.json")
+    end
+
+    test "give each ending the code of SPEC.md 12.2's table" do
+      text = section("### 12.2 Exit codes", "- Only 0")
+
+      runs =
+        ~r/^\| (\d) \| (.+) \|$/m
+        |> Regex.scan(text, capture: :all_but_first)
+        |> Map.new(fn [code, run] -> {run, String.to_integer(code)} end)
+
+      assert map_size(runs) == 9
+
+      for {ending, run} <- [
+            {{:label, "verified"}, "label `verified`"},
+            {{:label, "failed"}, "label `failed`"},
+            {{:label, "unattributed"}, "label `unattributed`"},
+            {{:label, "supplied-keyring"}, "label `supplied-keyring`"},
+            {{:label, "internally-consistent"}, "label `internally-consistent`"},
+            {:bare_rejection, "a bare rejection other than `configuration_error`"},
+            {:configuration_error, "`configuration_error`"}
+          ] do
+        assert ExitCodes.code(ending) == Map.fetch!(runs, run), inspect(ending)
+      end
+
+      assert [{runtime, _code}] =
+               Enum.filter(runs, &String.starts_with?(elem(&1, 0), "a runtime"))
+
+      assert ExitCodes.code(:runtime_error) == runs[runtime]
+      assert [{fault, _code}] = Enum.filter(runs, &String.contains?(elem(&1, 0), "fault"))
+      assert ExitCodes.code(:fault) == runs[fault]
     end
   end
 end

@@ -11,7 +11,8 @@ defmodule Truestamp.Verifier.MixProject do
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      deps: deps(),
+      aliases: aliases()
     ]
   end
 
@@ -20,6 +21,22 @@ defmodule Truestamp.Verifier.MixProject do
 
   def application do
     [extra_applications: [:crypto]]
+  end
+
+  # `mix truestamp.verify` compiles the project with a quiet shell before it runs, so a run
+  # that compiles writes no compiler line to standard output, which carries only the
+  # command's JSON document. Compiler warnings and errors still go to standard error.
+  defp aliases, do: ["truestamp.verify": [&quiet_compile/1, "truestamp.verify"]]
+
+  defp quiet_compile(_args) do
+    shell = Mix.shell()
+    Mix.shell(Mix.Shell.Quiet)
+
+    try do
+      Mix.Task.run("compile")
+    after
+      Mix.shell(shell)
+    end
   end
 
   defp deps do

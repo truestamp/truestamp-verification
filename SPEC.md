@@ -1918,7 +1918,11 @@ gives a report. VERDICT (step 14) computes its label and adds no row.
 
 A fault inside the verifier is a `fail` row with the code `internal_error`, never a pass or
 a skip. A fault caught before steps 0 to 3 have passed has no report to hold its row, so
-the run gives no report.
+the run gives no report. A fault caught from ENVIRONMENT on ends the run as a failure at the
+gate does (section 10.2): its `internal_error` row is followed by one `skip prior_failure`
+row (section 12.1), part null, for each later step up to EXPECTED_HASH, and those later rows
+are exempt from the coverage rule below and from the KEY_EVENT_COMMITMENT rule of section
+10.3.
 
 **Rows.** A row is `{code, message, part, status, step, values}`:
 
@@ -2292,7 +2296,8 @@ its run ended:
   established. A script that needs both checks for 0 alone.
 - A fault the verifier catches from ENVIRONMENT on is an `internal_error` row, so the run's
   label is `failed` and it exits 3. A fault it catches earlier has no report to hold its
-  row, so the run gives no report, and it exits 2.
+  row, so the run gives no report, and it exits 2. A fault after EXPECTED_HASH, the last
+  step that reports rows, or while the report is written, gives no report, and it exits 2.
 - Truestamp's own verifier has no command line and no exit code (section 8.2).
 
 ## 13. Conformance

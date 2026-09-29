@@ -6,10 +6,12 @@ defmodule Truestamp.Verifier.Run do
   The state of a run (SPEC.md section 10.2): the rows so far and what the later steps read.
   CONFIGURATION (`Truestamp.Verifier.Gate.configuration/1`) creates the run from a
   `Truestamp.Verifier.Config`. Steps 1 to 3 each take it and give `{:ok, run}`, with their
-  row added, or a bare rejection. Steps 4 to 9 (`Truestamp.Verifier.Gate`,
-  `Truestamp.Verifier.Shape`, `Truestamp.Verifier.Policy` and `Truestamp.Verifier.Derive`)
-  take it and give it back with their rows added. So a run that reaches the caller has
-  passed steps 0 to 3.
+  row added, or a bare rejection. Steps 4 to 13 (`Truestamp.Verifier.Gate`,
+  `Truestamp.Verifier.Shape`, `Truestamp.Verifier.Policy`, `Truestamp.Verifier.Derive`,
+  `Truestamp.Verifier.Chain`, `Truestamp.Verifier.Sources`, `Truestamp.Verifier.Window` and
+  `Truestamp.Verifier.ExpectedHash`) take it and give it back with their rows added, and
+  VERDICT (`Truestamp.Verifier.Verdict`) sets its label. So a run that reaches the caller
+  has passed steps 0 to 3.
 
   | Member | Holds | Set at |
   |---|---|---|
@@ -26,11 +28,16 @@ defmodule Truestamp.Verifier.Run do
   | `trace` | the trace of section 10.6: one trace row for each DERIVE row whose part is a CHECKED value, other than a row of LINK_HEAD, LINK_KEY_EVENT or LINK_CHAIN_ORDER, in DERIVE's order; empty until DERIVE runs | DERIVE |
   | `external_gate` | the external gate of section 10.2, decided once when DERIVE ends: `:prior_failure` when a row so far fails, else `:offline`, since every run of the reference verifier is offline; nil in a run that ended before DERIVE | DERIVE |
   | `rows` | the `Truestamp.Verifier.Row`s so far, in step order | every step |
-  | `ended` | whether a failure ended the run | a failure at steps 4 to 7 |
+  | `ended` | whether a failure ended the run | a failure at steps 4 to 7, or a caught fault from ENVIRONMENT on |
+  | `label`, `code` | the label of section 10.5, and the run's code when the label is `failed` (section 10.2: the code of its first failing row), else nil | VERDICT |
+  | `submitted_after`, `submitted_before` | the two edge objects of section 11.5; always nil, since the reference verifier draws no edge (section 8.3) | VERDICT |
 
   A failure at steps 4 to 6, or at SHAPE, ends the run (section 10.2): `end_run/1` then adds
   one row `skip prior_failure`, with part null, for each later step up to EXPECTED_HASH,
-  and every step function passes an ended run through unchanged.
+  and every step function passes an ended run through unchanged. A fault the verifier
+  catches at any of steps 4 to 13 ends the run the same way, after its `internal_error` row
+  (`Truestamp.Verifier.step/3`), and those later rows are exempt from section 10.5's
+  coverage rule and section 10.3's KEY_EVENT_COMMITMENT rule (section 10.5).
   """
 
   alias Truestamp.Verifier.{Config, Keyring, Row}
@@ -64,7 +71,11 @@ defmodule Truestamp.Verifier.Run do
           trace: [map()],
           external_gate: :offline | :prior_failure | nil,
           rows: [Row.t()],
-          ended: boolean()
+          ended: boolean(),
+          label: String.t() | nil,
+          code: atom() | nil,
+          submitted_after: map() | nil,
+          submitted_before: map() | nil
         }
 
   @enforce_keys [:config, :keyring, :trust_root]
@@ -84,7 +95,11 @@ defmodule Truestamp.Verifier.Run do
     trace: [],
     external_gate: nil,
     rows: [],
-    ended: false
+    ended: false,
+    label: nil,
+    code: nil,
+    submitted_after: nil,
+    submitted_before: nil
   ]
 
   @doc "The steps of section 10.2, 0 to 14, by name, in order."
@@ -100,8 +115,9 @@ defmodule Truestamp.Verifier.Run do
   def failed?(%__MODULE__{rows: rows}), do: Enum.any?(rows, &(&1.status == :fail))
 
   @doc """
-  Ends the run after a failure at steps 4 to 7: one row `skip prior_failure`, part null, for
-  each step after the last row's up to EXPECTED_HASH (section 10.2).
+  Ends the run after a failure at steps 4 to 7, or after a fault caught at any of steps 4 to
+  13: one row `skip prior_failure`, part null, for each step after the last row's up to
+  EXPECTED_HASH (sections 10.2 and 10.5).
   """
   @spec end_run(t()) :: t()
   def end_run(%__MODULE__{rows: rows} = run) do

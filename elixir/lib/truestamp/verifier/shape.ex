@@ -91,7 +91,7 @@ defmodule Truestamp.Verifier.Shape do
   defp pass(run, proof, constructions) do
     type = Map.fetch!(proof, "type")
     subject_id = subject_id(type, proof)
-    message = "The proof has the shape of a #{type} proof."
+    message = "The proof has the shape its type, #{type}, gives it."
     row = Row.pass(@step, nil, message, constructions)
     Run.add_row(%{run | type: type, subject_id: subject_id}, row)
   end

@@ -32,7 +32,18 @@ under `elixir/` is an example to consult, not a source to translate.
    root, checks your copy.
 4. `elixir/` is the reference verifier, still being built. Read it to settle a question the
    text leaves you unsure of, after reading the section of `SPEC.md` that governs it.
-   `elixir/lib/truestamp/verifier.ex` names the module for each step it makes.
+   `elixir/lib/truestamp/verifier.ex` names the module for each step it makes. Run in
+   `elixir/`, `mix truestamp.verify FILE` verifies a proof offline. Its standard output is
+   exactly one JSON document, even on a run that compiles first: the report of section
+   10.5, with exactly that section's members, or a bare rejection's
+   `{code, message, sub_reason}`; on exit 1 or 2 it is empty. `--trace FILE` writes the run's trace to FILE, in the
+   form of `vectors/positive/<name>.trace.json`. With no option the run is under the
+   environment `prod`, so every vector fails `environment_mismatch`; give a vector its
+   case's options, such as `--environment test --keyring ../vectors/keyring.test.json`.
+   The command takes no network pins, so a case whose `networks` differ from its
+   environment's defaults gives other rows through it; run the cases through the library
+   with each case's full configuration, as `elixir/test/support/cases.ex` does.
+   `mix help truestamp.verify` lists the options.
 
 ## Building a verifier or library
 

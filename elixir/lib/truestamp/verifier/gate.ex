@@ -26,9 +26,11 @@ defmodule Truestamp.Verifier.Gate do
   `unattributed` in keyless mode.
 
   `run/2` makes the seven steps over a document's bytes, and `run_file/2` over a file, which
-  it reads only after CONFIGURATION, as step 0 requires. A keyring file or a document file
-  that cannot be read at all gives `{:error, {:unreadable, path, reason}}`: that is an input
-  that cannot be read (exit code 1, section 12.2), not a verification result.
+  it reads only after CONFIGURATION, as step 0 requires. `admit/2` and `admit_file/2` make
+  steps 0 to 3 alone, which decide whether the run gives a report at all. A keyring file or
+  a document file that cannot be read at all gives `{:error, {:unreadable, path, reason}}`:
+  that is an input that cannot be read (exit code 1, section 12.2), not a verification
+  result.
 
   The reference verifier is offline (section 8.3), so no keyring is read online here, and
   KEY_BINDING never gives `keyring_unavailable`: with no keyring option under E_v `prod`, the
@@ -76,16 +78,28 @@ defmodule Truestamp.Verifier.Gate do
 
   @doc "Steps 0 to 6 over the bytes of a document."
   @spec run(Config.t(), binary()) :: result()
-  def run(%Config{} = config, bytes) when is_binary(bytes) do
-    with {:ok, run} <- configuration(config), do: after_configuration(run, bytes)
-  end
+  def run(%Config{} = config, bytes) when is_binary(bytes),
+    do: config |> admit(bytes) |> after_admission()
 
   @doc """
   Steps 0 to 6 over the file at `path`: CONFIGURATION first, then the file is read, at most
   MAX_READ_OCTETS + 1 octets of it (section 10.1, J1).
   """
   @spec run_file(Config.t(), Path.t()) :: result()
-  def run_file(%Config{} = config, path) do
+  def run_file(%Config{} = config, path), do: config |> admit_file(path) |> after_admission()
+
+  @doc """
+  Steps 0 to 3 over the bytes of a document: `{:ok, run}` when each passes, so the run has a
+  report to hold its rows (section 10.5), or a bare rejection or an unreadable input.
+  """
+  @spec admit(Config.t(), binary()) :: result()
+  def admit(%Config{} = config, bytes) when is_binary(bytes) do
+    with {:ok, run} <- configuration(config), do: after_configuration(run, bytes)
+  end
+
+  @doc "Steps 0 to 3 over the file at `path`, which is read only after CONFIGURATION."
+  @spec admit_file(Config.t(), Path.t()) :: result()
+  def admit_file(%Config{} = config, path) do
     with {:ok, run} <- configuration(config) do
       case Parser.read_file(path) do
         {:ok, bytes} -> after_configuration(run, bytes)
@@ -98,10 +112,13 @@ defmodule Truestamp.Verifier.Gate do
   defp after_configuration(run, bytes) do
     with {:ok, run} <- read(run, bytes),
          {:ok, run} <- parse(run, bytes),
-         {:ok, run} <- envelope(run) do
-      {:ok, run |> environment() |> key_binding() |> signature()}
-    end
+         do: envelope(run)
   end
+
+  defp after_admission({:ok, run}),
+    do: {:ok, run |> environment() |> key_binding() |> signature()}
+
+  defp after_admission(other), do: other
 
   # ---------------------------------------------------------------------------------------
   # 0. CONFIGURATION
