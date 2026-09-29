@@ -3,11 +3,12 @@
 
 # The vector generator of SPEC.md 13.2. It writes the files under vectors/ and checks them.
 #
-#     elixir generator/generate.exs            # write the files under vectors/
-#     elixir generator/generate.exs --check    # write nothing under vectors/, and fail
-#                                              # unless vectors/ holds exactly the files the
-#                                              # first form writes and the reference verifier
-#                                              # passes its offline cases
+#     elixir generator/generate.exs            # write the files under vectors/ and
+#                                              # agent-test/
+#     elixir generator/generate.exs --check    # write nothing under vectors/ or agent-test/,
+#                                              # and fail unless each holds exactly the files
+#                                              # the first form writes and the reference
+#                                              # verifier passes its offline cases
 #
 # The files: keyring.test.json and worked-example.json, and under positive/ the sound proofs
 # of SPEC.md 13.3, each <name>.proof.json in the served form of SPEC.md 3.1, with its trace,
@@ -90,12 +91,33 @@
 #      it, and so does every replay file under corpus/replay/ (lib/replay.exs). Each of these
 #      checks also refuses a model, a proof, an answer or a table with one defect.
 #
+#   6. The recorder. The replay recorder of SPEC.md 7.4 (lib/recorder.exs), run through a
+#      stubbed transport built from the model's sources, records the sound item exactly as
+#      the model's replay holds it, through Esplora and through Bitcoin Core; records every
+#      sound proof in the replay form, with every read a verifier makes for it; fetches a
+#      repeated read once and keeps its first answer; follows a transaction not found to the
+#      root read; records an HTTP 503 and a failed transport as unreachable, with a reason
+#      fitted to ASCII128; records staging's keyring read at its address; reads a source whose
+#      identity read gets no answer no further; and makes an answer that lacks a field
+#      unreachable.
+#
 # Then SPEC.md 6.3's worked example is read from the text and compared, value by value, with
 # worked-example.json (lib/worked_example.exs). Last, every seed the run derived a key from
 # or signed with must give a key that spec/keys.nonproduction.json lists, and so must every
 # key the run built from a seed's key by point arithmetic, and every public_key and
 # previous_public_key in the files that passes SPEC.md 6.2's checks of a key's bytes, steps 2
 # to 4, whether or not the run noted it (lib/known_answers.exs).
+#
+# Once every check holds, it builds the files of the agent-sufficiency test under agent-test/
+# (SPEC.md 7.4, lib/agent_test.exs): PROMPT.md, read from SPEC.md 7.4; the six base fixtures,
+# each with its keyring and its replay; every mutant of each of their proofs; runs.txt; and
+# under expected/ each run's lines, every line but the window lines from the reference
+# verifier, run as its own process (`mix truestamp.agent_lines` in elixir/), and the window
+# lines from the model run online under the run's replay. Its own checks (its lines against
+# the verifier's, the replay form, a window for each base proof and none for each mutant) must
+# hold too, or nothing is written. Both forms run the verifier for these lines. The generator
+# owns fixtures/, mutants/ and expected/ under agent-test/, and PROMPT.md and runs.txt there;
+# check.exs, record.exs, selftest/ and results/ are written by hand.
 #
 # With --check, once it has compared the files, it runs the reference verifier over the
 # offline cases of vectors/cases.json (SPEC.md 13.1 and 13.2), as its own process: `mix
@@ -118,12 +140,13 @@ for file <-
                derive parse schema model_online model cases cases/sound cases/parse cases/front
                cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
                cases/online real_bitcoin consistency vectors sound mutations spec_rows positive rederive worked_example
-               conformance) do
+               conformance agent_mutants agent_test recorder) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
-alias Generator.{Cases, Conformance, Consistency, Corpus, Files, KnownAnswers, RealBitcoin}
-alias Generator.{Cases.ItemCodes, Rederive, Replay, Spec, Vectors, WorkedExample}
+alias Generator.{AgentTest, Cases, Conformance, Consistency, Corpus, Files, KnownAnswers}
+alias Generator.{Cases.ItemCodes, RealBitcoin, Recorder, Rederive, Replay, Spec, Vectors}
+alias Generator.WorkedExample
 
 mode =
   case System.argv() do
@@ -153,6 +176,7 @@ failures =
     Replay.check(files) ++
     Consistency.run(files) ++
     WorkedExample.run(Spec.spec_md(), files["vectors/worked-example.json"]) ++
+    Recorder.check(files) ++
     KnownAnswers.seeds(files)
 
 if failures != [] do
@@ -164,15 +188,49 @@ end
 # SPEC.md 13.1's check of every code: each code covered, and in how many cases.
 Enum.each(coverage, &IO.puts/1)
 
+# The agent-sufficiency test's files under agent-test/ (SPEC.md 7.4), whose expected lines
+# the reference verifier gives, run as its own process.
+{agent_files, agent_failures} = AgentTest.build(files)
+
+if agent_failures != [] do
+  Enum.each(agent_failures, &IO.puts(:stderr, "generate: " <> &1))
+  IO.puts(:stderr, "generate: #{length(agent_failures)} failed checks, so nothing was written.")
+  System.halt(1)
+end
+
+# The entries under agent-test/ the generator owns: the regular files under its directories
+# and its files at the top, and the other entries there that are not directories.
+{owned_dirs, owned_files} = AgentTest.owned()
+
+agent_entries =
+  Enum.reduce(owned_dirs, {[], []}, fn dir, {regular, others} ->
+    {more, other} = Files.entries(root, "agent-test/" <> dir)
+    {regular ++ more, others ++ other}
+  end)
+  |> then(fn {regular, others} ->
+    top =
+      for name <- owned_files,
+          path = "agent-test/" <> name,
+          match?({:ok, _stat}, File.lstat(Path.join(root, path))),
+          do: {path, File.lstat!(Path.join(root, path)).type}
+
+    {regular ++ for({path, :regular} <- top, do: path),
+     others ++ for({path, type} <- top, type != :regular, do: {path, type})}
+  end)
+
+files = Map.merge(files, agent_files)
+
 case mode do
   :write ->
     # A write would follow a link out of vectors/, so this form refuses the entries --check
     # refuses, those that are neither a regular file nor a directory, and writes nothing.
-    case Files.entries(root, "vectors") do
-      {_files, []} ->
+    {_vectors, vector_others} = Files.entries(root, "vectors")
+
+    case vector_others ++ elem(agent_entries, 1) do
+      [] ->
         :ok
 
-      {_files, others} ->
+      others ->
         for {path, type} <- others do
           IO.puts(:stderr, "generate: #{path} is not a regular file (#{type})")
         end
@@ -186,12 +244,14 @@ case mode do
       File.write!(Path.join(root, path), bytes)
     end
 
-    IO.puts("Wrote the #{map_size(files)} files under vectors/.")
+    IO.puts("Wrote the #{map_size(files)} files under vectors/ and agent-test/.")
 
   :check ->
     # Listed without following links: an entry that is neither a regular file nor a
     # directory, a symbolic link among them, is never a file the generator writes.
     {on_disk, others} = Files.entries(root, "vectors")
+    on_disk = on_disk ++ elem(agent_entries, 0)
+    others = others ++ elem(agent_entries, 1)
 
     # A file that differs or is missing is fixed by writing vectors/ again. A file that
     # cannot be read, or that the generator does not write, is not, so each gets its own
@@ -233,22 +293,25 @@ case mode do
     Enum.each(conformance, &IO.puts(:stderr, "generate: " <> &1))
 
     if stale != [] do
-      IO.puts(:stderr, "vectors/ is stale: run `task generate` and commit the result.")
+      IO.puts(
+        :stderr,
+        "vectors/ or agent-test/ is stale: run `task generate` and commit the result."
+      )
     end
 
     if unreadable != [] do
       IO.puts(
         :stderr,
-        "vectors/ holds files that cannot be read: make each one a readable file, " <>
-          "then run `task generate`."
+        "vectors/ or agent-test/ holds files that cannot be read: make each one a " <>
+          "readable file, then run `task generate`."
       )
     end
 
     if stray != [] do
       IO.puts(
         :stderr,
-        "vectors/ holds files the generator does not write: delete each one, " <>
-          "or have the generator write it."
+        "vectors/ or agent-test/ holds files the generator does not write: delete each " <>
+          "one, or have the generator write it."
       )
     end
 
@@ -258,7 +321,8 @@ case mode do
       IO.puts(summary)
 
       IO.puts(
-        "vectors/ holds the #{map_size(files)} files the generator writes, and its checks pass."
+        "vectors/ and agent-test/ hold the #{map_size(files)} files the generator writes, " <>
+          "and its checks pass."
       )
     else
       System.halt(1)

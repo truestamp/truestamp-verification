@@ -237,6 +237,15 @@ defmodule Generator.Replay do
     end
   end
 
+  @doc """
+  The failures of `answer` as an answer to a read of `kind`, by the form above: its outcome
+  one the kind has, and a found answer's value exactly the kind's fields, each of its class.
+  """
+  def answer_failures(kind, answer) do
+    {_chain, _parameters, fields, outcomes} = Map.fetch!(@kinds, kind)
+    List.flatten([answer_form(kind, answer, fields, outcomes)])
+  end
+
   defp record_form(label, %{"answer" => answer, "read" => %{"kind" => kind} = read} = record)
        when map_size(record) == 2 do
     case Map.fetch(@kinds, kind) do

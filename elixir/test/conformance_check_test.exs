@@ -82,6 +82,10 @@ defmodule Truestamp.Verifier.ConformanceCheckTest do
     assert length(named) == 6, output
     assert Enum.all?(named, &(&1 =~ ~r/\Apolicy-[a-z]+-entropy_[a-z]+\z/)), output
     assert output =~ "The reference verifier does not give the output cases.json expects"
-    refute output =~ "vectors/ is stale"
+
+    # Only the conformance check fails: generate.exs closes with none of the lines it gives
+    # for a file under vectors/ or agent-test/ that is stale, stray or unreadable.
+    refute output =~
+             ~r/is stale: run|holds files the generator does not write|holds files that cannot be read/
   end
 end

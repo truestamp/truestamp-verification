@@ -29,7 +29,8 @@ under `elixir/` is an example to consult, not a source to translate.
 3. `vectors/` holds the conformance cases and known answers, among them the test keyring
    `vectors/keyring.test.json`. `MANIFEST.sha256` holds the SHA-256 of every file under
    `spec/` and `vectors/`: `shasum -a 256 -c MANIFEST.sha256`, run from the repository
-   root, checks your copy.
+   root, checks your copy. `agent-test/MANIFEST.sha256` does the same for `agent-test/`,
+   run there.
 4. `elixir/` is the reference verifier, an offline one. Read it to settle a question the
    text leaves you unsure of, after reading the section of `SPEC.md` that governs it.
    `elixir/lib/truestamp/verifier.ex` names the module for each step it makes. Run in
@@ -112,21 +113,56 @@ under `elixir/` is an example to consult, not a source to translate.
 - A claim of conformance names the commit of this repository and the digest of
   `MANIFEST.sha256` (`shasum -a 256 MANIFEST.sha256`) whose cases the verifier passed.
 
+## The agent-sufficiency test
+
+`agent-test/` holds the test of `SPEC.md` section 7.4, which asks whether the constructions
+text alone is enough to verify a proof. It tests the text, not a verifier: it is no
+conformance test, and its expected lines are no substitute for `vectors/cases.json`. A
+session of the test is a fresh agent that receives only `agent-test/PROMPT.md` and one
+fixture directory under `agent-test/fixtures/`, and writes `verify.py`; nothing else in this
+repository is given to it. `agent-test/selftest/verify.py` is the harness's own known-good
+script, not an answer key, and no session receives it.
+
+- `elixir agent-test/check.exs PATH/TO/verify.py --only FIXTURE --python PATH/TO/python3`
+  (`task agent-test -- PATH/TO/verify.py --only FIXTURE --python PATH/TO/python3`) judges a
+  session: it runs the session's script on every run of its fixture in
+  `agent-test/runs.txt` and compares its lines with `agent-test/expected/`. Without
+  `--only` it runs every fixture's runs. `--python` names the Python the sessions had, which
+  must import `cryptography` and `rfc8785`, or the harness stops before any run. A session
+  passes only when every run of its fixture exits 0 with exactly its expected lines.
+- `elixir agent-test/check.exs --self-test` holds the harness to its known-good script and
+  to flawed copies of it, one for each rule the mutants break; `task check` runs it. The
+  known-good script uses only Python's standard library, so the self-test needs neither
+  package.
+- `elixir agent-test/record.exs` records a replay file for a real proof, such as a staging
+  one, from real sources; its comment lists the options. Its tests run inside the
+  generator, through a stubbed transport.
+- In `elixir/`, `MIX_ENV=test mix truestamp.agent_lines RUNS_JSON` gives the lines the
+  reference verifier computes for each proof a runs file names; the generator runs it to
+  write `agent-test/expected/`.
+- Results of the test go to `agent-test/results/<date>-<d>.md`.
+
 ## Changing this repository
 
 - Install the tools in `.tool-versions` with `MISE_ERLANG_COMPILE=false mise install`,
   then run `task setup`.
-- `task check` is the gate: formatting, house style, the vectors and the manifest,
-  compile, credo in strict mode, unused dependencies, and the tests. Its check of the
-  vectors also runs the reference verifier over every offline case, through
-  `mix truestamp.conformance`, and fails on any case whose output differs from
-  `cases.json`, so it needs the verifier's dependencies (`task setup`). Its last line says
-  which kind of failure it met. It passes before any change is done. One test,
-  `elixir/test/conformance_check_test.exs`, runs that whole check on a broken copy of the
-  repository; `task test -- --exclude generator_check` leaves it out.
-- Never edit `vectors/` or `MANIFEST.sha256` by hand. After changing `generator/` or
-  anything under `spec/`, which the generator reads, run `task generate`, which rewrites
-  `vectors/` and the manifest, then `task check`. The generator does not delete a file it
+- `task check` is the gate: formatting, house style, the vectors and the generated files
+  under `agent-test/`, the agent-test harness's self-test, the manifest, compile, credo in
+  strict mode, unused dependencies, and the tests. Its check of the vectors also runs the
+  reference verifier over every offline case, through `mix truestamp.conformance`, and
+  fails on any case whose output differs from `cases.json`, and runs it again through
+  `mix truestamp.agent_lines` for the agent test's expected lines, so it needs the
+  verifier's dependencies (`task setup`) and `python3` for the harness's self-test. Its last
+  line says which kind of failure it met. It passes before any change is done. Two tests,
+  `elixir/test/conformance_check_test.exs` and `elixir/test/generator_check_test.exs`, run
+  that whole check on a broken copy of the repository, of the verifier and of the files it
+  checks; `task test -- --exclude generator_check` leaves them out.
+- Never edit `vectors/`, the generated files under `agent-test/` (`PROMPT.md`, `runs.txt`,
+  `fixtures/`, `mutants/` and `expected/`) or either manifest by hand. After changing
+  `generator/`, anything under `spec/`, which the generator reads, or the prompt in
+  `SPEC.md` section 7.4, run `task generate`, which rewrites `vectors/`, those files and
+  both manifests, then `task check`. After changing a hand-written file under
+  `agent-test/`, run `task manifest`. The generator does not delete a file it
   no longer writes, so delete a stale one yourself.
 - The generator and the reference verifier share no code, and neither is written from the
   other, so each checks the other. Keep it that way.

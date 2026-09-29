@@ -6,7 +6,7 @@
 # Tool versions come from .tool-versions, which mise reads: Erlang, Elixir and this
 # runner. `task bootstrap` installs them. The Elixir reference verifier is the Mix
 # project in elixir/, so its tasks run there. Its .formatter.exs and .credo.exs also take in
-# the scripts in generator/, so format, format-check and credo cover them.
+# the scripts in generator/ and agent-test/, so format, format-check and credo cover them.
 
 version: "3"
 
@@ -57,19 +57,19 @@ tasks:
       - mix compile --warnings-as-errors
 
   format:
-    desc: Format the Elixir sources, the scripts in generator/ included
+    desc: Format the Elixir sources, the scripts in generator/ and agent-test/ included
     dir: elixir
     cmds:
       - mix format
 
   format-check:
-    desc: Fail if any Elixir source, generator/ included, is not formatted, without changing it
+    desc: Fail if any Elixir source, generator/ and agent-test/ included, is not formatted, without changing it
     dir: elixir
     cmds:
       - mix format --check-formatted
 
   credo:
-    desc: Run credo in strict mode over the Elixir sources, generator/ included
+    desc: Run credo in strict mode over the Elixir sources, generator/ and agent-test/ included
     dir: elixir
     cmds:
       - mix credo --strict
@@ -111,27 +111,41 @@ tasks:
   # ===========================================================================
 
   generate:
-    desc: Write the files under vectors/ with the generator, then MANIFEST.sha256
+    desc: Write the files under vectors/ and agent-test/ with the generator, then both manifests
     cmds:
       - elixir generator/generate.exs
       - task: manifest
 
   generate-check:
-    desc: Run the generator's checks, and fail if vectors/ differs from what task generate writes
+    desc: Run the generator's checks, and fail if vectors/ or agent-test/ differs from what task generate writes
     cmds:
       - elixir generator/generate.exs --check
 
   # ===========================================================================
-  # The manifest
+  # The agent-sufficiency test (SPEC.md 7.4)
+  # ===========================================================================
+
+  agent-test-check:
+    desc: "Hold the agent-test harness to its known-good script and its flawed copies (check.exs --self-test)"
+    cmds:
+      - elixir agent-test/check.exs --self-test
+
+  agent-test:
+    desc: "Judge a session's verify.py on its fixture's runs: task agent-test -- PATH/TO/verify.py --only FIXTURE --python PATH/TO/python3"
+    cmds:
+      - elixir agent-test/check.exs {{.CLI_ARGS}}
+
+  # ===========================================================================
+  # The manifests
   # ===========================================================================
 
   manifest:
-    desc: Rewrite MANIFEST.sha256, the SHA-256 of every file under spec/ and vectors/
+    desc: Rewrite MANIFEST.sha256, over spec/ and vectors/, and agent-test/MANIFEST.sha256, over agent-test/ but results/
     cmds:
       - elixir generator/manifest.exs
 
   manifest-check:
-    desc: Fail if MANIFEST.sha256 differs from what task manifest writes
+    desc: Fail if MANIFEST.sha256 or agent-test/MANIFEST.sha256 differs from what task manifest writes
     cmds:
       - elixir generator/manifest.exs --check
 
@@ -156,6 +170,7 @@ tasks:
     cmds:
       - task: style
       - task: generate-check
+      - task: agent-test-check
       - task: manifest-check
       - task: compile
       - task: credo

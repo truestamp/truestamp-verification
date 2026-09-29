@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # Truestamp proof specification
 
-**Status:** draft, and not yet normative. Every section is written except 7.4, which is not
-yet written. The whole text is under review until it is fixed.
+**Status:** draft, and not yet normative. Every section is written. The whole text is under
+review until it is fixed.
 *Proposed* marks a change to the original design that has been accepted but whose bytes are
 not yet frozen, and "name *Proposed*" marks a name that is still open.
 
@@ -957,6 +957,303 @@ this one. Reference mode saves 8,597 octets per proof, and `none` 140 more.
 
 ### 7.4 The agent-sufficiency acceptance test
 
+This test asks whether the constructions text is enough to verify a proof. It tests the
+text, not a verifier (section 13.1): no verifier's conformance depends on it, and no
+verifier's output is compared with it.
+
+**The claim.** A fresh agent that holds only a proof, its constructions text, a keyring and
+the answers to the chain and source reads for that proof can write a verifier that
+recomputes every value the text defines, up to each epoch hash Truestamp writes to Stellar
+and Bitcoin, checks every Ed25519 signature, binds the signing key to the keyring, checks
+the environment marker, enforces every other rule of the text that these proofs reach, and
+draws both edges of the submission window from the answers. The test lives in
+`agent-test/`, which the vector generator writes (section 13.2), apart from the harness, the
+recorder, the results and `agent-test/MANIFEST.sha256` (section 9).
+
+**The fixtures.** Six base fixtures, each a directory under `agent-test/fixtures/` that an
+agent session receives whole. Each holds its proofs, `<name>.proof.json`; `keyring.json`,
+the bytes of `vectors/keyring.test.json`; and `replay.json`, a replay file in the form of
+section 13.2 that answers every read of sections 10.2, step 0, and 10.4 a verifier makes for
+any of its proofs, from the modeled chains the sound proofs are cut from. Every proof is a
+sound proof of section 13.3, or one made from it, marked `test` and signed by VECTOR_KEY, so
+the agent's verifier runs under the environment `test` with that environment's default pins
+(section 9).
+
+1. `1-item`: the sound item with both chains and all three witnesses, whose claims hold an
+   md5 `hash`, a `timestamp`, a `nonce`, the numbers 37.7749, 1e-7 and 5e-324, member names
+   that sort differently by UTF-16 code unit than by code point (U+FF5A against U+1F600),
+   and quotes and backslashes.
+2. `2-item-reformatted`: the same proof re-indented with CRLF line ends, its members in
+   reverse order, its strings escaped with `\u` escapes and its integers written with `.0`,
+   in the form of the sameness cases (section 13.3). Each of its runs gives exactly the
+   lines of the same run of fixture 1.
+3. `3-item-reference`: the same item in the reference mode of section 7.2, signed again,
+   with the text beside it as `constructions-<d>.json`, its exact bytes.
+4. `4-entropy`: one proof of each entropy type.
+5. `5-block`: the block proof of the genesis block, whose `signing_key_event` block is a
+   rotation with `previous_public_key`, `handover_signature` and Bitcoin evidence, and the
+   block proof of that rotation block.
+6. `6-beacon`: a beacon with three observations.
+
+**The mutants.** For each proof of each fixture, `agent-test/mutants/<fixture>/` holds
+flawed copies, `<name>.<flaw>.proof.json`, in the fixture's file form, and, for a mutant
+whose reads the fixture's replay does not answer, a replay file of its own,
+`<name>.<flaw>.replay.json`. In `<flaw>`, a pointer's `/` is written `.`: `<q>` is an
+inclusion proof, `<b>` a block position, `<n>` a commitment entry and `<e>` an entropy
+object. Every mutant fails a check, so both of its window lines are `none`.
+
+A mutant whose proof changes is signed again by VECTOR_KEY unless the list says otherwise;
+one that is only a replay keeps its base proof. A `hash.`, `claims` or `path.<q>.sibling`
+mutant changes one carried value and nothing else. Every other mutant breaks exactly one
+rule of the text and nothing else: the values that depend on what it changes are made to
+agree again, up to the proof's signature, and its replay answers every read as the modeled
+chains would hold that proof, but for the one read its rule is about. So each epoch its
+blocks sit in is built again from the modeled epoch's leaves with the changed block hashes
+in place, every entry of that epoch gets its walk and the new epoch hash, a Bitcoin entry's
+transaction pushes that hash in its block, ground again, and the replay answers each
+Stellar transaction with the epoch hash its entries carry and each best-chain block at an
+entry's height with that entry's header. Entries that share a transaction change together,
+and so does a block a proof holds at two positions. The generator holds each such mutant to
+the reason codes of its rule (section 12.1): run online under its replay with no step
+stopping another, it fails with those codes and no other.
+
+- Recomputation (`checks` and the rows of each hash): `hash.<pointer>`, each carried value
+  that gives a hash line below, a HEX64, with its first character changed; `claims`, in an
+  item, one character of `claims.name` changed; and `uppercase`, `/block/block_hash` in
+  uppercase hex (`encoding`).
+- The walks (`merkle_path` and `inclusion`): `path.<q>.side`, the first step taken on the
+  other side, with `leaf_index` moved to the index in range nearest the one its lowest bit
+  flipped gives whose first step is on the other side, for a tree that has one, and, where
+  the proof's path does not take that index's walk with its first step on the other side to
+  the root it carries, the path that walk uses and the root it reaches, each other walk to
+  that root given a place in the tree beside it; `path.<q>.sibling`, the first node of a
+  path that has one changed; `path.<q>.range`, `leaf_index` equal to `tree_size`, with the
+  path a walk that skips the range check uses and the root it reaches, each other walk to
+  that root given a place in the tree beside it; `tree_size.<q>`, another `tree_size` whose
+  walk reaches the same root, or, where no other size does, the moved index of section 13.3;
+  and, for each block with no leaves, `empty_root.<b>`, another `merkle_root`, and
+  `leaf_count.<b>`, a `leaf_count` of 1 beside the empty root.
+- The graft (`checks`, section 10.3): `graft`, in an item, a forged item, whose claims hash
+  has the length its `hash_type` fixes, whose walk reaches the root of a changed `/block`
+  record, beside the genuine `block_hash` and commitment entries.
+- Witnesses and heights (`witnesses`, `height`): `witness_names`, an item whose
+  `witness_hashes` lacks `entropy_nist` while `witnesses` holds it; and `witness_height`, an
+  item's witness block at the height of `/block`.
+- Key events (`key_event`, `handover`): for each block with a key event, `key_id.<b>`,
+  `signing_key_id.<b>` (for a prerotation, against `active_key_id`), and for a rotation
+  `previous_key_id.<b>`, `handover_height.<b>` and `handover_previous.<b>`, each value
+  changed; `key_checks.<b>`, a key event but the signing one introducing a key of order 8 of
+  `spec/small-order-keys.json`, its ids made to agree; `handover.<b>`, the handover
+  signature altered and not signed again; `handover_missing.<b>`, a rotation without its
+  `handover_signature`; and `ske_key`, the signing key event introducing the key of the seed
+  of 32 bytes of 0x44 (section 9), while VECTOR_KEY signs.
+- Genesis (`genesis`): `genesis_height.<b>`, the genesis record at height 1; and
+  `genesis_read.<b>`, a replay whose best-chain block at `genesis.bitcoin.height` has another
+  hash.
+- Bitcoin (`bitcoin`), for each entry: `op_return.<n>`, the OP_RETURN pushing another value;
+  `two_op_returns.<n>`, a second output whose script begins 0x6a; `no_input.<n>`, a
+  transaction with no input; `witness_data.<n>`, the transaction in the form of BIP 144, with
+  a marker, a flag and a witness; `partial_tree.<n>`, a merkleblock that matches another
+  transaction of its block; `nbits.<n>`, a header whose nBits, 0x1d00ffff, set a target its
+  hash misses; `header_time.<n>`, `header_time` one second later; and `header_at_height.<n>`
+  and `transaction_count.<n>`, a replay whose best-chain block at `height` has another hash
+  or one more transaction.
+- Stellar (`stellar`), for each entry, a replay whose answer for its transaction holds
+  another memo (`stellar_memo.<n>`), `successful` false (`stellar_failed.<n>`), `memo_type`
+  `return` beside the right memo (`stellar_memo_type.<n>`), or another ledger
+  (`stellar_ledger.<n>`).
+- The entropy reads (`submitted_after`, `chain_order`): `payload.<e>.<field>`, a replay
+  whose read of the object's source answers another value of one payload field, a NIST
+  pulse's `outputValue` or `timeStamp`, a Stellar ledger's `hash` or `closed_at`, a Bitcoin
+  block's `height` or `time`; and `chain_order.<e>`, the object moved to the first ledger or
+  block the chain order refuses, the top-level Stellar entry's own ledger or the block after
+  the top-level Bitcoin entry's height, with that ledger's or block's payload.
+- Signatures (`signature`), each not signed again: `signature`, V with its first character
+  changed; `signature_s`, V with s + L in place of s; and `signature_cofactor`, V made with a
+  point of order 8 added to R, so that only the cofactorless equation refuses it.
+- The keyring (`keyring`): `self_signed`, the proof signed by the key of the seed of 32
+  bytes of 0x44, which its signing key event introduces, so that only the key's binding to
+  the keyring fails.
+- The environment (`environment`): `staging`, an `environment` of `staging`.
+
+No mutant tests these rules. The `parsing` row's: a file that breaks one has no parsed
+value, so it has no lines, and the conformance cases cover each (section 13.3). The
+`claims` row's forms of `hash` and `nonce`: no step refuses a claims object for them. The
+`signature` row's `alg` and the key checks of `signature.public_key`: step 3 refuses the
+envelope before any value is computed. The network each entry and entropy object names, and
+canonical base64url: the text leaves them to this document (section 7.3). `merkle_path`'s
+limit of 32 hashes: a longer path reaches no root these proofs hold without failing the walk
+on its own. An emergency rotation's optional handover, a revocation, and a proof marked for
+production: no fixture holds one. `submitted_before`'s rule that signing key event
+commitments are never used: in every fixture those commitments are the top-level ones or
+later, so they move no edge, and their candidate reads are not in the replay. In reference
+mode, reading the text's file and checking its digest (section 7.2): the text cannot state
+that rule itself.
+
+**The lines.** A verifier under test prints, for each proof, these lines:
+
+- `<pointer> <value>`, a hash line, for each value the trace of section 10.6 holds, other
+  than a `handover_signature`: the pointer is `/proof` followed by the trace row's part, and
+  the value is its recomputed value as the proof spells that member (lowercase hex, a
+  decimal integer or a TIME), or `none` for a walk that gives no root. A member the trace
+  holds more than once, as the root that each beacon observation's walk reaches, has a line
+  for each distinct value, `none` among them. A Bitcoin entry whose `txoutproof` is not well
+  formed has no trace rows for its header; its `header_hash`, `header_merkle_root` and
+  `header_time` are those of the first 80 octets of its `txoutproof`, when it has them;
+- `digest <hex>`: `proof_hash` (section 6.1);
+- `/signature/value valid` or `/signature/value invalid`: Verify of section 6.2 for the
+  proof's signature, and `<pointer> valid` or `<pointer> invalid` for each
+  `handover_signature`, at `/proof` followed by its part;
+- `keyring match` or `keyring no-match`: whether K's 32 octets are a key of the keyring;
+- `environment <value>`: the proof's `environment` member, or `prod` when it carries none;
+- `submitted_after <instant>` and `submitted_before <instant>`: the edges of section 11 that
+  a run online under the run's replay draws, each an RFC 3339 UTC time, or `none` for an
+  edge not established; both are `none` when the run's label is `failed` (section 10.5).
+
+Reason codes, rows and labels are left to the conformance cases (section 13).
+
+**The expected lines.** `agent-test/expected/<fixture>/<run>.txt` holds the lines of each
+run, one per line, each once, sorted by their bytes, where a run is a proof of a fixture
+(`<run>` is its `<name>`) or a mutant (`<name>.<flaw>`). The reference verifier gives every
+line but the two window lines: the generator runs it as its own process, `mix
+truestamp.agent_lines` in `elixir/`, which computes each line with the verifier's own
+functions, each whatever the others give, SHAPE's failure included, for a proof whose layout
+DERIVE can read. The generator writes the two window lines from the answers it recorded, by
+its own model of steps 0 to 14 run online under the run's replay, since the reference
+verifier is offline (section 8.3). It also derives every other line itself, and fails,
+writing nothing, when its lines and the verifier's differ; when a fixture's run establishes
+no submitted-before edge, or a mutant's run is not `failed`; when a mutant fails with codes
+other than its rule's, when a mutant's lines lack the valid signature, the keyring match or
+the marker `test` that are not its flaw, or a hash mutant's line shows the value it carries;
+when the graft's lines do not show a walk that reaches its changed record, or its claims
+hash lacks the length its `hash_type` fixes; when a range mutant's walk that skips the range
+check does not reach the root it carries, or a side mutant's `leaf_index` is not below its
+`tree_size` or its walk with the first step on the other side does not reach the root it
+carries; when a signature mutant's lines differ from its base's but at `/signature/value`;
+when a proof is not in its fixture's file form or mode; when a run of fixture 2 gives other
+lines than fixture 1's; and when the count of mutants of any kind differs from its known
+answer. `agent-test/runs.txt` lists each run with the files it is given, and
+`agent-test/PROMPT.md` holds the prompt below.
+
+**The procedure.** For each base fixture, two fresh agent sessions, each in an empty
+directory that holds only `PROMPT.md` and the fixture's files. A session has no network, no
+Truestamp source, no project instructions (CLAUDE.md or the like), no memory and no skills,
+and has Python 3 with the packages `cryptography` and `rfc8785`. Each session writes
+`verify.py`. The harness, `elixir agent-test/check.exs <verify.py> --only <fixture>
+--python <python>`, then runs the session's `verify.py` unchanged on every run of that
+session's fixture, the fixture's proofs and all their mutants, each as `<python> verify.py
+<proof> <keyring> <replay> [<constructions>]` with the run's files, and compares its
+standard output with the run's expected lines as sets of lines. `<python>` is the Python the
+sessions had; the harness stops before any run under one that cannot import `cryptography`
+and `rfc8785`. Two window lines, or two `header_time` lines at one pointer, that name the
+same instant are the same line (section 11.3).
+
+The prompt, whose exact words `agent-test/PROMPT.md` holds, is:
+
+```text
+This directory holds Truestamp proofs, each a file whose name ends in `.proof.json`. The
+constructions text of a proof is its only documentation: the object in its `constructions`
+member or, when that member is a URL, the file here whose name ends that URL. Nothing else
+about Truestamp is available to you, and you have no network.
+
+`keyring.json` is Truestamp's keyring. `replay.json` holds the chain and source responses:
+it answers each read your verifier makes of a chain or a source, in place of the network. It
+holds every read the text needs for these proofs, and may hold others, so a read it does not
+hold is one the text does not need. Your verifier's environment is `test`, and its pinned
+networks are Stellar `testnet` and Bitcoin `regtest`, for commitments and for entropy alike.
+
+Write `verify.py`, which runs as `python3 verify.py <proof> <keyring> <replay>
+[<constructions>]`, where `<constructions>` is the text's file for a proof whose
+`constructions` is a URL. It may use Python 3 with `cryptography` and `rfc8785`, and it
+reads nothing but its arguments. It prints these lines, each once, in any order, and
+exits 0:
+
+- `<pointer> <value>` for each member of the proof whose value a row of the text computes
+  from other values of the proof: each hash the text defines, a record hash or a Bitcoin
+  `transaction_hash` or `header_hash`, each value of `witness_hashes`, each Merkle root a
+  walk computes, each key id, each `tree_size`, each Bitcoin `header_merkle_root` and
+  `header_time`, and the members a key event fixes; and for the one member the text fixes as
+  a constant, the `height` of a genesis block record. `<pointer>` is the member's JSON
+  Pointer (RFC 6901) into the file, such as `/proof/block/block_hash`, and `<value>` is the
+  value your verifier computed for that member, in the proof's form for it: lowercase hex, a
+  decimal integer with no fraction or exponent, or an RFC 3339 UTC time as the proof writes
+  one. A value has its line even when a check of it fails, and a Merkle walk that fails
+  gives `none`. A member that several walks compute, as each beacon observation's walk
+  computes its block's `merkle_root`, has a line for each distinct value computed, `none`
+  among them. There is no such line for a value read from a chain or a source, for a
+  `handover_signature`, or for a member the text only bounds or constrains, such as the
+  `merkle_root` of a block with no leaves, which no walk computes.
+- Of the members a key event fixes: an event that introduces a key has a line at its own
+  `key_id` and one at the block record's `signing_key_id`; a prerotation has its line at the
+  block record's `signing_key_id`; and a rotation's handover has lines at the event's
+  `previous_key_id`, `height` and `previous_block_hash`.
+- `digest <hex>`: the 32 bytes the proof's signature signs, in lowercase hex.
+- `<pointer> valid` or `<pointer> invalid` for each Ed25519 signature: `/signature/value`
+  for the proof's own, and the pointer of each `handover_signature`.
+- `keyring match` or `keyring no-match`: whether the proof's `signature.public_key` is a
+  key in the keyring.
+- `environment <value>`: the proof's `environment` member, or `prod` when it has none.
+- `submitted_after <instant>` and `submitted_before <instant>`: the two edges of the
+  submission window, each an RFC 3339 UTC time, or `none` for an edge the proof does not
+  establish. When any check fails, both are `none`.
+
+Compute every value, and never print one you did not compute. `verify.py` will also run on
+flawed proofs of the same shape, each with a replay file of the same form.
+```
+
+**Passing.** A session passes only when every run of its fixture exits 0 and prints exactly
+its expected lines, none missing and none extra, and the test passes only when every
+session does. A failure is diagnosed from the session's transcript. When the diagnosis
+points at the constructions text, the text is revised and the test runs again from the
+start; a text's digest is in every full-mode proof, so a revised text also changes the
+vectors and the fixtures. When it points at the prompt, the harness or the line
+definitions, those are fixed and the run is repeated with the text unchanged: the session's
+`verify.py` is judged again when only the harness or the expected lines changed, and fresh
+sessions run when the prompt did. The results name each such fix and why it was made.
+
+**Where it gates.** The test gates the genesis text before its digest is accepted into
+CONSTRUCTIONS_ACCEPTED (section 9), and any later text before its digest is accepted. It
+also runs against a proof from Truestamp's staging environment in the staging rehearsal,
+with a replay file the recorder makes from staging's sources, the staging keyring, and a
+prompt whose second paragraph names the environment `staging` and that environment's
+default pins (section 9) in place of `test` and its pins. The rehearsal is judged as a
+fixture is, on that proof alone: its expected lines are those `mix truestamp.agent_lines`
+gives under E_v `staging` with the staging keyring, and the two window lines those the
+generator's model draws run online under the recorded replay with staging's default pins;
+a session passes when its `verify.py` exits 0 and prints exactly those lines.
+
+**The recorder.** `agent-test/record.exs` records, for any proof, the answers to the reads
+of sections 10.2, step 0, and 10.4 in the replay form of section 13.2, from the sources it
+is given: the identity read of each pinned Stellar and Bitcoin network, each chain read of
+each commitment entry and `genesis.bitcoin`, including the Stellar root and ledger reads
+that a transaction not found leads to, and each entropy read. For each read it fetches every
+field of that read's kind, so that one record answers every use of the read; it keeps the
+first answer to a read it meets again and does not read it twice; it fits the `reason` of an
+unreachable answer to ASCII128; and, given the origin of a keyring, such as staging's, it
+records the keyring read at that origin's `/.well-known/keyring.json`. Its tests answer every
+read from a stubbed transport and never reach the network.
+
+**Outside `task check`.** The agent sessions need an agent, so they are not part of
+`task check`. `task check` runs the generator, which writes and checks `agent-test/` as it
+does `vectors/`, and `elixir agent-test/check.exs --self-test`, which holds the harness to a
+known-good script of its own, `agent-test/selftest/verify.py`, which uses only Python's
+standard library, and to broken copies of that script, one for each rule the mutants break
+and one for each way of printing a line wrong, each of which must fail exactly the runs its
+flaw shows in, those of every fixture for a copy that skips a rule, each differing only in
+its window lines and the lines whose value that rule decides. Among them are a copy that
+prints every value but fails on no mismatch and one that walks from carried values, as the
+graft defect does. The self-test also holds `runs.txt` to the runs `expected/` holds and the
+files under `fixtures/` and `mutants/`, and the harness's own command line, run as its own
+process, to its exit status and its check of the packages. That script is the harness's, not
+an answer key: no session receives it.
+
+**Results.** Each run of the test is written to `agent-test/results/<date>-<d>.md`, where
+`<date>` is the day it ran and `<d>` the digest of the text it tested. It names the commit
+of this repository, the model and tools of the sessions, the Python and the versions of its
+packages, and, for each session, its fixture, whether it passed, and for a failure the runs
+and lines that differ and the diagnosis from its transcript. `agent-test/MANIFEST.sha256`
+leaves `results/` out, so a result changes no digest.
+
 ## 8. Verifier roles
 
 A verifier attributes a proof to Truestamp only when K is one of Truestamp's keys
@@ -1159,7 +1456,10 @@ is the last, and closes on a line of its own at the indentation of the line that
 while an empty one is `{}` or `[]`; and every name and scalar is written as JCS writes it,
 which escapes no character above U+007E, so a value that holds one has no file in this form.
 `MANIFEST.sha256` lists the SHA-256 of every file under `spec/` and `vectors/`, one line per
-file in the format `sha256sum` reads, sorted by path.
+file in the format `sha256sum` reads, sorted by path. `agent-test/MANIFEST.sha256` lists, in
+the same form, every file under `agent-test/` but `results/` and itself, with paths from
+`agent-test/` (section 7.4), so the digest a claim of conformance cites (section 13.1) covers
+the conformance data alone.
 
 **The schema.** `spec/schema.json` is a JSON Schema (draft 2020-12) of the envelope. It
 uses only these keywords, so a verifier can use any conforming validator or interpret the
@@ -2392,7 +2692,10 @@ Every path a case holds is relative to `vectors/`.
   files on disk, fails on any file under `vectors/` it does not write and on any entry there
   that is neither a regular file nor a directory, and asserts that section 6.3's
   worked example equals `worked-example.json`. `--check` also runs the reference verifiers
-  in this repository over the offline cases of `cases.json` (section 13.1).
+  in this repository over the offline cases of `cases.json` (section 13.1). The generator
+  also writes, and with `--check` compares, the files of the agent-sufficiency test under
+  `agent-test/` (section 7.4), whose digests `agent-test/MANIFEST.sha256` holds, not
+  `MANIFEST.sha256`.
 
 **The corpus.** These are the files under `corpus/`. Each is in the canonical form of
 section 9, except the files under `jcs/`, which are their bytes:

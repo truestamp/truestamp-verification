@@ -69,6 +69,9 @@ defmodule Generator.Model do
     "blake2b" => 128
   }
 
+  @doc "The number of hex characters SPEC.md 10.2 step 13 fixes for a hash of `hash_type`, or nil."
+  def hash_length(hash_type), do: Map.get(@hash_lengths, hash_type)
+
   # The code a failing DERIVE row gives, by its check (SPEC.md 10.2 step 9 and 10.3); every
   # check this does not name gives derivation_mismatch.
   @derive_codes %{

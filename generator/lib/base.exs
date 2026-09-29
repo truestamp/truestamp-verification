@@ -481,31 +481,39 @@ defmodule Generator.Merkle do
 
   @doc """
   merkle_path(start, proof) of SPEC.md 5.3, from the hex of a leaf value: `{:ok, root_hex}`,
-  or `:error` for a walk that gives no root.
+  or `:error` for a walk that gives no root. With `range: false` it skips the one check of
+  `leaf_index < tree_size`, as a verifier that lacks it does; with `flip: true` it takes its
+  first step on the other side of the one its index decides.
   """
-  def walk(start, %{"leaf_index" => index, "path" => path, "tree_size" => size}) do
-    if index >= size or length(path) > @max_path_steps do
+  def walk(start, %{"leaf_index" => index, "path" => path, "tree_size" => size}, options \\ []) do
+    if (index >= size and Keyword.get(options, :range, true)) or length(path) > @max_path_steps do
       :error
     else
+      flip = Keyword.get(options, :flip, false)
+
       path
       |> Enum.map(&Bytes.unhex/1)
+      |> Enum.with_index()
       |> Enum.reduce_while(
         {index, size - 1, Registry.hash("merkle_leaf", Bytes.unhex(start))},
-        &step/2
+        fn {p, t}, state -> step(p, state, flip and t == 0) end
       )
       |> finish()
     end
   end
 
-  # Step 3, for one node p, with f and s standing for 5.3's fn and sn.
-  defp step(_p, {_f, 0, _r}), do: {:halt, :error}
+  # Step 3, for one node p, with f and s standing for 5.3's fn and sn; with `flip`, the node on
+  # the other side.
+  defp step(_p, {_f, 0, _r}, _flip), do: {:halt, :error}
 
-  defp step(p, {f, s, r}) when (f &&& 1) == 1 or f == s do
-    {f, s} = shift_even(f, s)
-    {:cont, {f >>> 1, s >>> 1, Registry.hash("merkle_node", p <> r)}}
+  defp step(p, {f, s, r}, flip) do
+    if ((f &&& 1) == 1 or f == s) != flip do
+      {f, s} = shift_even(f, s)
+      {:cont, {f >>> 1, s >>> 1, Registry.hash("merkle_node", p <> r)}}
+    else
+      {:cont, {f >>> 1, s >>> 1, Registry.hash("merkle_node", r <> p)}}
+    end
   end
-
-  defp step(p, {f, s, r}), do: {:cont, {f >>> 1, s >>> 1, Registry.hash("merkle_node", r <> p)}}
 
   defp shift_even(f, s) when f != 0 and (f &&& 1) == 0, do: shift_even(f >>> 1, s >>> 1)
   defp shift_even(f, s), do: {f, s}

@@ -91,7 +91,7 @@ defmodule Generator.Cases.Sound do
   end
 
   defp format_case(name, %{envelope: envelope}) do
-    bytes = IO.iodata_to_binary([reformat(envelope, 0), "\r\n"])
+    bytes = reformatted(envelope)
 
     %{
       same("sameness-format-" <> name, name, {:bytes, bytes})
@@ -207,6 +207,14 @@ defmodule Generator.Cases.Sound do
       defect: {:passes, []}
     )
   end
+
+  @doc """
+  The bytes of the envelope `envelope` as the sameness cases write it: three spaces of
+  indentation, CRLF line ends and a final CRLF, each object's members in reverse JCS order,
+  strings escaped and integers written with `.0`. The agent test's reformatted fixture takes
+  this form too (Generator.AgentTest).
+  """
+  def reformatted(envelope), do: IO.iodata_to_binary([reformat(envelope, 0), "\r\n"])
 
   # A value written with three spaces of indentation and CRLF line ends, an object's members
   # in reverse JCS order, strings escaped and integers written with a fraction.
