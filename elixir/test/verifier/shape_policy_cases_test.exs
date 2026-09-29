@@ -10,11 +10,12 @@ defmodule Truestamp.Verifier.ShapePolicyCasesTest do
   #   SHAPE's and POLICY's included, and the `skip prior_failure` rows of every later step
   #   up to EXPECTED_HASH, since the run ends there;
   # - :policy, a failure at POLICY, and :later, every other case: exactly the expected rows
-  #   of steps 0 to 8, with the run still open for DERIVE and the proof's type and subject id
-  #   taken at SHAPE.
+  #   of steps 0 to 8, with the run still open after POLICY and the proof's type and subject
+  #   id taken at SHAPE. DERIVE's rows, which follow, are derive_cases_test.exs's.
   #
-  # In every case with a report, each value of every row is one the run computed or holds,
-  # and a value the proof carries appears only under "declared", in a failing row (10.5).
+  # In every case with a report, each value of every row of steps 0 to 8 is one the run
+  # computed or holds, and a value the proof carries appears only under "declared", in a
+  # failing row (10.5).
   #
   # Online cases are not the reference verifier's (13.1), so none runs here.
   use ExUnit.Case, async: true
@@ -40,6 +41,10 @@ defmodule Truestamp.Verifier.ShapePolicyCasesTest do
 
   defp reduced(%Run{rows: rows}), do: Enum.map(rows, &Row.reduce/1)
   defp values_written?(%Run{rows: rows}), do: Enum.all?(rows, &is_binary(JCS.encode(&1.values)))
+
+  # The rows of steps 0 to 8 of a run that stays open after POLICY.
+  defp through_policy(%Run{rows: rows} = run),
+    do: %{run | rows: Enum.filter(rows, &(&1.step in @through_policy))}
 
   defp proof_value(kase) do
     {:ok, %{"proof" => proof}} = Parser.decode(Cases.proof(kase))
@@ -137,7 +142,7 @@ defmodule Truestamp.Verifier.ShapePolicyCasesTest do
       for kase <- @offline,
           Cases.step_class(kase) != :bare,
           {:ok, run} = run(kase),
-          row <- run.rows,
+          row <- through_policy(run).rows,
           name <- Map.keys(row.values),
           uniq: true,
           do: name
@@ -173,6 +178,7 @@ defmodule Truestamp.Verifier.ShapePolicyCasesTest do
       open ->
         test "#{kase["id"]}: #{open}, the rows of steps 0 to 8 as expected" do
           assert {:ok, run} = run(@kase)
+          run = through_policy(run)
 
           expected =
             Enum.take_while(@kase["expected"]["rows"], &(List.last(&1) in @through_policy))

@@ -96,6 +96,22 @@ defmodule Truestamp.Verifier.Test.Cases do
     end
   end
 
+  @doc """
+  Where steps 0 to 9 decide the case: `step_class/1`'s `:bare`, `:gate`, `:shape` and
+  `:policy`, and for a case whose gate opens and whose POLICY rows all pass, `:derive` for a
+  failing row at DERIVE, and `:passes` when no row of steps 0 to 9 fails.
+  """
+  @spec derive_class(map()) :: :bare | :gate | :shape | :policy | :derive | :passes
+  def derive_class(kase) do
+    case step_class(kase) do
+      :later -> if failing_at?(kase, "DERIVE"), do: :derive, else: :passes
+      class -> class
+    end
+  end
+
+  defp failing_at?(kase, step),
+    do: Enum.any?(kase["expected"]["rows"], &match?([_code, _part, "fail", ^step], &1))
+
   @doc "The bytes of the keyring file the case supplies, or nil for none."
   @spec keyring_bytes(map()) :: binary() | nil
   def keyring_bytes(kase) do

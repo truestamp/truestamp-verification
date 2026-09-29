@@ -10,15 +10,17 @@ defmodule Truestamp.Verifier do
   | 0 to 6, the gate | `Truestamp.Verifier.Gate` |
   | 7 SHAPE | `Truestamp.Verifier.Shape.shape/1` |
   | 8 POLICY | `Truestamp.Verifier.Policy.policy/1` |
+  | 9 DERIVE | `Truestamp.Verifier.Derive.derive/1` |
 
   `run/2` makes them over a document's bytes, and `run_file/2` over a file, which the gate
   reads after CONFIGURATION. Each gives what `Truestamp.Verifier.Gate.run/2` gives: a bare
   rejection, an input that cannot be read, or `{:ok, run}`, a `Truestamp.Verifier.Run` with
-  the rows of every step it made. A run that ended at the gate or at SHAPE already holds a
-  `skip prior_failure` row for each later step up to EXPECTED_HASH.
+  the rows of every step it made, and after DERIVE its trace and its external gate. A run that
+  ended at the gate or at SHAPE already holds a `skip prior_failure` row for each later step
+  up to EXPECTED_HASH.
   """
 
-  alias Truestamp.Verifier.{Config, Gate, Policy, Run, Shape}
+  alias Truestamp.Verifier.{Config, Derive, Gate, Policy, Run, Shape}
 
   @doc "The steps over the bytes of a document."
   @spec run(Config.t(), binary()) :: Gate.result()
@@ -29,6 +31,8 @@ defmodule Truestamp.Verifier do
   @spec run_file(Config.t(), Path.t()) :: Gate.result()
   def run_file(%Config{} = config, path), do: config |> Gate.run_file(path) |> after_gate()
 
-  defp after_gate({:ok, %Run{} = run}), do: {:ok, run |> Shape.shape() |> Policy.policy()}
+  defp after_gate({:ok, %Run{} = run}),
+    do: {:ok, run |> Shape.shape() |> Policy.policy() |> Derive.derive()}
+
   defp after_gate(other), do: other
 end

@@ -1503,7 +1503,9 @@ Apart from the two checks of well-formedness, a check that reads a value out of
 `raw_transaction` or `txoutproof` is made only when that structure is well formed. The
 `transaction_hash` row is always made, the OP_RETURN row needs a well-formed
 `raw_transaction`, and the row of the matched hash and the three header rows need a
-well-formed `txoutproof`.
+well-formed `txoutproof`. The declared value of the OP_RETURN row, and of the row of the
+matched hash, is the 32 bytes read out of `raw_transaction` or `txoutproof`, not the
+member at the part.
 
 A `raw_transaction` is well formed when:
 
@@ -1929,7 +1931,10 @@ the run gives no report.
 - `values`: values this run computed or read, each value read with its `cached`,
   `fetched_at` and `source`, and no value the proof carries, except that a failed
   comparison also gives the declared value it contradicts, marked as declared, and in
-  DERIVE the name of the constructions row that defines it.
+  DERIVE the name of the constructions row that defines it. In DERIVE, a failed comparison
+  also gives the recomputed value as section 10.6 defines it, marked as recomputed, even
+  when the proof carries that value, such as a `tree_size`'s record `leaf_count`, a
+  handover's record `height`, an order link's bound, or K for LINK_KEY_EVENT.
 
 Section 10.2 fixes which rows a run reports, their parts and their order.
 

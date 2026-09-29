@@ -27,12 +27,12 @@ defmodule Truestamp.Verifier.ItemCodesTest do
     "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" => "ZZZZZZZZZZZZZZZN"
   }
 
-  # SPEC.md 3.9, from its heading to section 4.
-  defp section do
-    [_before, section] = String.split(File.read!(@spec_md), "\n### 3.9 The item code\n")
-    [section, _after] = String.split(section, "\n## 4. ", parts: 2)
-    String.replace(section, ~r/\s+/, " ")
-  end
+  # SPEC.md 3.9, from its heading to section 4, read once when the module compiles.
+  [_before, section] = String.split(File.read!(@spec_md), "\n### 3.9 The item code\n")
+  [section, _after] = String.split(section, "\n## 4. ", parts: 2)
+  @section String.replace(section, ~r/\s+/, " ")
+
+  defp section, do: @section
 
   defp number(pattern) do
     [n] = Regex.run(pattern, section(), capture: :all_but_first)
