@@ -103,6 +103,10 @@ under `elixir/` is an example to consult, not a source to translate.
     step), in order, passes and skips included; for an online case, also each edge's
     instant and basis, compared as instants. Messages, `values` and exit codes are never
     compared.
+- `elixir/walkthrough.livemd`, a Livebook notebook (open it with `livebook server` or the
+  Livebook desktop app), runs the reference verifier over one proof and prints every value
+  the trace holds, each declared value beside the value it recomputes, step by step; it
+  computes nothing itself.
 - Each sound proof under `vectors/positive/` has a trace, `<name>.trace.json` (section
   10.6): one row for each value DERIVE checks, with its construction, declared value,
   inputs, part, recomputed value and status. When a sound proof fails, compare your
