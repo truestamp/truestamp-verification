@@ -124,7 +124,8 @@ text alone is enough to verify a proof. It tests the text, not a verifier: it is
 conformance test, and its expected lines are no substitute for `vectors/cases.json`. A
 session of the test is a fresh agent that receives only `agent-test/PROMPT.md` and one
 fixture directory under `agent-test/fixtures/`, and writes `verify.py`; nothing else in this
-repository is given to it. `agent-test/selftest/verify.py` is the harness's own known-good
+repository is given to it, and it must not be able to read this repository or any Truestamp
+source. `agent-test/selftest/verify.py` is the harness's own known-good
 script, not an answer key, and no session receives it.
 
 - `elixir agent-test/check.exs PATH/TO/verify.py --only FIXTURE --python PATH/TO/python3`
@@ -148,8 +149,9 @@ script, not an answer key, and no session receives it.
 
 ## Changing this repository
 
-- Install the tools in `.tool-versions` with `MISE_ERLANG_COMPILE=false mise install`,
-  then run `task setup`.
+- Work in a git clone, with git installed: `task style` lists files with `git ls-files`,
+  and `task setup` fetches the Merkle library with git. Install the tools in
+  `.tool-versions` with `MISE_ERLANG_COMPILE=false mise install`, then run `task setup`.
 - `task check` is the gate: formatting, house style, the vectors and the generated files
   under `agent-test/`, the agent-test harness's self-test, the manifest, compile, credo in
   strict mode, unused dependencies, and the tests. Its check of the vectors also runs the

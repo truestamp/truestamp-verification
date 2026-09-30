@@ -29,8 +29,9 @@
 # that skips a rule must fail exactly the runs of every fixture that the flaw shows in, each
 # only in its window lines, but for the lines whose value that rule decides, and one set to a
 # flaw that prints a line wrong exactly those of its fixture; a script that never ends must
-# fail by its timeout; the comparison must treat two spellings of one instant as one line and
-# anything else, a millisecond included, as a difference; runs.txt must name exactly
+# fail by its timeout, and leave no process it started behind even when the kill returns only
+# after the process has gone; the comparison must treat two spellings of one instant as one
+# line and anything else, a millisecond included, as a difference; runs.txt must name exactly
 # the runs expected/ holds, and every file under fixtures/ and mutants/; and the command line
 # itself, run as its own process, must exit 0 for the known-good script, 1 for a flawed one,
 # and 1, naming the packages, under a Python that lacks them. It exits 0 only when every one
@@ -271,18 +272,23 @@ defmodule AgentTest.Check do
     if passed != length(results), do: System.halt(1)
   end
 
+  # Options: `timeout`, a run's time in milliseconds, and `kill`, the program that stops a run
+  # past it; the self-test sets both.
   @doc false
-  def run_all(script, runs, python, timeout \\ @timeout) do
+  def run_all(script, runs, python, options \\ []) do
+    timeout = Keyword.get(options, :timeout, @timeout)
+    kill = Keyword.get(options, :kill, "kill")
+
     runs
-    |> Task.async_stream(&{&1, judge(python, script, &1, timeout)},
+    |> Task.async_stream(&{&1, judge(python, script, &1, timeout, kill)},
       max_concurrency: System.schedulers_online(),
       timeout: :infinity
     )
     |> Enum.map(fn {:ok, result} -> result end)
   end
 
-  defp judge(python, script, run, timeout) do
-    case execute(python, [script | run.files], timeout) do
+  defp judge(python, script, run, timeout, kill) do
+    case execute(python, [script | run.files], timeout, kill) do
       {:ok, 0, stdout, _stderr} -> compare(lines(stdout), expected(run))
       {:ok, code, _stdout, stderr} -> {:fail, ["exit #{code}" | last_lines(stderr)]}
       {:timeout, stderr} -> {:fail, ["no exit within #{timeout} ms" | last_lines(stderr)]}
@@ -302,8 +308,8 @@ defmodule AgentTest.Check do
 
   # Runs `program` with `args`, standard input closed and standard error to a file of its
   # own: `{:ok, status, stdout, stderr}`, or `{:timeout, stderr}` after `timeout`, when the
-  # process is killed.
-  defp execute(program, args, timeout) do
+  # process and every process it started are killed with `kill`.
+  defp execute(program, args, timeout, kill) do
     stderr = temporary("agent-test-stderr")
     sh = System.find_executable("sh")
 
@@ -315,7 +321,7 @@ defmodule AgentTest.Check do
         env: [{~c"AGENT_TEST_STDERR", String.to_charlist(stderr)}]
       ])
 
-    result = collect(port, [], System.monotonic_time(:millisecond) + timeout)
+    result = collect(port, [], System.monotonic_time(:millisecond) + timeout, kill)
     written = read(stderr)
     File.rm(stderr)
 
@@ -332,22 +338,49 @@ defmodule AgentTest.Check do
     end
   end
 
-  defp collect(port, acc, deadline) do
+  # Past the deadline, it kills the process's group, which the VM makes the process lead, so
+  # anything the script started goes too, and the process itself in case it leads no group.
+  # Then it waits for the exit status, which the port sends when the process has gone, just
+  # before the port closes itself. Calling Port.close here instead would race that close, and
+  # on Linux it often loses and raises. A process that left the group and still holds the
+  # script's standard output keeps the status from coming, so the wait gives up after five
+  # seconds and closes the port if it is still open.
+  defp collect(port, acc, deadline, kill) do
     left = max(deadline - System.monotonic_time(:millisecond), 0)
 
     receive do
-      {^port, {:data, data}} -> collect(port, [acc, data], deadline)
+      {^port, {:data, data}} -> collect(port, [acc, data], deadline, kill)
       {^port, {:exit_status, status}} -> {:ok, status, IO.iodata_to_binary(acc)}
     after
       left ->
         case Port.info(port, :os_pid) do
-          {:os_pid, pid} -> System.cmd("kill", ["-9", Integer.to_string(pid)])
-          nil -> :ok
+          {:os_pid, pid} ->
+            pid = Integer.to_string(pid)
+            System.cmd(kill, ["-9", "--", "-" <> pid, pid], stderr_to_stdout: true)
+
+          nil ->
+            :ok
         end
 
-        Port.close(port)
+        reap(port)
         :timeout
     end
+  end
+
+  defp reap(port) do
+    receive do
+      {^port, {:data, _data}} -> reap(port)
+      {^port, {:exit_status, _status}} -> :ok
+    after
+      5_000 -> close(port)
+    end
+  end
+
+  # The port can close itself between any check and this call.
+  defp close(port) do
+    Port.close(port)
+  rescue
+    ArgumentError -> :ok
   end
 
   # ---------------------------------------------------------------------------------------
@@ -404,6 +437,7 @@ defmodule AgentTest.Check do
           good(known_good, runs, python),
           Enum.map(flaws(), &flawed(&1, known_good, runs, python, tmp)),
           hang(tmp, hd(runs), python),
+          stray(tmp, hd(runs), python),
           comparison(),
           command_line(known_good, python, tmp)
         ])
@@ -418,7 +452,8 @@ defmodule AgentTest.Check do
         "agent-test: the harness passes its known-good script on all #{length(runs)} runs, " <>
           "fails each of its #{length(flaws())} flawed copies on exactly the runs its flaw " <>
           "shows in, the #{Enum.count(flaws(), &(elem(&1, 1) == :every))} that skip a rule " <>
-          "on every fixture and through the window alone, stops a script that never ends, " <>
+          "on every fixture and through the window alone, stops a script that never ends and " <>
+          "what it started, " <>
           "compares as it should, holds every run and file, and exits as it should."
       )
     else
@@ -577,9 +612,68 @@ defmodule AgentTest.Check do
     path = Path.join(tmp, "hang.py")
     File.write!(path, "import time\ntime.sleep(600)\n")
 
-    case run_all(path, [run], python, 1_000) do
+    case run_all(path, [run], python, timeout: 1_000) do
       [{_run, {:fail, ["no exit within 1000 ms" | _stderr]}}] -> []
       other -> "a script that never ends gives #{inspect(other)}, not a timeout"
+    end
+  end
+
+  # A script that never ends and starts a process that holds its standard output fails by its
+  # timeout and leaves that process behind neither, under a kill that returns only after the
+  # port has closed, as one often does on Linux.
+  defp stray(tmp, run, python) do
+    real = System.find_executable("kill") || halt("agent-test: kill is not on PATH")
+    kill = Path.join(tmp, "slow-kill")
+    File.write!(kill, "#!/bin/sh\n\"#{real}\" \"$@\"\ncode=$?\nsleep 0.5\nexit $code\n")
+    File.chmod!(kill, 0o755)
+    path = Path.join(tmp, "stray.py")
+    child = Path.join(tmp, "stray.pid")
+
+    File.write!(path, """
+    import subprocess, time
+    with open("#{child}", "w") as f:
+        f.write(str(subprocess.Popen(["sleep", "600"]).pid))
+    time.sleep(600)
+    """)
+
+    result = run_all(path, [run], python, timeout: 3_000, kill: kill)
+    pid = read(child)
+
+    cond do
+      not match?([{_run, {:fail, ["no exit within 3000 ms" | _stderr]}}], result) ->
+        "a script that never ends, under a slow kill, gives #{inspect(result)}, not a timeout"
+
+      pid == "" ->
+        "a script that never ends wrote no process id within its time"
+
+      not gone?(pid, 20) ->
+        System.cmd(real, ["-9", pid], stderr_to_stdout: true)
+        "a script that never ends leaves behind the process #{pid} it started"
+
+      true ->
+        []
+    end
+  end
+
+  # Whether the process `pid` has gone, or is a zombie waiting for its new parent, within
+  # `tries` tenths of a second.
+  defp gone?(pid, tries) do
+    case System.cmd("ps", ["-o", "stat=", "-p", pid], stderr_to_stdout: true) do
+      {state, 0} ->
+        cond do
+          String.starts_with?(String.trim(state), "Z") ->
+            true
+
+          tries > 0 ->
+            Process.sleep(100)
+            gone?(pid, tries - 1)
+
+          true ->
+            false
+        end
+
+      {_output, _code} ->
+        true
     end
   end
 

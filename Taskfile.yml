@@ -78,7 +78,9 @@ tasks:
     desc: Run the reference verifier's tests
     dir: elixir
     cmds:
-      - mix test --warnings-as-errors {{.CLI_ARGS}}
+      # UTF-8 file names in any locale, as on macOS: a test runs the verifier in the C locale.
+      # Set in the command, since Task lets a caller's ELIXIR_ERL_OPTIONS override a task env.
+      - ELIXIR_ERL_OPTIONS="+fnu ${ELIXIR_ERL_OPTIONS:-}" mix test --warnings-as-errors {{.CLI_ARGS}}
 
   style:
     desc: "Fail on a house-style slip: an em dash, a retired term, a versioned format name, or a BCP 14 key word outside SPEC.md"

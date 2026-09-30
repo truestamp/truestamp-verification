@@ -1,0 +1,84 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: task check
+    # Pinned: mise finds prebuilt Erlang for Ubuntu 20.04, 22.04 and 24.04, and
+    # ubuntu-latest moves to a release it does not map.
+    runs-on: ubuntu-24.04
+    # A run with no cache installs the tools, fetches and compiles the dependencies, then runs
+    # every gate, the generator's whole check three times (once itself, once in each slow
+    # test). That took about 8 minutes on a 4-core Linux machine.
+    timeout-minutes: 45
+
+    env:
+      # Prebuilt Erlang only (builds.hex.pm): mise fails rather than compile from source.
+      # Elixir always comes prebuilt.
+      MISE_ERLANG_COMPILE: "false"
+      # A UTF-8 locale for the VM. The tests that run the verifier under another locale set
+      # their own.
+      LANG: C.UTF-8
+
+    steps:
+      - name: Checkout
+        # A git checkout: task style lists the files to check with git ls-files.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Erlang, Elixir and Task via mise
+        # Versions come from .tool-versions.
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          version: 2026.9.13
+          cache_key_prefix: mise-prebuilt
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Check the tool versions
+        # The agent-test harness's self-test runs python3, the runner's own, which needs only
+        # its standard library.
+        run: |
+          otp=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().')
+          echo "OTP $otp; $(elixir --version | tail -1); $(task --version); $(python3 --version)"
+          grep -qx "erlang ${otp}\..*" .tool-versions
+
+      - name: Restore the dependencies and builds
+        # Keyed on the tool versions and the lock file. A change of tool versions starts
+        # from nothing rather than from a build made by other ones.
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            elixir/deps
+            elixir/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('elixir/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-
+
+      - name: Fetch the dependencies (task setup)
+        # Hex, rebar and the reference verifier's dependencies, among them the Merkle library
+        # from GitHub at the commit elixir/mix.exs pins.
+        run: task setup
+
+      - name: Check that elixir/mix.lock is up to date
+        # task setup's mix deps.get rewrites a lock that no longer matches elixir/mix.exs, so
+        # a change here means the commit left the lock stale.
+        run: git diff --exit-code -- elixir/mix.lock
+
+      - name: The gate (task check)
+        # Every gate, as run locally: formatting, house style, the generator's check (which
+        # also runs the reference verifier over every offline case and for the agent test's
+        # expected lines), the agent-test harness's self-test, both manifests, compile with
+        # warnings as errors, credo, unused dependencies, and every test, the slow
+        # generator_check ones included.
+        run: task check

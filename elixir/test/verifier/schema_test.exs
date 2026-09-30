@@ -69,6 +69,8 @@ defmodule Truestamp.Verifier.SchemaTest do
       end
     end
 
+    # Over a minute on a slow machine, such as a CI runner.
+    @tag timeout: 300_000
     test "agrees with the test interpreter on every mutant of every sound value of P" do
       schema = file_schema()
 
