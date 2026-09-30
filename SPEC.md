@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 
 **Status:** draft, and not yet normative. Every section is written. The whole text is under
 review until it is fixed.
-*Proposed* marks a change to the original design that has been accepted but whose bytes are
-not yet frozen, and "name *Proposed*" marks a name that is still open.
 
 This document defines a Truestamp proof and how to verify it. Once fixed, it is the only
 normative document in this repository. The files under `spec/` and `vectors/` are its
@@ -904,7 +902,7 @@ A verifier checks the member at SHAPE (section 10.2), after the signature has pa
 
 ### 7.3 The text
 
-The genesis text (*Proposed*): 28 rows, 8,720 octets under JCS, digest
+The genesis text: 28 rows, 8,720 octets under JCS, digest
 `c0d70826d7501d5089184d1947bad3dcc33c3172269d425f16fc0025ed07df49`. Every value is printable
 ASCII with no `"` or `\`. To reproduce the digest, parse the object below, serialize it
 with sorted keys and no whitespace (exactly JCS for this object), and hash it:

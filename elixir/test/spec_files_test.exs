@@ -49,8 +49,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
 
   defp backticked(text), do: ~r/`([^`]+)`/ |> Regex.scan(text) |> Enum.map(&List.last/1)
 
-  defp unmark(text),
-    do: text |> String.replace(["(*Proposed*)", "(name *Proposed*)", "`"], "") |> String.trim()
+  defp unmark(text), do: text |> String.replace("`", "") |> String.trim()
 
   describe "the strict reader the other tests rely on" do
     test "refuses what the parsing rules refuse" do
