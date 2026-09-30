@@ -188,9 +188,10 @@ project instructions, memory or skills, and Python 3 with `cryptography` and `rf
 A session must not be able to read this repository or any Truestamp source: this
 repository holds the expected lines and a script that passes. A directory made with
 `mktemp -d` is outside every checkout, but that is not enough on its own when the agent can
-read the rest of the disk, so run the session where it cannot. From the repository root,
-for the fixture `1-item`, `P` is the Python the sessions have and `S` one session's
-directory:
+read the rest of the disk, so run the session where it cannot. `sandbox/` does this with
+Docker Sandboxes, on a Claude subscription: `task agent-test-run -- --model MODEL` runs the
+whole test and summarizes it (`sandbox/README.md`). By hand, from the repository root, for
+the fixture `1-item`, `P` is the Python the sessions have and `S` one session's directory:
 
     P=$(mktemp -d)
     python3 -m venv "$P"

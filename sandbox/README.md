@@ -20,7 +20,49 @@ Claude Code signed in with a Claude subscription.
 | `judge.sbxenv.yaml` | The judge's environment file: the same sandbox, with the session's directory as the workspace and `agent-test/` mounted read-only beside it. |
 | `sbx-python` | A Python for the harness that runs `python3` in a judge sandbox. |
 | `run-session.py` | Runs one session end to end: its directory, its sandbox, `claude -p`, the judge, and a record of both. |
+| `run-test.py` | Runs the whole test on a model, every fixture's sessions several at a time, and writes a summary (`task agent-test-run`). |
 | `preflight/` | `plain.py` and `complete.py`, the harness's known-good script on `cryptography` and `rfc8785` (the library pre-flight below). |
+
+## Running the test again
+
+From the repository root, once the steps under "Before the first run" are done:
+
+    task agent-test-smoke
+    task agent-test-run -- --model claude-opus-5-5
+
+The first checks the sandbox itself (the smoke test below). The second runs the whole test,
+two sessions per base fixture, six at a time. Each session is `run-session.py`'s, so each
+has its own sandboxes and its own directory under `tmp/agent-test-runs/<date>-<model>/`.
+It then writes `summary.md` there:
+- every session's outcome, runs passed, time, turns, tool calls, edits after writing,
+  output tokens and list-price estimate;
+- the totals;
+- what fixes the run: the agent-test manifest's digest, the constructions text, the image
+  and the versions.
+
+It exits 0 only when every session passes.
+
+- **Another model:** `--model` takes any model Claude Code accepts, for example
+  `claude-sonnet-5-5`.
+- **Fewer sessions:** `--sessions 1 --fixtures 1-item,4-entropy` runs one session each on
+  those two fixtures; `--parallel` sets how many run at once.
+- **Testing the procedure:** `--no-agent` runs everything but the agent, with the harness's
+  own script standing in, and uses no subscription.
+- **A run that gates a text** (SPEC.md 7.4, Where it gates) needs two sessions on every
+  fixture. Its record goes in `agent-test/results/<date>-<digest>.md` (7.4, Results);
+  `summary.md` is its draft. `agent-test/results/2026-09-30-c0d70826….md` is the first.
+  A run on another model for information only belongs in a section of its own.
+
+A rerun is the same test in everything but the sessions themselves, so any difference comes
+from the model:
+- the prompt, fixtures, broken versions, expected lines and judge are pinned by
+  `agent-test/MANIFEST.sha256`;
+- the image, which brings Python and Claude Code, is pinned by digest in both environment
+  files;
+- the packages are pinned by hash.
+
+To move to a newer image, change its digest in both files, run `task agent-test-smoke`, and
+let the summary record the new versions.
 
 ## Before the first run
 

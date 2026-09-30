@@ -135,6 +135,11 @@ script, not an answer key, and no session receives it.
   `--only` it runs every fixture's runs. `--python` names the Python the sessions had, which
   must import `cryptography` and `rfc8785`, or the harness stops before any run. A session
   passes only when every run of its fixture exits 0 with exactly its expected lines.
+- `sandbox/` runs the test's sessions in Docker Sandboxes, each locked to the Anthropic API
+  and judged in a second sandbox, on a Claude subscription: `task agent-test-run -- --model
+  MODEL` runs every fixture's sessions and writes a summary, and `task agent-test-smoke`
+  checks the sandbox itself (`sandbox/README.md`). Both need `sbx` and start real agent
+  sessions, so neither is part of `task check`.
 - `elixir agent-test/check.exs --self-test` holds the harness to its known-good script and
   to flawed copies of it, one for each rule the mutants break; `task check` runs it. The
   known-good script uses only Python's standard library, so the self-test needs neither

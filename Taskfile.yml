@@ -139,6 +139,18 @@ tasks:
     cmds:
       - elixir agent-test/check.exs {{.CLI_ARGS}}
 
+  # The agent test's sessions, in Docker Sandboxes (sandbox/README.md). They need sbx, with a
+  # Claude subscription's login stored, and they run no part of task check.
+  agent-test-smoke:
+    desc: "Check the sandbox the agent test's sessions run in: subscription login, network, packages, a clean session (sandbox/smoke.py)"
+    cmds:
+      - python3 sandbox/smoke.py {{.CLI_ARGS}}
+
+  agent-test-run:
+    desc: "Run the agent test's sessions on a model, then summarize: task agent-test-run -- --model MODEL [--sessions 2] [--fixtures all] [--parallel 6]"
+    cmds:
+      - python3 sandbox/run-test.py {{.CLI_ARGS}}
+
   # ===========================================================================
   # The manifests
   # ===========================================================================
