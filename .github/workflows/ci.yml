@@ -12,9 +12,12 @@ on:
 permissions:
   contents: read
 
+# Two jobs, one per tool set, each running every gate (task check): check on the tools
+# .tool-versions pins, and test-elixir-1-19 on Elixir 1.19.3 with OTP 28.1.1. Elixir 1.19 is
+# the oldest minor release elixir/mix.exs allows, and 1.19.3 the version tested.
 jobs:
   check:
-    name: task check
+    name: task check (.tool-versions)
     # Pinned: mise finds prebuilt Erlang for Ubuntu 20.04, 22.04 and 24.04, and
     # ubuntu-latest moves to a release it does not map.
     runs-on: ubuntu-24.04
@@ -46,12 +49,19 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Check the tool versions
-        # The agent-test harness's self-test runs python3, the runner's own, which needs only
-        # its standard library.
+        # Fails unless Erlang and Elixir are exactly the versions .tool-versions pins. The
+        # agent-test harness's self-test runs python3, the runner's own, which needs only its
+        # standard library.
         run: |
+          want_erlang=$(sed -n 's/^erlang //p' .tool-versions)
+          want_elixir=$(sed -n 's/^elixir //p' .tool-versions)
           otp=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().')
-          echo "OTP $otp; $(elixir --version | tail -1); $(task --version); $(python3 --version)"
-          grep -qx "erlang ${otp}\..*" .tool-versions
+          root=$(erl -noshell -eval 'io:format("~s", [code:root_dir()]), halt().')
+          erlang=$(cat "$root/releases/$otp/OTP_VERSION")
+          elixir=$(elixir --version | tail -1)
+          echo "Erlang/OTP $erlang; $elixir; $(task --version); $(python3 --version)"
+          test "$erlang" = "$want_erlang"
+          test "$elixir" = "Elixir ${want_elixir%-otp-*} (compiled with Erlang/OTP ${want_elixir##*-otp-})"
 
       - name: Restore the dependencies and builds
         # Keyed on the tool versions and the lock file. A change of tool versions starts
@@ -81,4 +91,69 @@ jobs:
         # expected lines), the agent-test harness's self-test, both manifests, compile with
         # warnings as errors, credo, unused dependencies, and every test, the slow
         # generator_check ones included.
+        run: task check
+
+  test-elixir-1-19:
+    # Names the versions of MISE_ERLANG_VERSION and MISE_ELIXIR_VERSION below; change them
+    # together.
+    name: task check (Elixir 1.19.3, OTP 28.1.1)
+    # Pinned, as for check.
+    runs-on: ubuntu-24.04
+    # As for check.
+    timeout-minutes: 45
+
+    env:
+      MISE_ERLANG_COMPILE: "false"
+      LANG: C.UTF-8
+      # mise takes these over the erlang and elixir lines of .tool-versions; Task still comes
+      # from .tool-versions. Both are prebuilt on builds.hex.pm for Ubuntu 24.04.
+      MISE_ERLANG_VERSION: "28.1.1"
+      MISE_ELIXIR_VERSION: "1.19.3-otp-28"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Erlang, Elixir and Task via mise
+        # Erlang and Elixir from the job's env, Task from .tool-versions. mise-action's cache
+        # key does not see the env, so its prefix names the versions.
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          version: 2026.9.13
+          cache_key_prefix: mise-prebuilt-${{ env.MISE_ERLANG_VERSION }}-${{ env.MISE_ELIXIR_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Check the tool versions
+        # Fails unless Erlang and Elixir are exactly the versions of the job's env.
+        run: |
+          want_erlang=$MISE_ERLANG_VERSION
+          want_elixir=$MISE_ELIXIR_VERSION
+          otp=$(erl -noshell -eval 'io:format("~s", [erlang:system_info(otp_release)]), halt().')
+          root=$(erl -noshell -eval 'io:format("~s", [code:root_dir()]), halt().')
+          erlang=$(cat "$root/releases/$otp/OTP_VERSION")
+          elixir=$(elixir --version | tail -1)
+          echo "Erlang/OTP $erlang; $elixir; $(task --version); $(python3 --version)"
+          test "$erlang" = "$want_erlang"
+          test "$elixir" = "Elixir ${want_elixir%-otp-*} (compiled with Erlang/OTP ${want_elixir##*-otp-})"
+
+      - name: Restore the dependencies and builds
+        # Keyed on this job's Erlang and Elixir and the lock file, apart from check's.
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            elixir/deps
+            elixir/_build
+          key: ${{ runner.os }}-mix-erlang-${{ env.MISE_ERLANG_VERSION }}-elixir-${{ env.MISE_ELIXIR_VERSION }}-${{ hashFiles('elixir/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-erlang-${{ env.MISE_ERLANG_VERSION }}-elixir-${{ env.MISE_ELIXIR_VERSION }}-
+
+      - name: Fetch the dependencies (task setup)
+        run: task setup
+
+      - name: Check that elixir/mix.lock is up to date
+        run: git diff --exit-code -- elixir/mix.lock
+
+      - name: The gate (task check)
+        # Every gate, as in check.
         run: task check

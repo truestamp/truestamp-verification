@@ -8,7 +8,7 @@ defmodule Truestamp.Verifier.MixProject do
     [
       app: :truestamp_verifier,
       version: "0.1.0",
-      elixir: "~> 1.20",
+      elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
@@ -24,9 +24,11 @@ defmodule Truestamp.Verifier.MixProject do
   end
 
   # `mix truestamp.verify`, `mix truestamp.conformance` and `mix truestamp.agent_lines`
-  # compile the project with a quiet shell before they run, so a run that compiles writes no
-  # compiler line to standard output, which carries only the task's JSON document. Compiler
-  # warnings and errors still go to standard error.
+  # compile the project and its dependencies before they run, with a quiet shell, with
+  # standard error as the group leader and with Logger's default handler writing to standard
+  # error, so a run that compiles writes nothing to standard output, which carries only the
+  # task's JSON document. Compiler warnings and errors, a dependency's warnings and log
+  # lines, and the "==> app" line Mix prints ahead of them go to standard error.
   defp aliases do
     [
       "truestamp.verify": [&quiet_compile/1, "truestamp.verify"],
@@ -37,13 +39,39 @@ defmodule Truestamp.Verifier.MixProject do
 
   defp quiet_compile(_args) do
     shell = Mix.shell()
+    group_leader = Process.group_leader()
+    handler = log_to_standard_error()
     Mix.shell(Mix.Shell.Quiet)
+    Process.group_leader(self(), Process.whereis(:standard_error))
 
     try do
       Mix.Task.run("compile")
     after
+      Process.group_leader(self(), group_leader)
       Mix.shell(shell)
+      restore_log_handler(handler)
     end
+  end
+
+  # Logger's default handler writes from its own process, not under this one's group
+  # leader, so it is added again with standard error as its device while the build runs.
+  defp log_to_standard_error do
+    case :logger.get_handler_config(:default) do
+      {:ok, %{module: module, config: %{type: :standard_io}} = handler} ->
+        :ok = :logger.remove_handler(:default)
+        :ok = :logger.add_handler(:default, module, put_in(handler.config.type, :standard_error))
+        handler
+
+      _other ->
+        nil
+    end
+  end
+
+  defp restore_log_handler(nil), do: :ok
+
+  defp restore_log_handler(%{module: module} = handler) do
+    :ok = :logger.remove_handler(:default)
+    :ok = :logger.add_handler(:default, module, handler)
   end
 
   defp deps do
@@ -52,7 +80,7 @@ defmodule Truestamp.Verifier.MixProject do
       # commit id until the library is published to Hex.
       {:truestamp_merkle,
        github: "truestamp/truestamp-merkle-elixir",
-       ref: "2ba4a58089c289ca0dfcbce8a893260509b41ab1",
+       ref: "0862f3e96f670ef605bdfa4077c96039040e585f",
        depth: 1},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]

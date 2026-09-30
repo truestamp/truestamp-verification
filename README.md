@@ -88,7 +88,9 @@ Clone the repository with git, and keep git installed: `task style` lists the fi
 check with `git ls-files`, and `task setup` fetches the Merkle library with git, so a copy
 downloaded as a ZIP file does not pass `task check`.
 
-The tool versions are in `.tool-versions`: Erlang, Elixir and [Task](https://taskfile.dev).
+The reference verifier needs Elixir 1.19 or later; CI tests it on Elixir 1.19 with OTP 28
+and on Elixir 1.20 with OTP 29. `.tool-versions` pins the tools for local work: Erlang,
+Elixir and [Task](https://taskfile.dev).
 With [mise](https://mise.jdx.dev) installed, run from the repository root, first to install the tools, with prebuilt Erlang only, then
 Hex, rebar and the verifier's dependencies:
 
@@ -222,10 +224,12 @@ tested; section 7.4 says what a result names.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request, and on demand,
-on Ubuntu 24.04 with the tools of `.tool-versions` (prebuilt Erlang only). It runs
-`task setup`, fails if that changed `elixir/mix.lock`, which means the commit left the lock
-stale, and then runs `task check`. It caches `elixir/deps` and `elixir/_build`, keyed on
-`.tool-versions` and `elixir/mix.lock`.
+on Ubuntu 24.04 with prebuilt Erlang only, in two jobs. Each runs `task setup` and fails if
+that changed `elixir/mix.lock`, which means the commit left the lock stale. One job, with
+the tools of `.tool-versions` (Elixir 1.20 on OTP 29), then runs `task check`. The other
+runs `task check` on Elixir 1.19.3 with OTP 28.1.1: 1.19 is the oldest minor release
+`elixir/mix.exs` allows, and 1.19.3 the version tested. Each job caches `elixir/deps` and
+`elixir/_build`, keyed on its own tool versions and `elixir/mix.lock`.
 
 ## License
 
