@@ -166,6 +166,8 @@ no_derive = fn report ->
   "This run ended at #{step} with #{code} (SPEC.md 10.2), before DERIVE compared any " <>
     "declared value, so the trace is empty: there is no DERIVE value to show or change."
 end
+
+:ok
 ```
 
 ## Run the verifier
@@ -210,6 +212,8 @@ IO.puts("Subject id   #{value_text.(report["subject_id"])}")
 IO.puts("Rows         #{length(report["rows"])}")
 IO.puts("Trace rows   #{length(run.trace)}")
 print_label.(report)
+
+:ok
 ```
 
 ## Steps 0 to 6: the gate
@@ -420,6 +424,8 @@ if report["trust_root"]["kind"] == "none" do
       "carries (SPEC.md 8.3)"
   )
 end
+
+:ok
 ```
 
 ## Change one declared value
@@ -504,6 +510,8 @@ edited_document =
 
     put_in(run.document, ["proof" | segments], edited_value)
   end
+
+:ok
 ```
 
 No CHECKED value (section 3.7) sits in an array or under a member name that holds `/` or
@@ -535,6 +543,8 @@ if signature_report do
 else
   IO.puts(no_derive.(report))
 end
+
+:ok
 ```
 
 ### A declared value changed and signed again
@@ -593,4 +603,6 @@ print_rows.(
 
 IO.puts("")
 print_label.(vector_report)
+
+:ok
 ```

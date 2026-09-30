@@ -369,15 +369,17 @@ defmodule Truestamp.Verifier.WalkthroughTest do
   # what each cell printed, as {code, output} in order. Each of `overrides` replaces a binding
   # of the configuration cell, as a reader who edits that cell does, and `edited_part` sets
   # the line of the edit cell that picks the value to change. No cell may give a compiler
-  # warning.
+  # warning, and every cell after the configuration cell that runs to its end must give :ok,
+  # since Livebook shows a cell's last value under its output.
   defp evaluate(overrides \\ [], options \\ []) do
     [_setup, {line, configuration} | rest] = cells()
     rest = Enum.map(rest, fn {line, code} -> {line, pick(code, options[:edited_part])} end)
 
     {{binding, outputs}, diagnostics} =
       Code.with_diagnostics(fn ->
-        configuration
-        |> eval(line, [])
+        {_configuration, binding} = eval(configuration, line, [])
+
+        binding
         |> override(overrides)
         |> eval_each(rest)
       end)
@@ -392,10 +394,17 @@ defmodule Truestamp.Verifier.WalkthroughTest do
     end)
   end
 
-  # Each cell in one binding, with what it printed.
+  # Each cell in one binding, with what it printed. Livebook shows a cell's last value under
+  # its output, so each cell ends with :ok rather than a stray value.
   defp eval_each(binding, cells) do
     Enum.reduce(cells, {binding, []}, fn {line, code}, {binding, outputs} ->
-      {binding, output} = with_io(fn -> eval(code, line, binding) end)
+      {{value, binding}, output} = with_io(fn -> eval(code, line, binding) end)
+
+      assert value == :ok,
+             "the cell at line #{line} of elixir/walkthrough.livemd gives " <>
+               "#{inspect(value, limit: 5, printable_limit: 80)}, not :ok, and Livebook " <>
+               "shows that value under the cell's output"
+
       {binding, outputs ++ [{code, output}]}
     end)
   end
@@ -408,10 +417,8 @@ defmodule Truestamp.Verifier.WalkthroughTest do
     String.replace(code, line, "edited_part = #{inspect(part)}\n")
   end
 
-  defp eval(code, line, binding) do
-    {_value, binding} = Code.eval_string(code, binding, file: @notebook, line: line)
-    binding
-  end
+  defp eval(code, line, binding),
+    do: Code.eval_string(code, binding, file: @notebook, line: line)
 
   # What the one cell whose code holds `snippet` printed.
   defp output(outputs, snippet) do
