@@ -1,0 +1,58 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# One sandbox for judging one session of the agent-sufficiency test (SPEC.md 7.4): the
+# session's verify.py runs here, under the same Python and packages the session had, and
+# never on the host.
+#
+#   sbx env create --auto-approve --name ts-judge-NAME --env-arg workspace=/abs/session/dir \
+#     sandbox/judge.sbxenv.yaml
+#   SBX_JUDGE_SANDBOX=ts-judge-NAME elixir agent-test/check.exs /abs/session/dir/verify.py \
+#     --only FIXTURE --python sandbox/sbx-python
+#
+# It is agent-test.sbxenv.yaml's sandbox, with the same kit and the same lockdown, and one
+# more mount: agent-test/, read-only, at the same absolute path it has on the host. The
+# harness gives each run the absolute paths of its files under agent-test/ and the absolute
+# path of the session's verify.py, so both mounts must be at their host paths. No agent
+# session runs in this sandbox.
+
+schemaVersion: "1"
+agent: claude
+
+args:
+  workspace:
+    required: true
+    description: "Absolute path of the session's directory, which holds its verify.py"
+  agent_test:
+    default: "../agent-test"
+    description: "The agent-test directory the harness runs from, mounted read-only"
+  cpus:
+    default: "4"
+    pattern: "[1-9][0-9]*"
+  memory:
+    default: "4g"
+
+workspace: ${{ env.args.workspace }}
+
+additionalWorkspaces:
+  - path: ${{ env.args.agent_test }}
+    readOnly: true
+
+kits:
+  - ./kits/agent-test
+
+sandboxOptions:
+  # The sandbox's image, pinned by digest: it brings the Python and the Claude Code the
+  # sessions have, so a later run gets the same ones. docker/sandbox-templates's
+  # claude-code-docker tag as of 2026-09-24 (Python 3.14.4, Claude Code 2.1.280).
+  template: docker.io/docker/sandbox-templates:claude-code-docker@sha256:549730947ed8a43182547bb5628245fe6d6c089564dd73d2194e899f791d970f
+  skills: "off"
+  cpus: ${{ env.args.cpus }}
+  memory: ${{ env.args.memory }}
+  pullPolicy: missing
+
+lifecycle:
+  postCreate:
+    - name: "Deny every host but the Anthropic API, and check it"
+      command: python3 "${{ env.fileDir }}/lockdown.py" "$SBX_SANDBOX_NAME"
+      timeout: 5m

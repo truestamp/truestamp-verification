@@ -7,6 +7,9 @@ doc/
 erl_crash.dump
 *.ez
 
+# Python's bytecode caches (sandbox/, agent-test/).
+__pycache__/
+
 # Scratch files.
 /tmp/
 /elixir/tmp/

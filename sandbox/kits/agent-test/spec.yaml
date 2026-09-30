@@ -1,0 +1,48 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# A mixin for Docker Sandboxes' built-in claude agent: what a session of the
+# agent-sufficiency test (SPEC.md 7.4) is promised, and nothing else.
+#
+# - Python 3 with cryptography and rfc8785, installed at creation from hash-pinned wheels.
+# - Claude Code's updater, telemetry and error reports turned off.
+#
+# The PyPI hosts below are allowed only so the install can run. The environment file beside
+# this kit locks the sandbox down to the Anthropic API once it is created, before any
+# session starts (../../lockdown.py).
+
+schemaVersion: "2"
+kind: mixin
+name: truestamp-agent-test
+version: "0.1.0"
+displayName: "Truestamp agent-sufficiency test"
+description: "Python 3 with cryptography and rfc8785 for the sessions of SPEC.md 7.4, with Claude Code's nonessential traffic turned off."
+sourceURL: "https://github.com/truestamp/truestamp-verification"
+licenses: [Apache-2.0]
+
+requires:
+  agent: claude
+
+permissions:
+  network:
+    allow:
+      - pypi.org:443
+      - files.pythonhosted.org:443
+
+environment:
+  variables:
+    DISABLE_AUTOUPDATER: "1"
+    DISABLE_TELEMETRY: "1"
+    DISABLE_ERROR_REPORTING: "1"
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+setup:
+  install:
+    - description: "Install cryptography and rfc8785 from hash-pinned wheels"
+      user: "0"
+      command: |
+        set -eu
+        python3 -m pip install --break-system-packages --no-cache-dir --only-binary=:all: \
+          --require-hashes -r /home/agent/agent-test/requirements.txt
+        python3 -c 'import cryptography, rfc8785; print("cryptography", cryptography.__version__, "and rfc8785 import")'

@@ -1,0 +1,49 @@
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# One sandbox for one session of the agent-sufficiency test (SPEC.md 7.4), on Docker
+# Sandboxes' built-in claude agent with the kit in kits/agent-test.
+#
+#   sbx env create --auto-approve --name NAME --env-arg workspace=/abs/session/dir \
+#     sandbox/agent-test.sbxenv.yaml
+#
+# The workspace is the session's own empty directory, holding only PROMPT.md and one
+# fixture's files, outside any repository. Once the sandbox exists, postCreate runs
+# lockdown.py on the host, which denies this sandbox every host but the Anthropic API and
+# checks that it did; a session starts only after that. The user's shared skills are
+# off. Authentication is the user's Claude subscription, which sbx's proxy supplies from
+# its "anthropic" OAuth secret: nothing here sets or passes an API key.
+
+schemaVersion: "1"
+agent: claude
+
+args:
+  workspace:
+    required: true
+    description: "Absolute path of the session's directory"
+  cpus:
+    default: "4"
+    pattern: "[1-9][0-9]*"
+  memory:
+    default: "4g"
+
+workspace: ${{ env.args.workspace }}
+
+kits:
+  - ./kits/agent-test
+
+sandboxOptions:
+  # The sandbox's image, pinned by digest: it brings the Python and the Claude Code the
+  # sessions have, so a later run gets the same ones. docker/sandbox-templates's
+  # claude-code-docker tag as of 2026-09-24 (Python 3.14.4, Claude Code 2.1.280).
+  template: docker.io/docker/sandbox-templates:claude-code-docker@sha256:549730947ed8a43182547bb5628245fe6d6c089564dd73d2194e899f791d970f
+  skills: "off"
+  cpus: ${{ env.args.cpus }}
+  memory: ${{ env.args.memory }}
+  pullPolicy: missing
+
+lifecycle:
+  postCreate:
+    - name: "Deny every host but the Anthropic API, and check it"
+      command: python3 "${{ env.fileDir }}/lockdown.py" "$SBX_SANDBOX_NAME"
+      timeout: 5m

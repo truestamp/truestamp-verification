@@ -1,0 +1,76 @@
+#!/bin/sh
+# Copyright (c) 2026 Truestamp, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# A Python for the agent-test harness that runs inside a judge sandbox (judge.sbxenv.yaml),
+# never on the host:
+#
+#   SBX_JUDGE_SANDBOX=ts-judge-NAME elixir agent-test/check.exs VERIFY_PY \
+#     [--only FIXTURE] --python sandbox/sbx-python
+#
+# It runs `python3 ARGS...` in the sandbox SBX_JUDGE_SANDBOX, in the directory
+# SBX_JUDGE_WORKDIR (agent-test/ beside this file unless set, which the judge sandbox mounts
+# read-only at its host path), and exits with python's exit code. Standard output and error
+# pass through; standard input does not (the harness closes it). The harness's package
+# check (`-c "import cryptography, rfc8785"`) runs the same way, so it asks the sandbox's
+# Python.
+#
+# Killing `sbx exec` on the host does not stop the command it started in the sandbox: that
+# runs to its end, whatever signal the host side gets. The harness stops a run that outlives
+# its time with `kill -9` of this script. So the command in the sandbox writes its process
+# group to a file there, and a watcher on the host, started with it, waits for this script
+# to end: if it ends before the command did, the watcher kills that process group in the
+# sandbox, and the `sbx exec` left behind on the host. As a last bound, the sandbox's
+# `timeout` kills the command after SBX_JUDGE_LIMIT seconds (300 unless set), well past the
+# harness's own 60.
+
+sandbox=$SBX_JUDGE_SANDBOX
+if [ -z "$sandbox" ]; then
+  echo "sbx-python: set SBX_JUDGE_SANDBOX to the name of the judge sandbox" >&2
+  exit 2
+fi
+workdir=$SBX_JUDGE_WORKDIR
+if [ -z "$workdir" ]; then
+  workdir=$(CDPATH= cd -- "$(dirname -- "$0")/../agent-test" && pwd)
+fi
+limit=${SBX_JUDGE_LIMIT:-300}
+self=$$
+tag="sbx-python-$self-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')"
+group_file="/tmp/$tag.pgid"
+done_file="${TMPDIR:-/tmp}/$tag.done"
+
+# In the sandbox: a shell that leads its own process group (sbx exec starts each command in
+# a session of its own), drops the host's SSH agent that sbx forwards into every exec, notes
+# that group, runs python under the last bound, and exits with python's code.
+run='f=$1; limit=$2; shift 2
+unset SSH_AUTH_SOCK SSH_AUTH_SOCK_GATEWAY GH_TOKEN
+echo $$ >"$f"
+timeout --foreground -s KILL "$limit" python3 "$@"
+c=$?
+rm -f "$f"
+exit $c'
+
+# In the sandbox, for the watcher: kill the process group the run noted, once it has.
+stop='f=$1; i=0
+while [ ! -s "$f" ] && [ $i -lt 10 ]; do sleep 1; i=`expr $i + 1`; done
+[ -s "$f" ] && kill -9 "-`cat "$f"`"
+rm -f "$f"'
+
+# On the host: the watcher. It holds none of the harness's pipes.
+watch() {
+  while kill -0 "$self" 2>/dev/null; do sleep 1; done
+  if [ ! -e "$done_file" ]; then
+    sbx exec "$sandbox" sh -c "$stop" sh "$group_file"
+    kill -9 "$child" 2>/dev/null
+  fi
+  rm -f "$done_file"
+}
+
+sbx exec -w "$workdir" "$sandbox" sh -c "$run" sh "$group_file" "$limit" "$@" &
+child=$!
+watch </dev/null >/dev/null 2>&1 &
+
+wait "$child"
+code=$?
+: >"$done_file"
+exit "$code"

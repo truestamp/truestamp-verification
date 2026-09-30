@@ -94,7 +94,9 @@ tasks:
         if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
           echo "style: not inside a git working tree, so no file was checked"; exit 1
         fi
-        files() { git ls-files -z --cached --others --exclude-standard -- "$@"; }
+        # .claude/skills/ holds third-party skills kept exactly as published, so their own
+        # style is theirs (.claude/skills/SOURCES.md).
+        files() { git ls-files -z --cached --others --exclude-standard -- "$@" ':!:.claude/skills/**'; }
         report() {
           if [ -n "$1" ]; then echo "$1"; echo "style: $2"; rc=1; fi
         }
