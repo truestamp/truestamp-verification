@@ -105,15 +105,17 @@ under `elixir/` is an example to consult, not a source to translate.
     compared.
 - `elixir/walkthrough.livemd`, a Livebook notebook (open it with `livebook server` or the
   Livebook desktop app), runs the reference verifier over one proof and prints every value
-  the trace holds, each declared value beside the value it recomputes, step by step; it
-  computes nothing itself.
+  the trace holds, each declared value beside the value the verifier recomputes, step by
+  step; it computes nothing itself.
 - Each sound proof under `vectors/positive/` has a trace, `<name>.trace.json` (section
-  10.6): one row for each value DERIVE checks, with its construction, declared value,
-  inputs, part, recomputed value and status. When a sound proof fails, compare your
-  derivation with the trace to find the first value that differs. A verifier that gives a
-  trace matches it in order, every member but `inputs`, for each case whose expected
-  output names a trace: the sound cases, their reformatted copies, and four passing cases
-  that run a sound proof unchanged (two keyring cases and two expected-hash cases).
+  10.6): one row for each DERIVE row whose part is a CHECKED value, other than a row of
+  LINK_HEAD, LINK_KEY_EVENT or LINK_CHAIN_ORDER, with its construction,
+  declared value, inputs, part, recomputed value and status. When a sound proof fails,
+  compare your derivation with the trace to find the first value that differs. A verifier
+  that gives a trace matches it in order, every member but `inputs`, for each case whose
+  expected output names a trace: the sound cases, their reformatted copies, and four
+  passing cases that run a sound proof unchanged (two keyring cases and two expected-hash
+  cases).
 - A claim of conformance names the commit of this repository and the digest of
   `MANIFEST.sha256` (`shasum -a 256 MANIFEST.sha256`) whose cases the verifier passed.
 

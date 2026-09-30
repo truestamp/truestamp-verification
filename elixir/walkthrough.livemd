@@ -19,11 +19,15 @@ recomputed one. A few DERIVE rows compare values the trace does not hold; the se
 step 9 names them.
 
 It computes nothing itself: it hashes nothing, verifies no signature, walks no Merkle path
-and decodes no file. Every value it prints comes from the verifier: the report of
-`SPEC.md` section 10.5 and the trace of section 10.6. The cells only choose a proof, run the
-verifier and print what it gives. A test in `test/walkthrough_test.exs` runs every cell but
-the first, whose `Mix.install` its own project already satisfies. It fails if a cell hashes,
-signs, verifies or decodes anything of its own, or names a module that only the tests have.
+and decodes no file. Every value it prints comes from the verifier, from the report of
+`SPEC.md` section 10.5 and the trace of section 10.6, but one: in the section "Change one
+declared value", a cell changes the last digit of one declared value in memory and prints
+the value it made, and the code cell under "The edited proof, as a verifier meets it" runs
+the verifier on the proof with that change. Otherwise the cells only choose a proof, run the
+verifier and print what it gives. A test in
+`test/walkthrough_test.exs` runs every cell but the first, whose `Mix.install` its own
+project already satisfies. It fails if a cell hashes, signs, verifies or decodes anything of
+its own, or names a module that only the tests have.
 
 The run is offline, as every run of the reference verifier is (section 8.3). It reads no
 chain and no source, so it establishes no submission window. The section on steps 10 to 12
@@ -38,13 +42,14 @@ dependency, the Truestamp Merkle library, from GitHub.
 
 This cell picks the proof, and the configuration the verifier runs it under as
 `Truestamp.Verifier.Config` takes it. Step 0 of `SPEC.md` section 10.2, CONFIGURATION,
-fixes E_v, the network pins and the keyring before the file is read.
+fixes E_v, the verifier's environment (section 6.4), the network pins and the keyring
+before the file is read.
 
 The default is the sound item proof `vectors/positive/item.proof.json`. It was signed under
 the `test` environment by the key in `vectors/keyring.test.json`, so the run supplies that
 keyring (section 8.3), exactly as the conformance case `sound-item` does.
 
-To walk through another proof, change `proof_file`. Any file under `vectors/positive/`
+To walk through another proof, change `proof_file`. Any proof under `vectors/positive/`
 runs under this configuration: `beacon`, `beacon-empty`, `block`, `block-rotation`,
 `block-emergency-rotation`, `entropy_bitcoin`, `entropy_nist`, `entropy_stellar`, `item`,
 `item-genesis-witness` and `item-rotation-witness`, each `<name>.proof.json`. Other
@@ -85,8 +90,9 @@ JSON Pointer of the member the row is about (`null` for a row about no single me
 `print_label` prints a report's label, its code, E_v (section 6.4 asks for a non-production
 E_v beside every verdict) and, in keyless mode, the words section 8.3 asks for beside every
 verdict. `no_derive` says which step ended a run whose trace is empty. Such a run always
-has a failed row: a run that passes steps 4 to 7 reaches DERIVE, which either gives the
-proof's `/block/block_hash` a trace row or fails with a fault (`internal_error`).
+has a failed row: a run that passes steps 4 to 7 either stops with a fault
+(`internal_error`) at POLICY or DERIVE, or gets through DERIVE, which gives the proof's
+`/block/block_hash` a trace row.
 
 ```elixir
 value_text = fn
@@ -172,13 +178,14 @@ end
 
 ## Run the verifier
 
-`Truestamp.Verifier.run_file/2` makes steps 0 to 14 over the file. A run that passes steps
-0 to 3 gives a run, and `Truestamp.Verifier.Report.report/1` writes it as the report of
-section 10.5, exactly what `mix truestamp.verify` prints. Anything else gives no report,
-and this cell stops with a message that says which:
+`Truestamp.Verifier.run_file/2` makes steps 0 to 14 over the file. When steps 0 to 3 pass,
+it gives `{:ok, run}`, a `Truestamp.Verifier.Run`, and `Truestamp.Verifier.Report.report/1`
+turns that into the report of section 10.5: the JSON document `mix truestamp.verify` writes
+to standard output when given the same options (its human summary goes to standard error).
+Anything else gives no report, and this cell stops with a message that says which:
 
 * a failure at steps 0 to 3 is a bare rejection (section 10.2, the gate);
-* a proof or keyring file that cannot be read is an input error outside verification
+* a proof or keyring file that cannot be read is a runtime error outside verification
   (section 12.2, exit code 1), not a step's failure.
 
 The verifier's third answer with no report, `{:fault, description}`, is a fault inside it
@@ -192,7 +199,7 @@ run =
       run
 
     {:error, {:unreadable, file, reason}} ->
-      raise "#{file} cannot be read (#{inspect(reason)}). That is an input error outside " <>
+      raise "#{file} cannot be read (#{inspect(reason)}). That is a runtime error outside " <>
               "verification, which gives no report (SPEC.md 12.2, exit code 1). Check the " <>
               "paths in the configuration cell."
 
@@ -224,18 +231,21 @@ print_label.(report)
 * **0 CONFIGURATION** fixes E_v, the network pins and the keyring that governs
   (sections 6.4, 8.3 and 9).
 * **1 READ** and **2 PARSE** apply the parsing rules J1 to J6 (section 10.1).
-* **3 ENVELOPE** checks that the file is exactly the envelope of section 3.1, and that the
-  bytes of the key K pass the key checks of section 6.2.
+* **3 ENVELOPE** checks that the parsed document is exactly the envelope of section 3.1,
+  however the file is formatted (section 10.1), and that the bytes of the key K pass the
+  checks of a key's bytes (section 6.2).
 * **4 ENVIRONMENT** compares the proof's `environment` with E_v (section 6.4).
 * **5 KEY_BINDING** looks for K's 32 octets in the keyring that governs (sections 6.1 and
   8.3).
-* **6 SIGNATURE** verifies the signature V under K over `proof_hash`, the SHA-256 of 0x50
-  and JCS of the proof (sections 6.1 and 6.2). The verifier computed that hash; the
-  notebook only shows its row.
+* **6 SIGNATURE** verifies the signature V under K over `proof_hash`,
+  SHA-256(0x50 || JCS(proof)): the SHA-256 of the byte 0x50 followed by the JCS of the proof
+  (sections 6.1 and 6.2). The verifier computed that hash; the notebook only shows its row.
 
 A failure at steps 4 to 6 ends the run: every later step up to EXPECTED_HASH is one row,
-`skip prior_failure`, with part null. The trust root and attribution say whose key signed
-the proof, as far as this run can tell (section 10.5).
+`skip prior_failure`, with part null. The attribution says whose key signed the proof, as
+far as this run can tell. The trust root says which keys governed key binding: their kind,
+the SHA-256 of the keyring's bytes and where the keys came from. In keyless mode those are
+`none`, null and null (section 10.5).
 
 ```elixir
 gate = ~w(CONFIGURATION READ PARSE ENVELOPE ENVIRONMENT KEY_BINDING SIGNATURE)
@@ -274,8 +284,12 @@ The trace of section 10.6 has one row for each DERIVE row whose part is a CHECKE
 other than the rows of LINK_HEAD, LINK_KEY_EVENT and LINK_CHAIN_ORDER. Each trace row names
 its construction (a row of section 7.3), its part, the declared value, the recomputed value,
 the inputs the check read, and its status. This cell prints every value the trace holds.
-`mix truestamp.verify FILE --trace TRACE` writes the same rows to TRACE, and
-`vectors/positive/<name>.trace.json` holds them for each sound proof.
+Run in `elixir/` with the options that match the configuration cell and `--trace TRACE`,
+`mix truestamp.verify` writes the same rows to the file TRACE. For the default proof that is
+`mix truestamp.verify ../vectors/positive/item.proof.json --environment test --keyring
+../vectors/keyring.test.json --trace TRACE`. With `--trace` alone it runs under E_v `prod`,
+where every proof under `vectors/positive/` fails `environment_mismatch` and TRACE holds an
+empty list. `vectors/positive/<name>.trace.json` holds these rows for each sound proof.
 
 `recomputed` holds what the check compares `declared` with, as its table defines it
 (section 10.6). For example:
@@ -304,9 +318,11 @@ end
 
 These DERIVE rows have no trace row:
 
-* LINK_HEAD, LINK_KEY_EVENT and LINK_CHAIN_ORDER (section 10.3). LINK_KEY_EVENT is
-  `info not_attributable` in a run not attributed to Truestamp (section 10.3, the
-  key-history rows).
+* LINK_HEAD, LINK_KEY_EVENT and LINK_CHAIN_ORDER (section 10.3). LINK_KEY_EVENT fails with
+  `key_event_mismatch` in every run when the key event at `/signing_key_event/block` does
+  not introduce K; otherwise, in a run not attributed to Truestamp, it is
+  `info not_attributable` (section 10.3, the key-history rows). It is not reported when the
+  proof carries no `signing_key_event`.
 * For each Bitcoin entry, the two checks of well-formedness of step 9 (d), at
   `raw_transaction` and at `txoutproof`, which compare no values.
 * For each Bitcoin entry, the two comparisons of step 9 (d) at the same two parts: the 32
@@ -334,7 +350,7 @@ The reference verifier makes no such read (section 8.3), so the external gate of
 10.2 is always closed. After a failure at steps 4 to 7, CHAIN and SOURCES are each one row,
 `skip prior_failure`, with part null, as every later step is (section 10.2).
 Otherwise each CHAIN and SOURCES row is `skip prior_failure` when a row before CHAIN failed,
-and `skip offline` when none did. When the gate opened, SHAPE passed and the proof carries
+and `skip offline` when none did. When SHAPE passed and the proof carries
 `signing_key_event`, CHAIN ends with KEY_EVENT_COMMITMENT (section 10.3), a row at
 `/signing_key_event`, skipped in the same way.
 
@@ -345,11 +361,13 @@ prior_failure` (section 11.3, rule 1). Otherwise, with no read, no candidate exi
 WINDOW gives `info window_not_established` (section 11.3). Either way the report's
 `submitted_after` and `submitted_before` are null, and the run establishes no submission
 window: neither the submitted-after edge nor the submitted-before edge. That is not a
-failure (section 11.3, "Absence never fails"); it is why the best label an offline run gives
-a sound production proof is `internally-consistent` (sections 8.3 and 10.5). A verifier that
-makes the reads, such as Truestamp's CLI, can draw both edges, but a block proof, a beacon
-whose `observations` is empty and an item with no entropy witness have no submitted-after
-edge (section 11.2).
+failure (section 11.3, "Absence never fails"); it is why an offline run ends
+`internally-consistent`, never `verified`, for a sound production proof signed by a key in
+the compiled pin (sections 8.3, 10.4 and 10.5). The pin holds no key yet, so for now the
+best label this verifier gives a sound production proof is `supplied-keyring`, under a
+keyring file that holds its key. A verifier that makes the reads, such as Truestamp's CLI,
+can draw both edges, but a block proof, a beacon whose `observations` is empty and an item
+with no entropy witness have no submitted-after edge (section 11.2).
 
 When WINDOW is not skipped, its row lists, for each edge that does not exist, the rows that
 could have given it a candidate, or that none could.
@@ -388,8 +406,8 @@ part null. After a failure at the gate or at SHAPE, it is `skip prior_failure`, 
 later step is.
 
 **14 VERDICT** gives the label, the attribution and the window, and adds no row (section
-10.5). The label is the first of section 10.5's table that applies, and its meaning below
-is that table's own words. E_v is shown beside it (section 6.4).
+10.5). The label is the first of section 10.5's labels that applies, and its meaning below
+is in the words of that section's table of labels. E_v is shown beside it (section 6.4).
 
 ```elixir
 print_rows.(rows_of.(report, ~w(EXPECTED_HASH)))
@@ -411,7 +429,7 @@ meaning = %{
 }
 
 IO.puts("")
-IO.puts("Label        #{report["label"]}: #{meaning[report["label"]]} (SPEC.md 10.5)")
+IO.puts("Label        #{report["label"]} (SPEC.md 10.5): #{meaning[report["label"]]}")
 IO.puts("Environment  #{report["environment"]}")
 IO.puts("Attribution  #{report["attribution"]}")
 IO.puts("Verified     #{report["verified"]}")
@@ -435,10 +453,10 @@ result. That run never reaches DERIVE. The signature covers every member of the 
 (section 6.1), so a change to any member fails SIGNATURE, unless it changes `environment`,
 which ENVIRONMENT (step 4) checks before SIGNATURE (step 6). The edit here changes a 64-hex
 trace value, never `environment`, so its run fails SIGNATURE, and a failure at the gate
-ends the run before anything past `environment` is interpreted (section 10.2, the gate). A
-changed declared value can only reach DERIVE in a proof signed again after the change, and
-this notebook signs nothing. So the last cell runs the verifier on such a proof from
-`vectors/negative/`, which the generator changed and then signed again.
+ends the run before anything in the proof but `environment` is interpreted (section 10.2,
+the gate). A changed declared value can only reach DERIVE in a proof signed again after the
+change, and this notebook signs nothing. So the last cell runs the verifier on such a proof
+from `vectors/negative/`, which the generator changed and then signed again.
 
 The next cell picks the value to change, and changes its last digit. For an item, a block,
 a beacon or an `entropy_nist` proof, it picks by default the part whose value the last
@@ -448,8 +466,10 @@ when the proof's trace has that row, which a beacon whose `observations` is empt
 Otherwise it picks the first trace row whose declared value is 64 lowercase hex digits,
 `/block/block_hash` in every sound proof here, and the last cell's proof then changes
 another value. Either way, the failing row the last cell prints is the generator's change,
-not this cell's edit: the generator changed the sound proof in its own way and signed the
-result again.
+not this cell's edit: the generator took the sound proof
+`vectors/positive/<type>.proof.json` for the type the last cell prints (`item`, `block`,
+`beacon` or `entropy_nist`), which need not be the proof walked here, changed the first hex
+digit of the value, and signed the result again.
 
 To change another value, set `edited_part` to the part of a trace row above whose declared
 value is 64 lowercase hex digits, such as `/subject/item_hash` in an item proof or
@@ -462,7 +482,7 @@ values, and refuses any other part with a message that says so.
 edited_part = nil
 
 # For each type that has one, the declared-value vector the last cell runs and the part
-# whose value it changes. Any other type takes the item's vector.
+# whose value it changes. Any other type, or none, takes the item's vector.
 declared_vectors = %{
   "item" => {"declared-item_hash", "/subject/item_hash"},
   "block" => {"declared-block_hash-block", "/block/block_hash"},
@@ -549,26 +569,36 @@ end
 
 ### A declared value changed and signed again
 
-Each of the four `declared-*` files this cell can run is a sound proof with one declared
-value changed, which the generator then signed again with the test key. `SPEC.md` section
-13.3 calls such a file a single-defect case: it changes a sound proof, adjusts every other
-value so that no other check fails, and signs the result again with its key. For these
-four, its Declared values class says the changed value fails `derivation_mismatch` at its
-own pointer.
+Each of the four `declared-*` files this cell can run is a copy of the sound proof of its
+type, `vectors/positive/<type>.proof.json` for `item`, `block`, `beacon` or `entropy_nist`,
+with one declared value changed, which the generator then signed again with VECTOR_KEY, the
+one key of `vectors/keyring.test.json` (sections 9 and 13.2). Each is the proof of a
+single-defect case of `SPEC.md` section 13.3, the case whose id is the file's name without
+`.proof.json`: such a case changes a sound proof, adjusts every other value so that no
+other check fails, and signs the result again with its key. For these four, the Declared
+values class of section 13.3 says the changed value fails `derivation_mismatch` at its own
+pointer.
 
 This cell runs the one the edit cell picked for the proof's type:
 `declared-item_hash` for an item, `declared-block_hash-block` for a block,
 `declared-observation_hash-observation-nist` for a beacon and
-`declared-observation_hash-subject` for `entropy_nist`. For any other type it takes
-`declared-item_hash`. It runs the verifier on the file with `run_file`, under the
-configuration its case in `vectors/cases.json` gives: environment `test` and the keyring
-`vectors/keyring.test.json`.
+`declared-observation_hash-subject` for `entropy_nist`. For any other type, and for a run
+that failed at steps 4 to 7, whose report gives no type, it takes `declared-item_hash`. It
+runs the verifier on the file with `run_file`, under the configuration its case in
+`vectors/cases.json` gives: environment `test`, the keyring `test`
+(`vectors/keyring.test.json`), and the network pins of the `test` row of
+`spec/network-pins.json`, the default pins under E_v `test`, so the cell gives no
+`networks` option.
 
 The file passes the gate, SHAPE and POLICY. DERIVE fails at the changed value, and the
 failing trace row gives the declared value beside the recomputed one, which is the value
-the sound proof declares. A failure at DERIVE does not end the run, but it closes the
-external gate (section 10.2): CHAIN and SOURCES give `skip prior_failure`, WINDOW gives
-`skip prior_failure` (section 11.3), and the label is `failed`.
+that sound proof under `vectors/positive/` declares. When the proof walked above is another
+one, such as `block-rotation`, that value is not one this notebook showed earlier. A
+failure at DERIVE does not end the run. The external gate of section 10.2, closed in every
+run of this verifier, then makes each CHAIN and SOURCES row `skip prior_failure` in place of
+`skip offline`; a block proof has no SOURCES row. WINDOW gives `skip prior_failure`
+(section 11.3, rule 1), EXPECTED_HASH, given no hash, stays
+`skip expected_hash_not_checked`, and the label is `failed`.
 
 ```elixir
 vector_file = Path.join([repository, "vectors", "negative", vector_name <> ".proof.json"])

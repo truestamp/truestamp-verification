@@ -206,9 +206,9 @@ defmodule Truestamp.Verifier.WalkthroughTest do
                "Attribution  unattributed\n"
 
     assert output(outputs, "meaning = %{") =~
-             "Label        unattributed: " <>
+             "Label        unattributed (SPEC.md 10.5): " <>
                spec_meanings()["unattributed"] <>
-               " (SPEC.md 10.5)\nEnvironment  test\nAttribution  unattributed\n"
+               "\nEnvironment  test\nAttribution  unattributed\n"
 
     assert String.ends_with?(
              output(outputs, "meaning = %{"),
@@ -265,6 +265,7 @@ defmodule Truestamp.Verifier.WalkthroughTest do
 
     error = assert_raise RuntimeError, fn -> evaluate(proof_file: missing) end
     assert error.message =~ "#{missing} cannot be read (:enoent)"
+    assert error.message =~ "That is a runtime error outside verification"
     assert error.message =~ "(SPEC.md 12.2, exit code 1)"
     refute error.message =~ "10.2"
   end
@@ -484,7 +485,7 @@ defmodule Truestamp.Verifier.WalkthroughTest do
     assert printed_rows(expected_rows) == rows_of(rows, ~w(EXPECTED_HASH))
 
     assert verdict ==
-             "Label        #{label}: #{spec_meanings()[label]} (SPEC.md 10.5)\n" <>
+             "Label        #{label} (SPEC.md 10.5): #{spec_meanings()[label]}\n" <>
                "Environment  test\n" <>
                "Attribution  #{report["attribution"]}\n" <>
                "Verified     false\n" <>
