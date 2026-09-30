@@ -59,7 +59,10 @@ from the model:
   `agent-test/MANIFEST.sha256`;
 - the image, which brings Python and Claude Code, is pinned by digest in both environment
   files;
-- the packages are pinned by hash.
+- the packages are pinned by hash;
+- each sandbox, a session's and a judge's, has 4 CPUs and 4 GB, the `cpus` and `memory`
+  defaults of both environment files. The runner passes neither, and every recorded run
+  used them.
 
 To move to a newer image, change its digest in both files, run `task agent-test-smoke`, and
 let the summary record the new versions.
@@ -119,8 +122,10 @@ hold:
 - **The host's SSH agent.** `sbx` forwards it into every exec, outside the network policy,
   and its only switch, `ssh.agentForwardingEnabled`, is global. So every session and judged
   run unsets `SSH_AUTH_SOCK` first, and `smoke.py` checks that a session's shell finds no
-  agent. A script that set the variable again could still reach it; turning the global
-  setting off for the run closes that too.
+  agent. A script that set the variable again could still reach it. The recorded runs
+  leave the setting on, since the agent only signs and never gives out a key, and the
+  lockdown lets nothing out but Anthropic's two hosts. A run whose prompt or fixtures are not
+  this repository's own should turn it off first, which closes that too.
 - **The session's flags.** `sbx`'s built-in kit starts Claude Code with permissions
   bypassed. A session is started by hand instead, with the flags `smoke.py` shows:
   - `--safe-mode`, `--disable-slash-commands` and `--setting-sources ''`, so nothing of
