@@ -29,14 +29,16 @@ defmodule Generator.Cases.ItemCodes do
   The accepted rows hold the bare code; lowercase and mixed case; one hyphen, underscore or
   space at every place between the groups; separators at only some of those places, and
   different separators at different places; and `O`, `I` and `L` read as `0`, `1` and `1`,
-  in both cases. The refused rows hold, among others: a separator before the first symbol,
-  after the last, inside a group, and two together between groups; a tab, a line feed and a
-  carriage return, which section 3.9 does not let a reader ignore; a `U` in place of each of
-  the 32 symbols, each in a derive row's code; stray whitespace (a vertical tab, a form
-  feed, U+3000, U+2009, U+0085, a tab, a line feed) before the first symbol and after the
-  last, since common trim functions remove it; the Unicode dashes U+2010 to U+2015 and
-  U+2212 and the no-break spaces U+00A0 and U+202F between the groups; a value of 20
-  characters that would read with one character fewer; and values that are not UTF-8.
+  in both cases. The refused rows hold, among others: the code without the check's final m,
+  what a derivation that leaves it out gives for the handoff's first hash; a separator
+  before the first symbol, after the last, inside a group, and two together between groups;
+  a tab, a line feed and a carriage return, which section 3.9 does not let a reader ignore;
+  a `U` in place of each of the 32 symbols, each in a derive row's code; stray whitespace (a
+  vertical tab, a form feed, U+3000, U+2009, U+0085, a tab, a line feed) before the first
+  symbol and after the last, since common trim functions remove it; the Unicode dashes
+  U+2010 to U+2015 and U+2212 and the no-break spaces U+00A0 and U+202F between the groups;
+  a value of 20 characters that would read with one character fewer; and values that are not
+  UTF-8.
 
   The check reads the file back from the bytes about to be written: each group is present and
   not empty; every derive row's code is its hash's, and a row that names a proof has that
@@ -103,9 +105,13 @@ defmodule Generator.Cases.ItemCodes do
     "ol23456789abcde4"
   ]
 
+  # What the handoff says a derivation without the final m gives for its first hash.
+  @without_final_m "9WBPKNV7SCP87VZE"
+
   @required_refused [
                       "9WBUKNV7SCP87VZW",
                       "9WBPKNV7SCP87VZX",
+                      @without_final_m,
                       "9WBPKNV7SCP8V7ZW",
                       "9WBPKNV7SCP87VWZ",
                       "9WBPKNV7SCP87VZ",
@@ -149,9 +155,6 @@ defmodule Generator.Cases.ItemCodes do
     {String.duplicate("0", 64), "0000000000000000"},
     {String.duplicate("f", 64), "ZZZZZZZZZZZZZZZN"}
   ]
-
-  # What the handoff says a derivation without the final m gives for its first hash.
-  @without_final_m "9WBPKNV7SCP87VZE"
 
   @doc "The file, by its path, for `files` built so far, the sound proofs among them."
   def files(files), do: %{@path => FileForm.encode(value(files))}
@@ -259,6 +262,8 @@ defmodule Generator.Cases.ItemCodes do
         {"a U, which is not in the alphabet", "9WBUKNV7SCP87VZW"},
         {"a lowercase u", "9wbuknv7scp87vzw"},
         {"one wrong symbol, the check symbol", "9WBPKNV7SCP87VZX"},
+        {"the code without the check's final m: what a derivation that leaves out the final m " <>
+           "gives for the item_hash whose code is 9WBPKNV7SCP87VZW", @without_final_m},
         {"one wrong symbol, the first", "8WBPKNV7SCP87VZW"},
         {"two neighbours exchanged", "9WBPKNV7SCP8V7ZW"},
         {"two neighbours exchanged across the boundary of two groups of four",

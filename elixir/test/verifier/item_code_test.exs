@@ -78,7 +78,7 @@ defmodule Truestamp.Verifier.ItemCodeTest do
     test "holds derive, accepted and refused rows, each with the members 13.2 gives it" do
       assert @codes |> Map.keys() |> Enum.sort() == ~w(accepted derive refused)
 
-      assert Enum.map(~w(derive accepted refused), &length(@codes[&1])) == [10, 25, 98]
+      assert Enum.map(~w(derive accepted refused), &length(@codes[&1])) == [10, 25, 99]
 
       for row <- @codes["derive"] do
         assert Enum.sort(Map.keys(row) -- ["proof"]) == ~w(about item_code item_hash)

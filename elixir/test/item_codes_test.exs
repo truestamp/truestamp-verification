@@ -195,6 +195,8 @@ defmodule Truestamp.Verifier.ItemCodesTest do
   @required_refused [
     "9WBUKNV7SCP87VZW",
     "9WBPKNV7SCP87VZX",
+    # The code without the check's final m, for the first known answer's item_hash.
+    "9WBPKNV7SCP87VZE",
     "9WBPKNV7SCP8V7ZW",
     " 9WBPKNV7SCP87VZW",
     "9WBPKNV7SCP87VZW_",

@@ -195,6 +195,10 @@
       "input": "395742504b4e56375343503837565a58"
     },
     {
+      "about": "the code without the check's final m: what a derivation that leaves out the final m gives for the item_hash whose code is 9WBPKNV7SCP87VZW",
+      "input": "395742504b4e56375343503837565a45"
+    },
+    {
       "about": "one wrong symbol, the first",
       "input": "385742504b4e56375343503837565a57"
     },
