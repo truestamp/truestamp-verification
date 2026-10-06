@@ -1277,8 +1277,8 @@ Truestamp's own verifier is the one Truestamp runs on its servers, for its web p
 its APIs.
 
 - **Key chain.** Its trust root is its key chain (`key_chain`): the keys that the key events
-  of Truestamp's chain introduce, less the keys it has revoked, verified from a pinned
-  genesis key before it relies on any of them. Which key events it accepts is Truestamp's
+  of Truestamp's chain introduce, less the keys it has revoked, verified from its genesis
+  block's key before it relies on any of them. Which key events it accepts is Truestamp's
   own policy (section 3.3).
 - **Fails closed.** While its key chain is not verified, KEY_BINDING fails with
   `keyring_unavailable` for every proof. A K that is not in the key chain fails with
