@@ -98,6 +98,12 @@ under `elixir/` is an example to consult, not a source to translate.
   - Every offline case applies to every verifier. An online case applies only to a
     verifier that makes the chain and source reads of section 10.4; its answers are in a
     replay file under `vectors/corpus/replay/`.
+  - An online case can give a Stellar or Bitcoin network several sources, in its config's
+    `sources`, with a source policy; the replay's records of that network then name the
+    source that answers (section 13.2). Give each named source its own identity read and its
+    own reads, run each CHAIN and SOURCES row once per source as if it were the only one, and
+    combine the outcomes as section 10.4 says. A case without `sources` has one source per
+    network, which every policy treats alike.
   - Section 13.1 says what is compared. For a bare rejection: `code`, and `sub_reason`
     when the code has one. Otherwise: the `label` and every row as (code, part, status,
     step), in order, passes and skips included; for an online case, also each edge's

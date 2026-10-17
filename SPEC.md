@@ -1364,6 +1364,16 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   server (in the CLI, `--horizon URL`, `--esplora URL` and `--bitcoin-core URL`). Every
   Stellar and Bitcoin source's identity is checked before its first read (section 10.2,
   step 0). Regtest has no default. A verifier MUST NOT let a document select a source.
+- **Several sources for one network:** an operator MAY configure more than one source for a
+  Stellar or Bitcoin network, in an order, with a source policy, so that a cautious
+  verifier checks what it reads against more than one server. The policy is `first`,
+  `at_least n`, with n from 1 to the number of those sources, or `all`, which is
+  `at_least` the number of sources. A network with no such configuration has one source, as
+  above, under the policy `first`. Each source has its own identity read (section 10.2,
+  step 0), every CHAIN and SOURCES row that reads the network is made once for each source,
+  and section 10.4 combines their outcomes under the policy. Only the operator sets a
+  network's sources and its policy, and a verifier MUST NOT take either from the document.
+  NIST's Randomness Beacon is one source.
 - **Which pin a source serves:** a source serves every pin of its chain whose network its
   identity read shows. A source that gives its chain's production value serves the pins
   of that chain's production network, and one that does not serves the chain's other
@@ -1618,8 +1628,9 @@ A verifier makes exactly these load checks.
 
 In an online run, the verifier MUST confirm here, before the file is read, the network of
 every Stellar and Bitcoin source that serves a commitment pin or an entropy pin, whether a
-compiled-in default or one the operator pinned, against its chain's production value, read
-by the calls of section 10.4's informative table:
+compiled-in default or one the operator pinned, and each of a network's several sources
+(section 9) on its own, against its chain's production value, read by the calls of section
+10.4's informative table:
 
 - a Stellar source pinned to `public` MUST give the network passphrase
   `Public Global Stellar Network ; September 2015`;
@@ -1630,10 +1641,11 @@ by the calls of section 10.4's informative table:
   network's value is pinned.
 
 An identity read is always made live, to that source, and is never answered from a cache.
-An identity read that gets no usable answer (section 10.4) makes each row that source
-serves `skip source_unreachable`, and the verifier reads nothing else from that source. If
-a row before CHAIN fails, those rows are `skip prior_failure` instead, as the external
-gate below says.
+An identity read that gets no usable answer (section 10.4) makes that source's outcome
+`skip source_unreachable` for each row it serves, and the verifier reads nothing else from
+that source. With one source for the network, each such row is `skip source_unreachable`;
+with several, section 10.4 combines that outcome with the other sources'. If a row before
+CHAIN fails, those rows are `skip prior_failure` instead, as the external gate below says.
 
 Each of these is `configuration_error`:
 
@@ -1642,7 +1654,10 @@ Each of these is `configuration_error`:
   (section 6.4);
 - an online run that pins a network, as a commitment pin or an entropy pin, with neither a
   compiled-in default nor an operator-pinned source for it;
-- a source whose identity read gives a value the rules above forbid.
+- a source whose identity read gives a value the rules above forbid, whatever the source
+  policy and whatever the network's other sources give;
+- a source policy `at_least n` whose n is 0 or above the number of its network's sources
+  (section 9).
 
 It is a bare rejection with no verdict. A verifier that confirms a source's identity later
 than step 0 MUST give the output it would give had it confirmed it at step 0.
@@ -2044,18 +2059,20 @@ status and its code, as in `skip offline` (section 10.5).
 each Stellar and Bitcoin source has its identity confirmed at step 0, before the file is
 read (section 10.2):
 
-- for a commitment entry, the source of the verifier's commitment pin for that chain, and
-  for `genesis.bitcoin`, the source of its Bitcoin commitment pin;
-- for a Stellar or Bitcoin entropy object, the source of the verifier's entropy pin for
+- for a commitment entry, the sources of the verifier's commitment pin for that chain, and
+  for `genesis.bitcoin`, those of its Bitcoin commitment pin;
+- for a Stellar or Bitcoin entropy object, the sources of the verifier's entropy pin for
   that source, whose network can differ from the commitment pin of the same chain;
 - for a NIST entropy object, NIST's Randomness Beacon.
 
-POLICY has already compared every `network` member with these pins, so the verifier's pins
-decide which chain and network each read reaches, and nothing in the document does. A
-network name means the network of the source pinned for it: Bitcoin's `testnet` is
-whichever test network that source serves. No read checks who paid for a transaction
-(section 9 pins no account or address): the edges rest on the value the transaction holds,
-whoever sent it.
+A network has one source unless the operator gave it several (section 9), and the rules
+below are those of one source; with several, each source is read on its own and the
+outcomes are combined, as the paragraph on several sources says. POLICY has already
+compared every `network` member with these pins, so the verifier's pins decide which chain
+and network each read reaches, and nothing in the document does. A network name means the
+network of the sources pinned for it: Bitcoin's `testnet` is whichever test network they
+serve. No read checks who paid for a transaction (section 9 pins no account or address):
+the edges rest on the value the transaction holds, whoever sent it.
 
 **Answers.** A read has one of three outcomes:
 
@@ -2075,8 +2092,10 @@ the answer can no longer change: a read by hash, by Stellar ledger sequence or b
 pulse index. The best-chain Bitcoin block at a height g MAY come from a cache only if it was
 read while the source's tip was at least g + BITCOIN_FINALITY. The Stellar root, the
 Bitcoin tip and every identity read (section 10.2, step 0) are always read live. A verifier
-MAY use one answer for every row of a run that needs the same read. These rules apply alike
-on every network. A test network that resets can leave a cached answer stale; proofs on a
+MAY use one answer for every row of a run that needs the same read of the same source. Each
+source's answers are its own: an answer read from one source MUST NOT stand as another
+source's, whether from a cache or from a read of the same run. These rules apply alike on
+every network. A test network that resets can leave a cached answer stale; proofs on a
 test network are for testing only.
 
 **Stellar commitment entries.** For each entry at `/commitments/stellar` and
@@ -2149,6 +2168,47 @@ beacon proof.
   median time past is still a sound candidate, and a source that no longer holds it gives
   `skip not_held_by_source`, never a failure.
 
+**Several sources.** The rules above give a row's outcome from the answers of one source.
+When the network a row reads has several sources (section 9), the verifier makes the row's
+whole rule once for each source, as if that source were the only one: every read the rule
+makes goes to that source, and that source's own answers decide each branch, its root, its
+tip and the history it holds included. Sources legitimately differ on reads that move, such
+as a Bitcoin tip a block behind another source's, a later latest ledger, or a Horizon that
+keeps less history, so the verifier compares the sources' outcomes, never their reads. Each
+source's outcome is:
+
+- *conclusive*: `pass`, with its candidate when the row gives one, or `fail`, with
+  `chain_mismatch` or `entropy_mismatch`;
+- *inconclusive*: any skip (`source_unreachable`, `not_held_by_source`, `not_yet_indexed`
+  or `chain_not_final`). A source whose identity read got no usable answer is
+  `skip source_unreachable`, with no read (section 10.2, step 0).
+
+The source policy then gives the row's outcome:
+
+- Under `first`, the verifier asks the sources in their order, and the row is the first
+  conclusive outcome; it asks no source after that one. When no source is conclusive, the
+  row is the outcome that items 4 and 5 below give, with n = 1.
+- Under `at_least n`, and under `all`, which is `at_least` the number of sources, the
+  verifier asks every source, and the row is the first of these that applies:
+  1. one source passes and another fails, or two pass with candidates at different
+     instants (section 11.3): `skip sources_disagree`;
+  2. at least n sources pass: `pass`, with the candidate they share;
+  3. at least n sources fail: `fail`, with the row's code, `chain_mismatch` or
+     `entropy_mismatch`;
+  4. no source is conclusive, and every source skipped with the same code: `skip` with that
+     code;
+  5. otherwise: `skip sources_incomplete`.
+
+With one source, every policy gives that source's outcome, so a run with one source per
+network is the run the rules above describe. A source with no conclusive outcome, because it
+timed out, was rate-limited, could not be reached or does not hold the value, never
+disagrees: under `all`, one source that passes beside one that does not answer gives
+`skip sources_incomplete`, and of three sources, two that conflict beside one that times
+out give `skip sources_disagree`. A disagreement is a skip, never a failure (section 11.3).
+So under `all`, a faulty or hostile source can neither make a forged proof pass nor make a
+sound one fail: it can only keep the row from passing, and the row says why. Under
+`at_least n` with n of 2 or more, no one source can do either.
+
 **Rows.** CHAIN gives one row for each commitment entry and each `genesis.bitcoin`, and
 SOURCES one row for each entropy object, whether or not a read was made. Each row's part is
 the pointer of its entry or object, and the rows are in the order of section 10.2, CHAIN
@@ -2160,6 +2220,32 @@ no outcome for that answer, such as a candidate read or a read at a height the t
 leaves the row `skip not_held_by_source`, and its `values` name the read: absence is no
 contradiction (section 11.3). A row's `values` give what was read and, where there is one,
 its candidate.
+
+**What a row read.** When the external gate is open, each CHAIN and SOURCES row other than
+KEY_EVENT_COMMITMENT, from one source or from several, has these members in its `values`
+(section 10.5), beside any others:
+
+- `policy`: `first`, `at_least` or `all`;
+- `required`: the n of the policy, the number of conclusive outcomes it asks for: 1 under
+  `first`, and the number of sources under `all`;
+- `outcomes`: an array of one object for each source the row asked, in the order of the
+  network's sources, each `{cached, candidate, code, fetched_at, reads, source, status}`:
+  - `source`: the source, as the operator configured it;
+  - `status` and `code`: that source's outcome, with `code` absent exactly when `status` is
+    `pass`;
+  - `candidate`: `{basis, instant}` (section 11.5), present exactly when that source passed
+    with a candidate;
+  - `cached` and `fetched_at`: those of the read whose answer settled that source's
+    outcome: its candidate read when it has a candidate, and its identity read when it was
+    asked nothing else;
+  - `reads`: every read the rule made of that source, in the order made, each
+    `{answer, cached, fetched_at, read}`, with `read` and `answer` in the form of a replay
+    record (section 13.2);
+- `candidate`: the row's candidate, `{basis, instant}`, present exactly when the row passed
+  with one.
+
+Under `first`, a source after the one whose outcome the row took was not asked, and has no
+object in `outcomes`.
 
 **Offline.** In an offline run (section 10.2, the external gate), a verifier:
 
@@ -2236,7 +2322,9 @@ are exempt from the coverage rule below and from the KEY_EVENT_COMMITMENT rule o
   DERIVE the name of the constructions row that defines it. In DERIVE, a failed comparison
   also gives the recomputed value as section 10.6 defines it, marked as recomputed, even
   when the proof carries that value, such as a `tree_size`'s record `leaf_count`, a
-  handover's record `height`, an order link's bound, or K for LINK_KEY_EVENT.
+  handover's record `height`, an order link's bound, or K for LINK_KEY_EVENT. A CHAIN or
+  SOURCES row read online also gives the source policy and each source's outcome, as
+  section 10.4 says (what a row read).
 
 Section 10.2 fixes which rows a run reports, their parts and their order.
 
@@ -2384,7 +2472,9 @@ rows that passed for the top-level entries, `/commitments/stellar` and
 `/commitments/bitcoin`, and the edge is the earliest of them. Of two candidates at the same
 instant, the edge is the first in the order of their rows (section 10.2). The entries at
 `/signing_key_event/commitments` never give a candidate: they tell where the signing key
-came from, not when the subject was submitted.
+came from, not when the subject was submitted. A row whose network has several sources gives
+one candidate, the one the sources it counted share (section 10.4), and an edge drawn from it
+rests on each of them (section 11.5).
 
 | Chain | Candidate | `basis` | Stated assumption |
 |---|---|---|---|
@@ -2415,7 +2505,8 @@ and its report says so. The candidates come from the SOURCES rows that passed, f
 objects whose `entropy_hash` the verifier recomputed and matched, and which it read again
 from their source and found equal: an item's witnesses, an entropy proof's subject, and a
 beacon's observations. The edge is the latest of them. Of two candidates at the same
-instant, the edge is the first in the order of their rows (section 10.2).
+instant, the edge is the first in the order of their rows (section 10.2). As in section
+11.1, a row read from several sources gives the one candidate its counted sources share.
 
 | Source | Candidate | `basis` | Stated assumption |
 |---|---|---|---|
@@ -2463,9 +2554,11 @@ Instants compare exactly, at the precision each source gives: milliseconds for N
 for the time inside an id, and seconds for Stellar and Bitcoin.
 
 Absence never fails. An offline run, an unreachable source, history a source no longer
-holds, a pointer not yet indexed, or a Bitcoin tip below `height` + 10 leaves an edge
-absent, with its reason, and adds no failure. Only a contradiction fails: a read that
-differs from the proof (`chain_mismatch`, `entropy_mismatch`), or edges in the wrong order
+holds, a pointer not yet indexed, a Bitcoin tip below `height` + 10, sources that disagree
+(`sources_disagree`), or too few sources with a conclusive outcome (`sources_incomplete`)
+leaves an edge absent, with its reason, and adds no failure. Only a contradiction fails: a
+read that differs from the proof, from as many sources as the source policy asks for
+(`chain_mismatch`, `entropy_mismatch`, section 10.4), or edges in the wrong order
 (`window_inverted`).
 
 ### 11.4 Durability
@@ -2474,28 +2567,36 @@ A source can hold only part of a chain's history. The public Horizon that the St
 Development Foundation runs keeps about one year, so with default sources an older proof
 whose only top-level commitment entry is Stellar's reads `skip not_held_by_source`. Its
 window is not established, and it does not fail. A Horizon that keeps full history can still
-establish it, and so can a proof of the same subject that carries a Bitcoin entry.
+establish it, and so can a proof of the same subject that carries a Bitcoin entry. An
+operator can give the network a full-history Horizon after the default one, under the policy
+`first` (section 9), so that a row the first source does not hold is read from the second
+(section 10.4).
 
 ### 11.5 Display
 
 - The report carries exactly two edge objects, `submitted_after` and `submitted_before`.
   Each is null, with its reason in the WINDOW row, or is
-  `{assumption, basis, cached, fetched_at, instant, part, source}`. Both are null when the
-  label is `failed` (section 10.5).
+  `{assumption, basis, cached, fetched_at, instant, part, source, sources}`. Both are null
+  when the label is `failed` (section 10.5).
   - `assumption`: the stated assumption of its row in section 11.1 or 11.2;
   - `basis`: `stellar_ledger_close_read`, `bitcoin_median_time_read` or
     `nist_pulse_time_read`;
   - `cached`, `fetched_at` and `source`: whether the answer of the read that gave the edge
-    came from a cache, when that read was made by the verifier's clock, and its source;
+    came from a cache, when that read was made by the verifier's clock, and its source; for
+    an edge that rests on several sources, those of the first in `sources`;
   - `instant`: the edge, an RFC 3339 UTC time at its source's precision, written as a TIME
     (section 2.4) for Stellar and Bitcoin and as a NISTTIME for NIST;
   - `part`: the part of the CHAIN or SOURCES row whose read gave the edge, the commitment
-    entry or entropy object.
+    entry or entropy object;
+  - `sources`: the sources the edge rests on, in the order of their network's sources, each
+    `{cached, fetched_at, source}` for its read that gave the candidate: the one source
+    whose outcome the row took under `first`, and under `at_least n` or `all` every source
+    that passed, at least n (section 10.4). With one source, it is that source alone.
 - Every surface MUST draw the edges only from these two objects, captioned "Submitted
   after" and "Submitted before", and MUST NOT show a window for a run whose label is
   `failed`.
-- "Read from <source> in this run" appears only when `cached` is false. Otherwise the edge
-  says "read from <source> at <fetched_at>".
+- The edge names each source in `sources`: "read from <source> in this run" when its
+  `cached` is false, and otherwise "read from <source> at <fetched_at>".
 - Every other time appears only under "Recorded by Truestamp, not confirmed in this run"
   when `attribution` is `truestamp`, or "Declared by the signer (not attributed to
   Truestamp)" otherwise, and never with a pass status or in an edge's place.
@@ -2529,15 +2630,19 @@ as compiled constants, with a test that they equal that file.
   those sections give them.
 - The run's code, which a report labelled `failed` carries (section 10.5), is chosen from
   its rows as section 10.2 says.
+- A CHAIN or SOURCES row read from several sources takes the code that section 10.4's
+  combination gives. Such a row fails only when as many sources as the policy asks for
+  failed, and skips with `source_unreachable`, `not_held_by_source`, `not_yet_indexed` or
+  `chain_not_final` only when every source it asked skipped with that code.
 - Conformance compares codes exactly (section 13). A message is for display only: it is
   never compared, and nothing depends on its wording.
 - The reasons Truestamp gives for declining to generate a proof are not reason codes.
 
-The table lists the codes in step order. 34 codes.
+The table lists the codes in step order. 36 codes.
 
 | Code | Step | Status | Meaning |
 |---|---|---|---|
-| `configuration_error` | CONFIGURATION | bare | a check of step 0 fails (section 10.2): a keyring file or configured keyring fails its load checks, a run whose environment is not `prod` is not keyless and has no keyring source (section 6.4), an online run pins a network it has no source for, or a source's identity read gives a value step 0 forbids |
+| `configuration_error` | CONFIGURATION | bare | a check of step 0 fails (section 10.2): a keyring file or configured keyring fails its load checks, a run whose environment is not `prod` is not keyless and has no keyring source (section 6.4), an online run pins a network it has no source for, a source's identity read gives a value step 0 forbids, or a source policy's n is 0 or above the number of its network's sources |
 | `input_too_large` | READ | bare | the file is over MAX_READ_OCTETS |
 | `malformed_json` | PARSE | bare | the file breaks a parsing rule of section 10.1; `sub_reason` names the rule |
 | `invalid_envelope` | ENVELOPE | bare | the document is not exactly the envelope of section 3.1: a member missing or extra, `alg` other than the pin, K or V off its class, or K failing the checks of a key's bytes (section 6.2); `sub_reason` names the first check of section 10.2, step 3, that fails |
@@ -2562,6 +2667,8 @@ The table lists the codes in step order. 34 codes.
 | `not_held_by_source` | CHAIN, SOURCES | skip | the source does not hold the value, and its absence is no contradiction |
 | `not_yet_indexed` | CHAIN, SOURCES | skip | the value lies beyond the source's indexed tip, or within STELLAR_INDEX_MARGIN of it |
 | `chain_not_final` | CHAIN | skip | the Bitcoin tip is below `height` + BITCOIN_FINALITY |
+| `sources_disagree` | CHAIN, SOURCES | skip | sources of one network that reached a conclusive outcome conflict: one passes and another fails, or two pass with candidates at different instants (section 10.4); a source with no conclusive outcome never counts, and a disagreement is no failure |
+| `sources_incomplete` | CHAIN, SOURCES | skip | no conclusive outcomes conflict, but fewer sources reached one than the source policy asks for, and the sources did not all skip with one code (section 10.4) |
 | `entropy_mismatch` | SOURCES | fail | the pulse, ledger or block read differs from the entropy object |
 | `window_not_established` | WINDOW | info | no submitted-before edge was drawn; `values` give the reason for each absent edge |
 | `window_inverted` | WINDOW | fail | the submitted-after edge is later than the submitted-before edge |
@@ -2660,7 +2767,7 @@ holds:
 
 | Member | Holds |
 |---|---|
-| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network, which the case's run takes in place of the default pins of section 9; `online`, OPTIONAL: the path of a replay file under `corpus/replay/` |
+| `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network, which the case's run takes in place of the default pins of section 9; `online`, OPTIONAL: the path of a replay file under `corpus/replay/`; `sources`, OPTIONAL, only beside `online`: the several sources of each Stellar or Bitcoin network the case pins that has them (section 9), `{<chain>: {<network>: {policy, required, sources}}}`, where `sources` holds the names of that network's sources in their order, one or more, each an ASCII16 and no two the same, `policy` is `first`, `at_least` or `all`, and `required`, the n of `at_least n`, an INT from 1 to the number of sources, is present exactly when `policy` is `at_least`; a network it does not name has one source, under the policy `first` |
 | `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges, `submitted_after` and `submitted_before`, each null or `{basis, instant}` (section 11.5) |
 | `id` | a name unique in the file |
 | `proof` | the path of its proof |
@@ -2670,10 +2777,11 @@ Every path a case holds is relative to `vectors/`.
 - A case without `online` runs with the verifier asked to be offline. An online case
   answers each read its replay file holds, of a chain, a source or a keyring, from that
   file in place of the network. The replay file stands as the operator-pinned source for
-  each chain and network it answers (below), so a case that pins such a network, `regtest`
-  included, has a source for it (section 10.2, step 0). An online case's replay holds the
-  identity read of every Stellar and Bitcoin network the case pins, except a case whose
-  point is a network with no source, which is regtest.
+  each chain and network it answers (below), or as each of the sources its `sources` names
+  for one, so a case that pins such a network, `regtest` included, has a source for it
+  (section 10.2, step 0). An online case's replay holds the identity read of every source of
+  every Stellar and Bitcoin network the case pins, except a case whose point is a network
+  with no source, which is regtest.
 - A case whose keyring is `unavailable` is online and runs under `prod`, on an unmarked
   proof signed by VECTOR_KEY. The verifier is given no keyring option, and the replay fails
   its default keyring read at www.truestamp.com: a failed read as section 8.3 defines it,
@@ -2690,10 +2798,13 @@ Every path a case holds is relative to `vectors/`.
   files on disk, fails on any file under `vectors/` it does not write and on any entry there
   that is neither a regular file nor a directory, and asserts that section 6.3's
   worked example equals `worked-example.json`. `--check` also runs the reference verifiers
-  in this repository over the offline cases of `cases.json` (section 13.1). The generator
-  also writes, and with `--check` compares, the files of the agent-sufficiency test under
-  `agent-test/` (section 7.4), whose digests `agent-test/MANIFEST.sha256` holds, not
-  `MANIFEST.sha256`.
+  in this repository over the offline cases of `cases.json` (section 13.1). Every run also
+  checks that each online case without `sources` gives its expected output again when each
+  Stellar and Bitcoin network it pins is given one named source, under each policy, with its
+  replay's records of that network naming it: one source behaves as no `sources` (section
+  10.4). The generator also writes, and with `--check` compares, the files of the
+  agent-sufficiency test under `agent-test/` (section 7.4), whose digests
+  `agent-test/MANIFEST.sha256` holds, not `MANIFEST.sha256`.
 
 **The corpus.** These are the files under `corpus/`. Each is in the canonical form of
 section 9, except the files under `jcs/`, which are their bytes:
@@ -2720,7 +2831,8 @@ witness, in `<what>.json`.
 **Replay files.** A replay file records answers at the level of a read, and nothing of any
 service's API: a verifier's test adapter answers each read the verifier makes from the file,
 in place of the network. The file is an object whose one member, `reads`, is an array of
-records `{answer, read}`, no two with the same `read`, in an order that carries no meaning.
+records `{answer, read}` and `{answer, read, source}`, no two with the same `read` and the
+same `source` or both without one, in an order that carries no meaning.
 
 - `read` names the read: `kind`; `network`, for a read of a Stellar or Bitcoin source; and
   the read's parameters, each spelled as the proof spells the value it comes from. A
@@ -2730,6 +2842,10 @@ records `{answer, read}`, no two with the same `read`, in an order that carries 
   `reason` is an ASCII128 that says why, such as an HTTP 429, and is informational only. A
   read of a source's identity, the Stellar root, the Bitcoin tip or the keyring is never
   `not_found`.
+- `source`, present in each record of a read of a Stellar or Bitcoin network that the case's
+  `sources` names and in no other record, is the name of the source that gives the answer,
+  one of that network's names there. A record without it answers for its network's one
+  source.
 - A found answer's `value` holds exactly the fields that sections 10.2, step 0, and 10.4
   use for its kind of read. One record answers every use of its read, so its value holds
   every field any use of that kind needs. The table gives each parameter and each field
@@ -2757,10 +2873,10 @@ records `{answer, read}`, no two with the same `read`, in an order that carries 
 - An online case gives a Bitcoin block's median time past only as the source's report of it,
   and a verifier under an online case takes it from the replay (section 10.4).
 - Every read of an online case is answered from its file, and the file stands as the
-  operator-pinned source for each Stellar or Bitcoin network whose identity read it holds.
-  It holds another read of a Stellar or Bitcoin network only when it holds that network's
-  identity read, found with a value section 10.2, step 0, allows, so a verifier that reads
-  past a failed identity read finds no answer.
+  operator-pinned source for each Stellar or Bitcoin network whose identity read it holds,
+  or as each named source whose identity read it holds. It holds another read of a source
+  only when it holds that source's identity read, found with a value section 10.2, step 0,
+  allows, so a verifier that reads past a failed identity read finds no answer.
 - Under an online case a verifier makes only the reads of sections 10.2, step 0, and 10.4,
   and need not make every read its replay holds.
 - A read the file does not hold has no answer: the test that makes it fails.
@@ -2833,8 +2949,9 @@ section 10 reports that check. Each class below says what its cases assert.
   10.2, step 0 (a repeated key, a wrong `key_id`, a small-order key, an extra member); and,
   online, a network pinned with no source for it (regtest, which its replay does not
   answer), a source pinned to `public` or `mainnet` whose identity read gives another value,
-  and a source pinned to another network whose identity read gives its chain's production
-  value.
+  a source pinned to another network whose identity read gives its chain's production
+  value, and, of two regtest sources, one whose identity read gives mainnet's block-0 hash
+  while the other's is allowed.
 - **ENVIRONMENT.** `environment_mismatch`: a proof marked `staging` under `prod`; a proof
   with no `environment` under `staging`; an `environment` of `prod`, `production`, `null`
   or a number; and, under `test`, a `test` marker with a `\n` escaped onto its end.
@@ -2983,6 +3100,23 @@ section 10 reports that check. Each class below says what its cases assert.
   uses are each an unreachable answer, and that an answer that shows a contradiction fails
   its row even when it lacks another field (section 10.4), are tested in each verifier's own
   tests, since a replay holds answers, not a service's exchanges (section 13.2).
+- **Several sources (section 10.4).** Online, with two or three sources for one network,
+  named in the case's `sources`, each answering from its own records of the replay. Under
+  `all`: every source passing alike, so that both edges rest on two sources; one source
+  passing and another failing, and two passing with candidates a second apart
+  (`sources_disagree`); one passing beside one that times out (`sources_incomplete`); of
+  three, two that conflict beside one that times out (`sources_disagree`); every source
+  failing (`chain_mismatch`); every Bitcoin tip below `height` (`not_yet_indexed`); Bitcoin
+  tips a block apart, both at least `height` + BITCOIN_FINALITY, which pass; and an entropy
+  ledger whose hash one source gives otherwise (`sources_disagree` at SOURCES). Under
+  `at_least 2` of three: two passing beside one unreachable, which passes, and two failing
+  beside one unreachable (`chain_mismatch`). Under `first`: a first source whose transaction
+  read is unreachable, one that keeps less history and does not hold the ledgers, and one
+  whose identity read is unreachable, each followed by a source that passes; a first source
+  that fails, which settles the row, beside a second whose replay holds only its identity
+  read; every source unreachable (`source_unreachable`); and a tip below `height` on the
+  first source and below `height` + BITCOIN_FINALITY on the second (`sources_incomplete`).
+  Every other online case has one source for each network.
 - **The window (section 11).** Online: both edges drawn, each case giving their instants
   and bases; the submitted-after edge later than the submitted-before edge
   (`window_inverted`), whose report, labelled `failed`, carries neither edge; the time in a

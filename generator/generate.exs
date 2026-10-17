@@ -59,11 +59,15 @@
 #      stop, fails nothing more than the knock-on failures it states; a trace a case names is
 #      the model's trace; every file under negative/ and corpus/replay/ belongs to a case, in
 #      its form, and holds bytes no other file under vectors/ holds; an online case's replay
-#      holds the identity read of each network the case pins, but for the one case whose
-#      `no_source` names regtest, an online configuration_error case has exactly one identity
-#      read step 0 refuses, and a case whose run makes a read its replay does not hold cannot
-#      be built; the codes of the online cases (lib/cases/online.exs) are codes only an online
-#      run reaches; and every reason code but internal_error has a case, each bare or fail
+#      holds the identity read of each source of each network the case pins, but for the one
+#      case whose `no_source` names regtest, a case's `sources` is in its form and its
+#      replay's records name a source exactly for the networks it names, an online
+#      configuration_error case has exactly one identity read step 0 refuses, and a case whose
+#      run makes a read its replay does not hold cannot be built; every online case without
+#      `sources` gives its expected output again with one named source for each network it
+#      pins, under each policy (SPEC.md 10.4); the codes of the online cases
+#      (lib/cases/online.exs and lib/cases/sources.exs) are codes only an online run reaches;
+#      and every reason code but internal_error has a case, each bare or fail
 #      code a single-defect case, and a code that lacks either fails. The run prints each
 #      code's line. Last, spec/network-pins.json holds SPEC.md 9's table of default network
 #      pins, a row for each E_v, its `prod` row the production networks and its `test` row
@@ -139,7 +143,8 @@ for file <-
       ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
                derive parse schema model_online model cases cases/sound cases/parse cases/front
                cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
-               cases/online real_bitcoin consistency vectors sound mutations spec_rows positive rederive worked_example
+               cases/online cases/sources real_bitcoin consistency vectors sound mutations
+               spec_rows positive rederive worked_example
                conformance agent_mutants agent_test recorder) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end

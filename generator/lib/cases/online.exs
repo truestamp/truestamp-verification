@@ -8,6 +8,8 @@ defmodule Generator.Cases.Online do
   online gates. Each has a replay file, `corpus/replay/<id>.json` in the form of SPEC.md 13.2
   (Generator.Replay), which answers every read the run makes and stands as the
   operator-pinned source for each Stellar and Bitcoin network whose identity read it holds.
+  Each network here has one source; the cases of several sources for one network are
+  Generator.Cases.Sources's.
 
   Unless a case says otherwise it runs under E_v `test` with the keyring `test`, pins regtest
   and testnet for every chain and source (Generator.Case.pins/0), and its proof is a sound

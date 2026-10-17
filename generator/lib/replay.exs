@@ -9,8 +9,13 @@ defmodule Generator.Replay do
   in the canonical form of SPEC.md 9. Its form, which validate/1 checks:
 
   - The file is an object whose one member, `reads`, is an array of records, each
-    `{answer, read}`, no two with the same `read`. The order carries no meaning; the
-    generator writes them by `kind`, then in the byte order of JCS(read).
+    `{answer, read}` or `{answer, read, source}`, no two with the same `read` and the same
+    `source` or both without one. The order carries no meaning; the generator writes them by
+    `kind`, then in the byte order of JCS(read), then by `source`, one without first.
+  - `source`, an ASCII16, names the one of a network's several sources (SPEC.md 9) that gives
+    the answer, and only a read of a Stellar or Bitcoin network has one. A network's records
+    either all name their source or none do; which networks name them, and with which names,
+    is the case's `sources` (Generator.Cases checks the two agree).
   - `read` names the read: `kind`, then `network` for a read of a Stellar or Bitcoin source,
     then the read's parameters, each as the proof spells the value it comes from. So a
     verifier finds its answer by building the same object and comparing values.
@@ -31,18 +36,20 @@ defmodule Generator.Replay do
     judge, and the `url` of a keyring read is `https://<host>/.well-known/keyring.json` for
     the host of the origin read from.
   - Every read of an online case is answered from its file, and the file stands as the
-    operator-pinned source for each Stellar or Bitcoin network whose identity read it holds.
-    Every other read of a Stellar or Bitcoin network is held only when the identity read of
-    that network is found with a value SPEC.md 10.2 step 0 allows for the network, so a
-    verifier that reads past a failed identity read finds no answer. A read the file does not
-    hold is not an answer: the test that runs the case fails. A verifier makes only the reads
-    of SPEC.md 10.2 step 0 and 10.4, and need not make every read the file holds.
+    operator-pinned source for each Stellar or Bitcoin network whose identity read it holds,
+    and as each named source whose identity read it holds. Every other read of a source is
+    held only when that source's identity read is found with a value SPEC.md 10.2 step 0
+    allows for the network, so a verifier that reads past a failed identity read finds no
+    answer. A read the file does not hold is not an answer: the test that runs the case
+    fails. A verifier makes only the reads of SPEC.md 10.2 step 0 and 10.4, and need not make
+    every read the file holds.
 
   The replay files are the online cases' (Generator.Cases.Online), each built from the model's
   sources (Generator.Replay.World), and the check holds every one to the form. Each run also
   builds, in memory, the replay of the sound item run online under the pins every sound proof
-  passes POLICY under (example/1), and holds each rule of the form to a mutant of it that the
-  rule refuses.
+  passes POLICY under (example/1), and the same replay with regtest's records answered by two
+  named sources (named_example/1), and holds each rule of the form to a mutant of one of them
+  that the rule refuses.
   """
 
   import Generator.Check
@@ -107,13 +114,28 @@ defmodule Generator.Replay do
     %{"bitcoin" => hash, "stellar" => passphrase}
   end
 
-  @doc "A record: the read `{kind, parameters}` and its answer."
-  def record(kind, parameters, answer),
+  @doc """
+  A record: the read `{kind, parameters}` and its answer, and the name of the source that gives
+  it, or nil for a network's one source.
+  """
+  def record(kind, parameters, answer, source \\ nil)
+
+  def record(kind, parameters, answer, nil),
     do: %{"answer" => answer, "read" => Map.put(parameters, "kind", kind)}
 
-  @doc "A replay file's value, its records by kind, then in the byte order of JCS(read)."
-  def file(records),
-    do: %{"reads" => Enum.sort_by(records, &{&1["read"]["kind"], JCS.encode(&1["read"])})}
+  def record(kind, parameters, answer, source),
+    do: Map.put(record(kind, parameters, answer, nil), "source", source)
+
+  @doc """
+  A replay file's value, its records by kind, then in the byte order of JCS(read), then by
+  source, a record without one first.
+  """
+  def file(records) do
+    %{
+      "reads" =>
+        Enum.sort_by(records, &{&1["read"]["kind"], JCS.encode(&1["read"]), &1["source"] || ""})
+    }
+  end
 
   # SPEC.md 13.2's table of the kinds of read.
 
@@ -229,6 +251,7 @@ defmodule Generator.Replay do
         List.flatten([
           Enum.map(records, fn {r, i} -> record_form("#{label}: record #{i}", r) end),
           unique(label, reads),
+          named(label, reads),
           sources(label, reads)
         ])
 
@@ -247,10 +270,14 @@ defmodule Generator.Replay do
   end
 
   defp record_form(label, %{"answer" => answer, "read" => %{"kind" => kind} = read} = record)
-       when map_size(record) == 2 do
+       when map_size(record) == 2 or (map_size(record) == 3 and is_map_key(record, "source")) do
     case Map.fetch(@kinds, kind) do
       {:ok, {chain, parameters, fields, outcomes}} ->
-        [read_form(label, read, chain, parameters), answer_form(label, answer, fields, outcomes)]
+        [
+          read_form(label, read, chain, parameters),
+          answer_form(label, answer, fields, outcomes),
+          source_form(label, record, chain)
+        ]
 
       :error ->
         ["#{label}: its read's kind #{inspect(kind)} is no kind of read"]
@@ -258,7 +285,17 @@ defmodule Generator.Replay do
   end
 
   defp record_form(label, _record),
-    do: ["#{label}: not an object of exactly answer and read, with read's kind"]
+    do: ["#{label}: not an object of answer and read, and source, with read's kind"]
+
+  # A record's source: none, or an ASCII16 on a read of a Stellar or Bitcoin network.
+  defp source_form(_label, record, _chain) when not is_map_key(record, "source"), do: []
+
+  defp source_form(label, %{"source" => source}, chain) do
+    [
+      truth("#{label}: its source is an ASCII16", valid?("ASCII16", source)),
+      truth("#{label}: it names a source, but reads no Stellar or Bitcoin network", chain != nil)
+    ]
+  end
 
   defp read_form(label, read, chain, parameters) do
     names = if chain, do: Map.put(parameters, "network", {:network, chain}), else: parameters
@@ -368,29 +405,53 @@ defmodule Generator.Replay do
   end
 
   defp unique(label, reads) do
-    keys = for %{"read" => read} <- reads, do: read
+    keys = for %{"read" => read} = record <- reads, do: {read, record["source"]}
 
-    for read <- Enum.uniq(keys -- Enum.uniq(keys)),
-        do: "#{label}: the read #{inspect(read)} is held more than once"
+    for {read, source} <- Enum.uniq(keys -- Enum.uniq(keys)),
+        do: "#{label}: the read #{inspect(read)}#{from(source)} is held more than once"
   end
 
-  # Each read of a Stellar or Bitcoin network other than its identity read is held only when
-  # the file holds that identity read, found with a value step 0 allows.
+  defp from(nil), do: ""
+  defp from(source), do: " from the source #{source}"
+
+  # A network's records all name their source, or none do.
+  defp named(label, reads) do
+    for {{chain, network}, sources} <-
+          Enum.group_by(reads, &network/1, &Map.has_key?(&1, "source")),
+        chain != nil,
+        length(Enum.uniq(sources)) == 2 do
+      "#{label}: some of its records of #{chain} #{network} name a source and some do not"
+    end
+  end
+
+  # The Stellar or Bitcoin network a record reads, `{chain, network}`, or `{nil, nil}`.
+  defp network(%{"read" => %{"kind" => kind} = read}) do
+    case Map.get(@kinds, kind) do
+      {chain, _parameters, _fields, _outcomes} when chain != nil -> {chain, read["network"]}
+      _none -> {nil, nil}
+    end
+  end
+
+  defp network(_record), do: {nil, nil}
+
+  # Each read of a source other than its identity read is held only when the file holds that
+  # source's identity read, found with a value step 0 allows.
   defp sources(label, reads) do
     identities =
-      for %{"read" => %{"kind" => kind, "network" => network}, "answer" => answer} <- reads,
+      for %{"read" => %{"kind" => kind, "network" => network}, "answer" => answer} = record <-
+            reads,
           kind in ~w(bitcoin_identity stellar_identity),
           into: %{},
-          do: {{String.replace_suffix(kind, "_identity", ""), network}, answer}
+          do: {{String.replace_suffix(kind, "_identity", ""), network, record["source"]}, answer}
 
-    for %{"read" => %{"kind" => kind, "network" => network}} <- reads,
+    for %{"read" => %{"kind" => kind, "network" => network}} = record <- reads,
         {chain, _parameters, _fields, _outcomes} = Map.get(@kinds, kind, {nil, nil, nil, nil}),
         chain != nil,
         not String.ends_with?(kind, "_identity"),
         uniq: true do
       source(
-        Map.get(identities, {chain, network}),
-        "#{label}: it holds a #{kind} read of #{chain} #{network}",
+        Map.get(identities, {chain, network, record["source"]}),
+        "#{label}: it holds a #{kind} read of #{chain} #{network}#{from(record["source"])}",
         {chain, network}
       )
     end
@@ -532,6 +593,23 @@ defmodule Generator.Replay do
     |> file()
   end
 
+  @doc """
+  example/1's replay with the records of regtest answered by two named sources, `a` and `b`,
+  each with the world's answers.
+  """
+  def named_example(files) do
+    %{"reads" => reads} = example(files)
+
+    reads |> Enum.flat_map(&name_regtest/1) |> file()
+  end
+
+  defp name_regtest(record) do
+    case network(record) do
+      {"bitcoin", "regtest"} -> for name <- ~w(a b), do: Map.put(record, "source", name)
+      _other -> [record]
+    end
+  end
+
   # The check.
 
   @doc """
@@ -541,6 +619,7 @@ defmodule Generator.Replay do
   """
   def check(files) do
     example = example(files)
+    named = named_example(files)
     spec_md = Spec.spec_md()
 
     renamed =
@@ -568,11 +647,12 @@ defmodule Generator.Replay do
         []
       ),
       validate(example, "the sound item's replay"),
+      validate(named, "the sound item's replay with two regtest sources"),
       for %{"read" => read, "answer" => answer} <- example["reads"],
           answer["outcome"] != "found" do
         "the sound item's replay: the model does not hold #{inspect(read)}"
       end,
-      Enum.map(mutants(example), fn {name, fragment, mutant} ->
+      Enum.map(mutants(example) ++ named_mutants(named), fn {name, fragment, mutant} ->
         failures = validate(mutant, "mutant")
 
         truth(
@@ -596,7 +676,7 @@ defmodule Generator.Replay do
     [
       {"a member beside reads", "not an object whose one member", Map.put(example, "note", "x")},
       {"reads that is not an array", "not an object whose one member", %{"reads" => %{}}},
-      {"a record with a third member", "not an object of exactly answer and read",
+      {"a record with a third member", "not an object of answer and read",
        edit.("bitcoin_tip", &Map.put(&1, "note", "x"))},
       {"a read of no kind", "is no kind of read",
        edit.("bitcoin_tip", &put_in(&1, ["read", "kind"], "bitcoin_mempool"))},
@@ -654,6 +734,39 @@ defmodule Generator.Replay do
        %{"reads" => [keyring_read("http://www.truestamp.com/.well-known/keyring.json") | reads]}},
       {"a keyring read at another path", "its read's url is not",
        %{"reads" => [keyring_read("https://www.truestamp.com/keyring.json") | reads]}}
+    ]
+  end
+
+  # A mutant of the named example for each rule of the form that concerns a record's source.
+  defp named_mutants(%{"reads" => reads} = named) do
+    named? = &(Map.get(&1, "source") == "b")
+    kind? = fn kind -> &(named?.(&1) and &1["read"]["kind"] == kind) end
+    at = fn match -> Enum.find_index(reads, match) end
+
+    edit = fn match, fun ->
+      %{named | "reads" => List.update_at(reads, at.(match), fun)}
+    end
+
+    nist = Enum.find(reads, &(&1["read"]["kind"] == "nist_pulse"))
+
+    [
+      {"a source that is no ASCII16", "its source is an ASCII16",
+       edit.(kind?.("bitcoin_tip"), &Map.put(&1, "source", String.duplicate("b", 17)))},
+      {"a source on a NIST read", "reads no Stellar or Bitcoin network",
+       %{named | "reads" => [Map.put(nist, "source", "a") | reads -- [nist]]}},
+      {"a read held twice for one source", "from the source b is held more than once",
+       %{named | "reads" => [Enum.find(reads, kind?.("bitcoin_tip")) | reads]}},
+      {"a network whose records name a source and do not", "name a source and some do not",
+       edit.(kind?.("bitcoin_tip"), &Map.delete(&1, "source"))},
+      {"a read of a named source without that source's identity read",
+       "but not that source's identity read",
+       %{named | "reads" => Enum.reject(reads, kind?.("bitcoin_identity"))}},
+      {"reads of a named source whose identity read gives a value step 0 forbids",
+       "a value step 0 forbids",
+       edit.(
+         kind?.("bitcoin_identity"),
+         &put_in(&1, ["answer", "value", "hash"], production()["bitcoin"])
+       )}
     ]
   end
 

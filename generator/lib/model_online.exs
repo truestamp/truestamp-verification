@@ -10,16 +10,27 @@ defmodule Generator.Model.Online do
   verifier:
 
   - Step 0 (SPEC.md 10.2): for each Stellar and Bitcoin network the case pins, as a
-    commitment pin or an entropy pin, the source's identity read, every one of them made
-    (bad_identities/1). A value step 0 forbids is `configuration_error`, and so is regtest
-    with no identity read, since regtest has no default source. An identity read with no
-    usable answer makes each row that source serves `skip source_unreachable`, and nothing
-    else is read from it. Under E_v `prod` with no keyring option, the keyring read at
-    www.truestamp.com (keyring/1), which Generator.Model then loads: a read that does not give
-    a keyring passing the load checks, for any reason, binds no key.
+    commitment pin or an entropy pin, the identity read of each of its sources, every one of
+    them made (bad_identities/1). A network has the sources the case's `sources` names for it,
+    in their order, under its policy, and otherwise one source, the replay's records that
+    name none, under `first` (SPEC.md 9 and 13.2). A value step 0 forbids is
+    `configuration_error`, and so is regtest with no identity read, since regtest has no
+    default source, and so is a policy whose n is 0 or above the number of its sources. An
+    identity read with no usable answer makes that source `skip source_unreachable` for each
+    row it serves, and nothing else is read from it. Under E_v `prod` with no keyring option,
+    the keyring read at www.truestamp.com (keyring/1), which Generator.Model then loads: a
+    read that does not give a keyring passing the load checks, for any reason, binds no key.
   - CHAIN (step 10), by SPEC.md 10.4: each commitment entry, each `genesis.bitcoin`, and the
     status of KEY_EVENT_COMMITMENT from its inputs (SPEC.md 10.3). A top-level entry's row
     that passes carries its candidate for the submitted-before edge.
+  - Several sources (SPEC.md 10.4): each CHAIN and SOURCES row's rule made once for each source
+    of its network, as if that source were the only one, every read asked of that source, and
+    the outcomes combined under the network's policy (combine/2): under `first` the first
+    conclusive outcome, the later sources not asked; under `at_least n` and `all`, every source
+    asked, then a pass beside a fail or two candidates at different instants
+    `skip sources_disagree`, n passes a pass with their candidate, n fails a failure, every
+    source skipped with one code that skip, and otherwise `skip sources_incomplete`. With one
+    source, every policy gives that source's outcome.
   - SOURCES (step 11): each entropy object, whose row that passes carries its candidate for
     the submitted-after edge.
   - WINDOW (step 12), by SPEC.md 11: its row, the `info recorded_time_outside_window` row,
@@ -32,9 +43,10 @@ defmodule Generator.Model.Online do
   report of it (SPEC.md 10.4 and 13.2), formatted as TIME.
 
   The case cannot be built, and the model raises, when the run makes a read its replay does
-  not hold, since a verifier making that read finds no answer (SPEC.md 13.2), and when the
-  case pins a network other than regtest whose identity read the replay does not hold, since
-  a verifier would then read that network from a compiled-in default source.
+  not hold for the source it asks, since a verifier making that read finds no answer (SPEC.md
+  13.2), and when the case pins a network other than regtest whose identity read the replay
+  does not hold, since a verifier would then read that network from a compiled-in default
+  source.
   """
 
   alias Generator.{BitcoinParse, Bytes, JCS, Parse, Pointer, Registry, Spec}
@@ -44,7 +56,10 @@ defmodule Generator.Model.Online do
 
   @doc """
   The replay `config` names, read from `files`, with the case's pins, or nil for an offline
-  case: `%{path, answers, pins, sources}`, where `answers` maps each read to its answer.
+  case: `%{path, answers, pins, configured, sources}`, where `answers` maps each read, as
+  `{source, read}` with `source` the record's `source` or nil, to its answer, and
+  `configured` each network the case's `sources` names, `{chain, network}`, to its sources
+  and policy.
   """
   def replay(config, files) do
     case Map.fetch(config, "online") do
@@ -61,12 +76,36 @@ defmodule Generator.Model.Online do
 
         %{
           path: path,
-          answers: Map.new(records, &{&1["read"], &1["answer"]}),
+          answers: Map.new(records, &{{&1["source"], &1["read"]}, &1["answer"]}),
           pins: Map.fetch!(config, "networks"),
+          configured: configured(Map.get(config, "sources", %{})),
           sources: %{}
         }
     end
   end
+
+  # The networks a case's `sources` names, each `{chain, network}` with `%{names, policy,
+  # required}`, where `required` is the n of the policy: 1 under `first`, and the number of
+  # sources under `all` (SPEC.md 10.4).
+  defp configured(sources) do
+    for {chain, by_network} <- sources,
+        {network, %{"policy" => policy, "sources" => names} = set} <- by_network,
+        into: %{} do
+      required =
+        case policy do
+          "first" -> 1
+          "all" -> length(names)
+          "at_least" -> Map.fetch!(set, "required")
+        end
+
+      {{chain, network}, %{names: names, policy: policy, required: required}}
+    end
+  end
+
+  # The sources of `{chain, network}`: those the case names, or one, nil, the records that name
+  # none, under `first`.
+  defp set(online, network),
+    do: Map.get(online.configured, network, %{names: [nil], policy: "first", required: 1})
 
   # Step 0.
 
@@ -80,30 +119,44 @@ defmodule Generator.Model.Online do
   def sources(online) do
     states = identities(online)
 
-    if Enum.any?(states, &match?({_source, :error}, &1)),
+    unmet? =
+      Enum.any?(online.configured, fn {_network, %{names: names, required: n}} ->
+        n not in 1..length(names)//1
+      end)
+
+    if unmet? or Enum.any?(states, &match?({_source, :error}, &1)),
       do: :error,
       else: {:ok, %{online | sources: Map.new(states)}}
   end
 
   @doc """
-  Each pinned Stellar and Bitcoin network, `{chain, network}`, whose identity read step 0
-  refuses, in the order the model makes them: a value step 0 forbids, or regtest with no
-  identity read. Every pinned network's read is made, none stopping the others.
+  Each source of a pinned Stellar and Bitcoin network whose identity read step 0 refuses, in
+  the order the model makes them: a value step 0 forbids, or regtest with no identity read.
+  A network's one source is `{chain, network}`, and a source the case's `sources` names
+  `{chain, network, name}`. Every source's read is made, none stopping the others.
   """
   def bad_identities(online), do: for({source, :error} <- identities(online), do: source)
 
-  # Each pinned network's source and the state its identity read gives it.
+  # Each source of each pinned network and the state its identity read gives it.
   defp identities(%{pins: pins} = online) do
     for chain <- ~w(bitcoin stellar),
         network <- Enum.uniq([pins["commitment"][chain], pins["entropy"][chain]]),
         network != nil,
-        do: {{chain, network}, identity(online, {chain, network})}
+        name <- set(online, {chain, network}).names,
+        do: {key(chain, network, name), identity(online, {chain, network}, name)}
   end
 
-  defp identity(online, {chain, network}) do
+  # A source by its network and name: `{chain, network}` for a network's one source.
+  defp key(chain, network, nil), do: {chain, network}
+  defp key(chain, network, name), do: {chain, network, name}
+
+  defp state(online, chain, network, name),
+    do: Map.fetch!(online.sources, key(chain, network, name))
+
+  defp identity(online, {chain, network}, name) do
     read = %{"kind" => chain <> "_identity", "network" => network}
 
-    case Map.fetch(online.answers, read) do
+    case Map.fetch(online.answers, {name, read}) do
       {:ok, %{"outcome" => "found", "value" => value}} ->
         if allowed?(chain, network, value), do: :ok, else: :error
 
@@ -115,10 +168,14 @@ defmodule Generator.Model.Online do
 
       :error ->
         raise ArgumentError,
-              "#{online.path} holds no identity read of #{chain} #{network}, which its case " <>
-                "pins, so a verifier would read that network from a default source"
+              "#{online.path} holds no identity read of #{chain} #{network}#{named(name)}, " <>
+                "which its case pins, so a verifier would read that network from a default " <>
+                "source"
     end
   end
+
+  defp named(nil), do: ""
+  defp named(name), do: " from the source #{name}"
 
   # SPEC.md 10.2 step 0: a source pinned to a chain's production network gives that chain's
   # production value, and a source pinned to any other network does not.
@@ -164,7 +221,7 @@ defmodule Generator.Model.Online do
   which the load checks then judge, or `:failed` when it gives none.
   """
   def keyring(online) do
-    case ask(online, %{"kind" => "keyring", "url" => @keyring_url}) do
+    case answer(online, nil, %{"kind" => "keyring", "url" => @keyring_url}) do
       %{"outcome" => "found", "value" => %{"keyring" => keyring}} -> {:ok, JCS.encode(keyring)}
       _no_keyring -> :failed
     end
@@ -181,17 +238,17 @@ defmodule Generator.Model.Online do
         true -> {"stellar", &stellar/2}
       end
 
-    at = %{
-      online: online,
-      network: online.pins["commitment"][chain],
-      part: part,
-      top?: part in @top
-    }
+    network = online.pins["commitment"][chain]
+    entry = Pointer.get(proof, part)
 
-    case Map.fetch!(online.sources, {chain, at.network}) do
-      :unreachable -> skip("source_unreachable")
-      :ok -> read.(Pointer.get(proof, part), at)
-    end
+    combine(set(online, {chain, network}), fn name ->
+      at = %{online: online, network: network, part: part, top?: part in @top, source: name}
+
+      case state(online, chain, network, name) do
+        :unreachable -> skip("source_unreachable")
+        :ok -> read.(entry, at)
+      end
+    end)
   end
 
   # A Stellar commitment entry (SPEC.md 10.4).
@@ -202,7 +259,7 @@ defmodule Generator.Model.Online do
       "network" => at.network
     }
 
-    case ask(at.online, read) do
+    case ask(at, read) do
       %{"outcome" => "found", "value" => transaction} -> transaction(entry, transaction, at)
       %{"outcome" => "not_found"} -> no_transaction(entry["ledger"], at)
       _unreachable -> skip("source_unreachable")
@@ -236,14 +293,14 @@ defmodule Generator.Model.Online do
   end
 
   defp root(at) do
-    case ask(at.online, %{"kind" => "stellar_root", "network" => at.network}) do
+    case ask(at, %{"kind" => "stellar_root", "network" => at.network}) do
       %{"outcome" => "found", "value" => root} -> {:ok, root}
       _unreachable -> skip("source_unreachable")
     end
   end
 
   defp held_ledger(ledger, at) do
-    case ask(at.online, ledger(at.network, ledger)) do
+    case ask(at, ledger(at.network, ledger)) do
       %{"outcome" => "found"} -> fail("chain_mismatch")
       %{"outcome" => "not_found"} -> skip("not_held_by_source")
       _unreachable -> skip("source_unreachable")
@@ -277,7 +334,7 @@ defmodule Generator.Model.Online do
 
   # Items 1 to 3 of the Bitcoin rule: the tip, then the best-chain block at `height`.
   defp best_chain(height, at) do
-    case ask(at.online, %{"kind" => "bitcoin_tip", "network" => at.network}) do
+    case ask(at, %{"kind" => "bitcoin_tip", "network" => at.network}) do
       %{"outcome" => "found", "value" => %{"height" => tip}} -> covered(height, tip, at)
       _unreachable -> skip("source_unreachable")
     end
@@ -290,7 +347,7 @@ defmodule Generator.Model.Online do
   end
 
   defp block_at(height, at) do
-    case ask(at.online, at_height(at.network, height)) do
+    case ask(at, at_height(at.network, height)) do
       %{"outcome" => "found", "value" => block} -> {:ok, block}
       %{"outcome" => "not_found"} -> skip("not_held_by_source")
       _unreachable -> skip("source_unreachable")
@@ -300,7 +357,7 @@ defmodule Generator.Model.Online do
   # The read of a top-level entry's candidate: a read that answers not found leaves the row
   # `skip not_held_by_source` (SPEC.md 10.4, Rows).
   defp candidate(read, at, edge) do
-    case ask(at.online, read) do
+    case ask(at, read) do
       %{"outcome" => "found", "value" => value} -> pass(Map.put(edge.(value), :part, at.part))
       %{"outcome" => "not_found"} -> skip("not_held_by_source")
       _unreachable -> skip("source_unreachable")
@@ -333,12 +390,74 @@ defmodule Generator.Model.Online do
   @doc "The outcome of the SOURCES row at `part`, an entropy object."
   def source(proof, part, online) do
     %{"payload" => payload, "source" => source} = Pointer.get(proof, part)
-    at = %{online: online, network: online.pins["entropy"][source], part: part}
+    network = online.pins["entropy"][source]
 
-    if source != "nist" and Map.fetch!(online.sources, {source, at.network}) == :unreachable,
-      do: skip("source_unreachable"),
-      else: entropy(source, payload, at)
+    # NIST's Randomness Beacon is one source (SPEC.md 9).
+    sources =
+      if source == "nist",
+        do: %{names: [nil], policy: "first", required: 1},
+        else: set(online, {source, network})
+
+    combine(sources, fn name ->
+      at = %{online: online, network: network, part: part, source: name}
+
+      if source != "nist" and state(online, source, network, name) == :unreachable,
+        do: skip("source_unreachable"),
+        else: entropy(source, payload, at)
+    end)
   end
+
+  # Several sources (SPEC.md 10.4): the row's outcome from each source's, `outcome.(name)`,
+  # under the network's policy. Under `first` the sources are asked in order until one is
+  # conclusive, and no later one is asked; under `at_least n` and `all` every source is asked.
+  defp combine(%{policy: "first", names: names}, outcome) do
+    names
+    |> Enum.reduce_while([], fn name, skipped ->
+      case outcome.(name) do
+        {status, _code, _candidate} = conclusive when status in ~w(pass fail) ->
+          {:halt, conclusive}
+
+        skip ->
+          {:cont, [skip | skipped]}
+      end
+    end)
+    |> case do
+      skipped when is_list(skipped) -> inconclusive(skipped)
+      conclusive -> conclusive
+    end
+  end
+
+  defp combine(%{names: names, required: n}, outcome) do
+    outcomes = Enum.map(names, outcome)
+    passes = for {"pass", _code, _candidate} = pass <- outcomes, do: pass
+    fails = for {"fail", _code, _candidate} = fail <- outcomes, do: fail
+
+    cond do
+      disagree?(passes, fails) -> skip("sources_disagree")
+      length(passes) >= n -> hd(passes)
+      length(fails) >= n -> hd(fails)
+      passes == [] and fails == [] -> inconclusive(outcomes)
+      true -> skip("sources_incomplete")
+    end
+  end
+
+  # Item 1: a pass beside a fail, or two passes with candidates at different instants.
+  defp disagree?([_pass | _passes], [_fail | _fails]), do: true
+
+  defp disagree?(passes, _fails),
+    do: passes |> Enum.map(&instant/1) |> Enum.uniq() |> length() > 1
+
+  # No source conclusive: the skip every source gave, or `skip sources_incomplete` when they
+  # skipped with different codes.
+  defp inconclusive(skips) do
+    case Enum.uniq(for {"skip", code, _candidate} <- skips, do: code) do
+      [code] -> skip(code)
+      _codes -> skip("sources_incomplete")
+    end
+  end
+
+  defp instant({_status, _code, nil}), do: nil
+  defp instant({_status, _code, candidate}), do: ms(candidate)
 
   defp entropy("nist", %{"pulse" => pulse}, at) do
     read = %{
@@ -373,7 +492,7 @@ defmodule Generator.Model.Online do
   end
 
   defp compare(read, at, {equal?, edge}, absent) do
-    case ask(at.online, read) do
+    case ask(at, read) do
       %{"outcome" => "found", "value" => value} ->
         if equal?.(value),
           do: pass(Map.put(edge.(value), :part, at.part)),
@@ -463,15 +582,18 @@ defmodule Generator.Model.Online do
   defp at_height(network, height),
     do: %{"height" => height, "kind" => "bitcoin_block_at_height", "network" => network}
 
-  # The answer the replay gives the read, which it must hold.
-  defp ask(online, read) do
-    case Map.fetch(online.answers, read) do
+  # The answer the replay gives the read from the source of `at`, which it must hold.
+  defp ask(%{online: online, source: name}, read), do: answer(online, name, read)
+
+  defp answer(online, name, read) do
+    case Map.fetch(online.answers, {name, read}) do
       {:ok, answer} ->
         answer
 
       :error ->
         raise ArgumentError,
-              "#{online.path} holds no answer to #{inspect(read)}, a read its case makes"
+              "#{online.path} holds no answer to #{inspect(read)}#{named(name)}, a read its " <>
+                "case makes"
     end
   end
 
