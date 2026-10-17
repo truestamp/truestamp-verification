@@ -85,7 +85,7 @@ consult, not a source to translate.
   - `vectors/corpus/`: JCS under `jcs/`, `ed25519.json`, `base64url.json`, and real
     Bitcoin transactions and merkleblocks under `bitcoin/`;
   - the Merkle tree of section 5, whose known answers are `vectors/merkle.json` in
-    [truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir); this
+    [truestamp-merkle-ex](https://github.com/truestamp/truestamp-merkle-ex); this
     repository has none of its own;
   - the worked example of section 6.3, in `vectors/worked-example.json`;
   - the item code of section 3.9, in `vectors/item-codes.json`, if you build one.

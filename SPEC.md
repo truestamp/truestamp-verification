@@ -496,7 +496,7 @@ includes, and an epoch's tree holds the `block_hash` of each block it covers. Tr
 never commits a tree of more than 2^32 leaves, so every leaf's path fits MAX_PATH_STEPS.
 
 Truestamp orders each tree's leaves by a key, byte-wise, as the library
-[truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir) does. A
+[truestamp-merkle-ex](https://github.com/truestamp/truestamp-merkle-ex) does. A
 verifier never needs the keys, because an inclusion proof carries the leaf's position. The
 library's `vectors/merkle.json` holds the tree's known answers, and this document does not
 copy them.

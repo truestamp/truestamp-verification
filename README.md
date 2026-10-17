@@ -78,7 +78,7 @@ of each will do; none of them requires a particular library.
 
 A Truestamp Merkle tree is RFC 9162 section 2.1's Merkle Tree Hash over entries sorted by
 key. It is the one construction with a Truestamp library, and using that library is
-optional: [truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir)
+optional: [truestamp-merkle-ex](https://github.com/truestamp/truestamp-merkle-ex)
 builds the trees, and its `vectors/merkle.json` holds their known answers. This repository
 keeps no Merkle vectors of its own: its one Merkle test, and the generator's known answers,
 borrow cases from that file and recompute them. `checks/` and the reference verifier each

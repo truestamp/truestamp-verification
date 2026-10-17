@@ -73,8 +73,8 @@ defmodule Generator.KnownAnswers do
     {"43143ff3c1cb0959", "1424953923781206.2"}
   ]
 
-  # The trees leaf-0 to leaf-8 of the Merkle library's vectors/merkle.json (truestamp-merkle-
-  # elixir at 2ba4a58089c2): the root over the leaf values SHA-256("leaf1") to
+  # The trees leaf-0 to leaf-8 of the Merkle library's vectors/merkle.json
+  # (truestamp-merkle-ex at 2ba4a58089c2): the root over the leaf values SHA-256("leaf1") to
   # SHA-256("leaf<n>"), for n from 0.
   @roots [
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
