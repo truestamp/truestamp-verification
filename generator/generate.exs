@@ -7,8 +7,7 @@
 #                                              # agent-test/
 #     elixir generator/generate.exs --check    # write nothing under vectors/ or agent-test/,
 #                                              # and fail unless each holds exactly the files
-#                                              # the first form writes and the reference
-#                                              # verifier passes every case
+#                                              # the first form writes
 #
 # The files: keyring.test.json and worked-example.json, and under positive/ the sound proofs
 # of SPEC.md 13.3, each <name>.proof.json in the served form of SPEC.md 3.1, with its trace,
@@ -115,31 +114,19 @@
 # Once every check holds, it builds the files of the agent-sufficiency test under agent-test/
 # (SPEC.md 7.4, lib/agent_test.exs): PROMPT.md, read from SPEC.md 7.4; the six base fixtures,
 # each with its keyring and its replay; every mutant of each of their proofs; runs.txt; and
-# under expected/ each run's lines, every line but the window lines from the reference
-# verifier, run as its own process (`mix truestamp.agent_lines` in elixir/), and the window
-# lines from the model run online under the run's replay. Its own checks (its lines against
-# the verifier's, the replay form, a window for each base proof and none for each mutant) must
-# hold too, or nothing is written. Both forms run the verifier for these lines. The generator
+# under expected/ each run's lines, every line but the window lines derived from the proof
+# and its keyring (lib/agent_test.exs), and the window lines from the model run online under
+# the run's replay. Its own checks (the replay form, a window for each base proof and none
+# for each mutant) must hold too, or nothing is written. The generator
 # owns fixtures/, mutants/ and expected/ under agent-test/, and PROMPT.md and runs.txt there;
 # check.exs, record.exs, selftest/ and results/ are written by hand.
 #
-# With --check, once it has compared the files, it runs the reference verifier, the library
-# Truestamp.Verify that elixir/mix.exs pins, over every case of vectors/cases.json (SPEC.md
-# 13.1 and 13.2), as its own process: `mix truestamp.conformance` in elixir/, which runs each
-# case with its full configuration, network pins included, each online case answered from
-# its replay file, and prints what 13.1 compares of each, the edges of an online case
-# included. The check fails on any case
-# whose output differs from cases.json, naming the case and the first row that differs, and
-# proves it can fail on hand-mutated copies of that output (lib/conformance.exs). Its closing
-# line says which kind of failure it met: vectors it cannot read, no usable output from the
-# verifier, output that differs, or a failure of its own self-test. Only --check runs it,
-# since it reads the files on disk, which the first form is about to replace. Running the
-# verifier can compile it under elixir/_build, but --check writes nothing under vectors/.
+# No verifier runs here. Each verifier, the reference verifier truestamp-verify-ex among
+# them, holds itself to these files in its own tests (SPEC.md 13.1).
 #
-# The generator shares no code with any verifier in this repository. It uses only Elixir,
-# :crypto, the data files under spec/ and its known answers under known_answers/, with its
-# own JSON reader, its own JCS and its own Merkle walk, so a defect in one cannot hide in
-# both.
+# The generator shares no code with any verifier. It uses only Elixir, :crypto, the data
+# files under spec/ and its known answers under known_answers/, with its own JSON reader, its
+# own JCS and its own Merkle walk, so a defect in one cannot hide in both.
 
 for file <-
       ~w(base binary64 ed25519 bitcoin regtest chain pointer edit proofs bitcoin_parse
@@ -147,11 +134,11 @@ for file <-
                cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
                cases/online cases/sources real_bitcoin consistency vectors sound mutations
                spec_rows positive rederive worked_example
-               conformance agent_mutants agent_test recorder) do
+               agent_mutants agent_test recorder) do
   Code.require_file("lib/#{file}.exs", __DIR__)
 end
 
-alias Generator.{AgentTest, Cases, Conformance, Consistency, Corpus, Files, KnownAnswers}
+alias Generator.{AgentTest, Cases, Consistency, Corpus, Files, KnownAnswers}
 alias Generator.{Cases.ItemCodes, RealBitcoin, Recorder, Rederive, Replay, Spec, Vectors}
 alias Generator.WorkedExample
 
@@ -195,8 +182,8 @@ end
 # SPEC.md 13.1's check of every code: each code covered, and in how many cases.
 Enum.each(coverage, &IO.puts/1)
 
-# The agent-sufficiency test's files under agent-test/ (SPEC.md 7.4), whose expected lines
-# the reference verifier gives, run as its own process.
+# The agent-sufficiency test's files under agent-test/ (SPEC.md 7.4), with the expected lines
+# the generator derives.
 {agent_files, agent_failures} = AgentTest.build(files)
 
 if agent_failures != [] do
@@ -290,15 +277,6 @@ case mode do
 
     Enum.each(stale ++ unreadable ++ stray, &IO.puts(:stderr, "generate: " <> &1))
 
-    # The reference verifier over every case, as the cases stand on disk.
-    {conformance, closing, summary} =
-      case Conformance.run(root) do
-        {:ok, summary} -> {[], nil, summary}
-        {kind, failures} -> {failures, Conformance.closing(kind), nil}
-      end
-
-    Enum.each(conformance, &IO.puts(:stderr, "generate: " <> &1))
-
     if stale != [] do
       IO.puts(
         :stderr,
@@ -322,11 +300,7 @@ case mode do
       )
     end
 
-    if closing, do: IO.puts(:stderr, closing)
-
-    if stale == [] and unreadable == [] and stray == [] and conformance == [] do
-      IO.puts(summary)
-
+    if stale == [] and unreadable == [] and stray == [] do
       IO.puts(
         "vectors/ and agent-test/ hold the #{map_size(files)} files the generator writes, " <>
           "and its checks pass."

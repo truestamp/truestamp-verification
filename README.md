@@ -19,8 +19,8 @@ verifier, or a library for verification, in almost any language, and prove that 
 against the conformance cases before anyone relies on it. The reference verifier is the
 worked example an agent consults where the text leaves it unsure: the Elixir library
 `Truestamp.Verify`, in [truestamp-verify-ex](https://github.com/truestamp/truestamp-verify-ex),
-which this repository's checks run from `elixir/`. Verifiers in Go and TypeScript will
-follow it. `AGENTS.md` tells an agent how to use, test and change the repository.
+whose own tests hold it to this repository's cases. This repository depends on no verifier.
+`AGENTS.md` tells an agent how to use, test and change the repository.
 
 A narrower form of the same aim is the agent-sufficiency test of `SPEC.md` section 7.4,
 under `agent-test/`: a fresh agent holding only one proof, its constructions text, a keyring
@@ -37,10 +37,10 @@ text.
 | `AGENTS.md` | Instructions for AI agents that use the repository to build a verifier or library, or change it. |
 | `spec/` | The data `SPEC.md` defines: the byte-prefix registry, constants, pattern classes, networks and the default network pins of each environment, value classes, small-order keys, the JSON Schema of a proof, the accepted constructions text under `spec/constructions/`, the reason and exit codes, the production keyring, which holds no key yet, and the public keys of the non-production environments. |
 | `vectors/` | The conformance vectors of `SPEC.md` section 13.2. Today: the worked example of section 6.3, the test keyring; under `positive/` the sound proofs of section 13.3, each `<name>.proof.json`, in the served form of section 3.1, with its trace `<name>.trace.json`, where `<name>` is the proof's type, or its type and a variant, such as `block-rotation`; `cases.json`, the cases of section 13.3, offline and online, each with its configuration and expected output; under `negative/` the files those cases need, `<id>.proof.json` and `<id>.keyring.json`, each named by the id of a case that uses it, though cases share files and each case names its files by path (section 13.2); and under `corpus/` known answers for JCS, Ed25519 and base64url, real Bitcoin transactions, merkleblocks and headers, each with where it came from and what a parser concludes from it, and under `corpus/replay/` the replay file of each online case, the answers to its chain, source and keyring reads, each record of a network the case gives several sources naming the source that answers; and `item-codes.json`, known answers for the item code of section 3.9, which are not conformance cases. |
-| `agent-test/` | The agent-sufficiency test of `SPEC.md` section 7.4, which tests the constructions text, not a verifier. The generator writes `PROMPT.md`, the prompt a session receives; under `fixtures/` the six base fixtures, each a directory a session receives whole (its proofs, `keyring.json` and `replay.json`, and for the reference-mode fixture the text); under `mutants/` the flawed copies of each proof; under `expected/` the lines each run must print, every line but the window lines from the reference verifier through `mix truestamp.agent_lines`, and the window lines from the generator's model run online under the run's replay; and `runs.txt`, each run with its files. By hand: `check.exs`, the harness, which runs a session's `verify.py` on every run of its fixture and compares its lines with `expected/` (`--self-test` holds the harness to `selftest/verify.py`, its own known-good script, which is not an answer key and which no session receives, and to flawed copies of it, one for each rule the mutants break); `record.exs`, the replay recorder for a run against a real proof, such as the staging rehearsal's; and, once the test has run, `results/<date>-<d>.md`. `MANIFEST.sha256` there, which `manifest.exs` writes, holds the SHA-256 of every file under `agent-test/` but `results/`. |
+| `agent-test/` | The agent-sufficiency test of `SPEC.md` section 7.4, which tests the constructions text, not a verifier. The generator writes `PROMPT.md`, the prompt a session receives; under `fixtures/` the six base fixtures, each a directory a session receives whole (its proofs, `keyring.json` and `replay.json`, and for the reference-mode fixture the text); under `mutants/` the flawed copies of each proof; under `expected/` the lines each run must print, which the generator derives itself, the window lines by its model run online under the run's replay; and `runs.txt`, each run with its files. By hand: `check.exs`, the harness, which runs a session's `verify.py` on every run of its fixture and compares its lines with `expected/` (`--self-test` holds the harness to `selftest/verify.py`, its own known-good script, which is not an answer key and which no session receives, and to flawed copies of it, one for each rule the mutants break); `record.exs`, the replay recorder for a run against a real proof, such as the staging rehearsal's; and, once the test has run, `results/<date>-<d>.md`. `MANIFEST.sha256` there, which `manifest.exs` writes, holds the SHA-256 of every file under `agent-test/` but `results/`. |
 | `MANIFEST.sha256` | The SHA-256 of every file under `spec/` and `vectors/`. |
-| `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors and the generated files under `agent-test/`, from the modules in `generator/lib/`, and with `--check` also runs the reference verifier over every case, the online ones answered from their replay files, as its own process through `mix truestamp.conformance`, and fails on any case whose output differs from `cases.json`, naming the case and the first row, member or edge that differs; and `manifest.exs` writes the two manifests, `MANIFEST.sha256` and `agent-test/MANIFEST.sha256`. `generator/known_answers/` holds known answers the generator's checks read, today `binary64.txt`, JSON numbers and their nearest binary64 values as Python's `float()` gives them, written by `binary64.py` beside it. |
-| `elixir/` | The Mix project that runs this repository's checks against the reference verifier, the library `Truestamp.Verify` of [truestamp-verify-ex](https://github.com/truestamp/truestamp-verify-ex), which `elixir/mix.exs` pins to a commit; after `task setup` its source is under `elixir/deps/truestamp_verify/`. It runs the library's three Mix tasks: `mix truestamp.verify`, the command of `SPEC.md` section 12.2; `mix truestamp.conformance CASES_JSON`, which runs every case of a file in the form of `vectors/cases.json` with its full configuration, network pins included, each online case answered from its replay file, and writes to standard output one JSON document, an array with an entry `{id, output}` for each case in the file's order, where `output` is what section 13.1 compares (a bare rejection's `code` and `sub_reason`, or the label and every row as `[code, part, status, step]`, with the trace rows but `inputs` for a case that names a trace, and an online case's two edges); and `mix truestamp.agent_lines RUNS_JSON`, which gives the lines of section 7.4 that the verifier computes for each proof a runs file names, and which the generator runs to write `agent-test/expected/`. Its aliases compile first with a quiet shell, so each task's standard output carries only its document, even on a run that compiles. Its tests tie `spec/` to `SPEC.md`; hold the library's compiled copy of `spec/` to this one, byte for byte (`test/spec_mirror_test.exs`); check the layout of `vectors/`, the manifests, the keyrings and the known answers of `vectors/item-codes.json`; check one case of the Merkle library; and, in two slow tests tagged `generator_check`, break a copy of the repository and require `generate.exs --check` to fail: `test/conformance_check_test.exs`, which breaks the verifier in the copy's `deps/`, and `test/generator_check_test.exs`, which breaks the files the generator checks. The verifier's own tests, its walkthrough notebook and its guides are in the library. |
+| `generator/` | The scripts that write derived files: `generate.exs` writes and checks the vectors and the generated files under `agent-test/`, from the modules in `generator/lib/`; and `manifest.exs` writes the two manifests, `MANIFEST.sha256` and `agent-test/MANIFEST.sha256`. `generator/known_answers/` holds known answers the generator's checks read, today `binary64.txt`, JSON numbers and their nearest binary64 values as Python's `float()` gives them, written by `binary64.py` beside it. |
+| `checks/` | The Mix project of this repository's tests. They tie `spec/` to `SPEC.md`; check the layout of `vectors/`, the manifests, the keyrings and the known answers of `vectors/item-codes.json`; hold one case of the Merkle library to RFC 9162; and, in a slow test tagged `generator_check`, break a copy of the repository and require `generate.exs --check` to fail. Its `.formatter.exs` and `.credo.exs` also cover the scripts in `generator/` and `agent-test/`. It depends on no verifier. |
 | `Taskfile.yml` | The checks, run with [Task](https://taskfile.dev). |
 | `.github/workflows/ci.yml` | The CI workflow, which runs `task check`. |
 
@@ -64,9 +64,6 @@ Stellar or Bitcoin network several sources under a source policy (`first`, `at_l
 source is read on its own and section 10.4 combines their outcomes, with `sources_disagree`
 when sources that answered conflict and `sources_incomplete` when too few answered.
 
-Still to come: the production key and the staging key; and verifiers in Go and TypeScript
-beside the Elixir reference.
-
 ## Standards and dependencies
 
 A verifier needs these standards and this repository's data: JSON (RFC 8259), the JSON
@@ -84,62 +81,40 @@ key. It is the one construction with a Truestamp library, and using that library
 optional: [truestamp-merkle-elixir](https://github.com/truestamp/truestamp-merkle-elixir)
 builds the trees, and its `vectors/merkle.json` holds their known answers. This repository
 keeps no Merkle vectors of its own: its one Merkle test, and the generator's known answers,
-borrow cases from that file and recompute them. The reference verifier depends on that
-library, pinned to a commit.
+borrow cases from that file and recompute them. `checks/` and the reference verifier each
+depend on that library, pinned to a commit.
 
 ## Setting up
 
 Clone the repository with git, and keep git installed: `task style` lists the files to
-check with `git ls-files`, and `task setup` fetches the reference verifier and the Merkle
-library with git, so a copy downloaded as a ZIP file does not pass `task check`.
+check with `git ls-files`, and `task setup` fetches the Merkle library with git, so a copy
+downloaded as a ZIP file does not pass `task check`.
 
-The reference verifier needs Elixir 1.19 or later; CI tests it on Elixir 1.19 with OTP 28
-and on Elixir 1.20 with OTP 29. `.tool-versions` pins the tools for local work: Erlang,
+The checks need Elixir 1.19 or later; CI runs them on Elixir 1.19 with OTP 28 and on Elixir
+1.20 with OTP 29. `.tool-versions` pins the tools for local work: Erlang,
 Elixir and [Task](https://taskfile.dev).
 With [mise](https://mise.jdx.dev) installed, run from the repository root, first to install the tools, with prebuilt Erlang only, then
-Hex, rebar and the verifier's dependencies:
+Hex, rebar and the dependencies of `checks/`:
 
     MISE_ERLANG_COMPILE=false mise install
     task setup
 
-`task setup` runs `mix deps.get` in `elixir/`, which fetches the reference verifier,
-truestamp-verify-ex, from GitHub at the commit `elixir/mix.exs` pins, the Merkle library at
-the commit the verifier pins, and credo. `task check` also needs `python3`, with its
+`task setup` runs `mix deps.get` in `checks/`, which fetches the Merkle library from GitHub
+at the commit `checks/mix.exs` pins, and credo. `task check` also needs `python3`, with its
 standard library only.
 
 ## Verifying a proof
 
-Run the reference verifier in `elixir/`:
+The reference verifier is [truestamp-verify-ex](https://github.com/truestamp/truestamp-verify-ex).
+In a checkout of it, `mix deps.get` fetches this repository's vectors into
+`deps/truestamp_verification`, and the command of `SPEC.md` section 12.2 verifies a proof:
 
-    mix truestamp.verify FILE [--keyring FILE | --no-keyring] [--environment NAME]
-                              [--expected-hash HEX] [--trace FILE]
+    mix truestamp.verify deps/truestamp_verification/vectors/positive/item.proof.json \
+      --environment test --keyring deps/truestamp_verification/vectors/keyring.test.json
 
-- `--environment NAME` is the environment the run accepts, `prod` by default (`SPEC.md`
-  section 6.4). A run under any other environment needs `--keyring` or `--no-keyring`.
-- `--keyring FILE` supplies a keyring, and `--no-keyring` runs keyless (section 8.3). With
-  neither, the production keyring compiled into the verifier governs; it holds no key yet.
-- `--expected-hash HEX` compares a hash you hold with the proof's `claims.hash` (section
-  10.2, step 13).
-- `--trace FILE` writes the trace of section 10.6 to FILE, in the form of
-  `vectors/positive/<name>.trace.json`.
-
-Standard output carries one JSON document, the report of section 10.5 or a bare rejection,
-and nothing on exit 1 or 2; standard error carries a summary for a person. The exit code is
-section 12.2's: 0 `verified`, 3 `failed`, 4 a bare rejection other than
-`configuration_error`, 5 `unattributed`, 6 `supplied-keyring`, 7 `internally-consistent`,
-8 `configuration_error`, 1 a bad command line or an unreadable input, and 2 a fault in the
-verifier that leaves no report. A fault the verifier catches later, from step 4
-(ENVIRONMENT) on, is a `failed` report with an `internal_error` row, and exits 3. Run this
-way, the verifier is offline: it reads no chain or source, so it establishes no submission
-window. Its `--online` option reads them, with Req, which this project leaves out; the
-library's guides describe online runs. For example, a sound vector:
-
-    cd elixir
-    mix truestamp.verify ../vectors/positive/item.proof.json --environment test \
-      --keyring ../vectors/keyring.test.json --trace /tmp/item.trace.json
-
-exits 6, `supplied-keyring`, and writes a trace equal to
-`vectors/positive/item.trace.json`. `mix help truestamp.verify` describes the command.
+That run exits 6, `supplied-keyring`, with the report of section 10.5 on standard output and
+a summary for a person on standard error. Its README describes every option, online runs
+included.
 
 ## Running the checks
 
@@ -151,14 +126,12 @@ the same gates:
 
 `task check` checks formatting and the house style (`task style`); runs the generator's
 check, which fails unless `vectors/` and the generated files under `agent-test/` are
-exactly what it writes, and runs the reference verifier over every case and for the agent
-test's expected lines; runs the agent-test harness's self-test; checks both
+exactly what it writes; runs the agent-test harness's self-test; checks both
 manifests; compiles with warnings as errors; runs credo in strict mode; refuses unused
-dependencies; and runs every test. Two slow tests, tagged `generator_check`, run the
+dependencies; and runs every test. A slow test, tagged `generator_check`, runs the
 generator's check on a broken copy of the repository; `task test -- --exclude
 generator_check` runs the rest. `task test` sets `ELIXIR_ERL_OPTIONS=+fnu`, so the VM reads
-file names as UTF-8 under any locale, as it does on macOS: on Linux, a test that runs the
-verifier under the C locale with a path that is not ASCII needs it.
+file names as UTF-8 under any locale, as it does on macOS.
 
 ## Conformance
 
@@ -172,9 +145,9 @@ digest to cite, and the second checks a copy of `spec/` and `vectors/`:
     shasum -a 256 -c MANIFEST.sha256
 
 The reference verifier's output for every case, to compare yours with, comes from this
-command in `elixir/`; `task check` compares it with `cases.json`:
+command in a checkout of truestamp-verify-ex, whose own tests compare it with `cases.json`:
 
-    MIX_ENV=test mix truestamp.conformance ../vectors/cases.json
+    MIX_ENV=test mix truestamp.conformance deps/truestamp_verification/vectors/cases.json
 
 ## The walkthrough
 
@@ -234,11 +207,11 @@ tested; section 7.4 says what a result names.
 
 `.github/workflows/ci.yml` runs on every push to `main`, every pull request, and on demand,
 on Ubuntu 24.04 with prebuilt Erlang only, in two jobs. Each runs `task setup` and fails if
-that changed `elixir/mix.lock`, which means the commit left the lock stale. One job, with
+that changed `checks/mix.lock`, which means the commit left the lock stale. One job, with
 the tools of `.tool-versions` (Elixir 1.20 on OTP 29), then runs `task check`. The other
 runs `task check` on Elixir 1.19.3 with OTP 28.1.1: 1.19 is the oldest minor release
-`elixir/mix.exs` allows, and 1.19.3 the version tested. Each job caches `elixir/deps` and
-`elixir/_build`, keyed on its own tool versions and `elixir/mix.lock`.
+`checks/mix.exs` allows, and 1.19.3 the version tested. Each job caches `checks/deps` and
+`checks/_build`, keyed on its own tool versions and `checks/mix.lock`.
 
 ## License
 

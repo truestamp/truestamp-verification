@@ -11,7 +11,6 @@ defmodule Truestamp.Verification.ItemCodesTest do
   import Bitwise
 
   alias Truestamp.Verification.Test.StrictJSON
-  alias Truestamp.Verify.{Hash, JSON}
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")
@@ -138,14 +137,16 @@ defmodule Truestamp.Verification.ItemCodesTest do
     end
   end
 
-  test "a derive row that names a proof holds that proof's recomputed item_hash, and every sound item proof has one" do
+  # A sound proof declares its subject's item_hash as its record's hash; every verifier's
+  # conformance tests recompute it, so this test takes the declared value.
+  test "a derive row that names a proof holds that sound proof's item_hash, and every sound item proof has one" do
     named =
       for %{"proof" => path, "item_hash" => hash} <- file()["derive"] do
-        {:ok, %{"proof" => proof}} =
-          @root |> Path.join("vectors/" <> path) |> File.read!() |> JSON.decode()
+        %{"proof" => proof} = StrictJSON.read_data!(Path.join(@root, "vectors/" <> path))
 
         assert proof["type"] == "item"
-        assert Hash.hash_hex(:item_hash, proof["subject"]["record"]) == hash, path
+        assert path =~ ~r{\Apositive/}, path
+        assert proof["subject"]["item_hash"] == hash, path
         path
       end
 

@@ -14,7 +14,7 @@ permissions:
 
 # Two jobs, one per tool set, each running every gate (task check): check on the tools
 # .tool-versions pins, and test-elixir-1-19 on Elixir 1.19.3 with OTP 28.1.1. Elixir 1.19 is
-# the oldest minor release elixir/mix.exs allows, and 1.19.3 the version tested.
+# the oldest minor release checks/mix.exs allows, and 1.19.3 the version tested.
 jobs:
   check:
     name: task check (.tool-versions)
@@ -22,8 +22,8 @@ jobs:
     # ubuntu-latest moves to a release it does not map.
     runs-on: ubuntu-24.04
     # A run with no cache installs the tools, fetches and compiles the dependencies, then runs
-    # every gate, the generator's whole check three times (once itself, once in each slow
-    # test). That took about 8 minutes on a 4-core Linux machine.
+    # every gate, the generator's whole check twice (once itself, once in the slow
+    # generator_check test). That took about 8 minutes on a 4-core Linux machine.
     timeout-minutes: 45
 
     env:
@@ -69,29 +69,26 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
-            elixir/deps
-            elixir/_build
-          key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('elixir/mix.lock') }}
+            checks/deps
+            checks/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-${{ hashFiles('checks/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-
 
       - name: Fetch the dependencies (task setup)
-        # Hex, rebar and the checks' dependencies: the reference verifier from GitHub at the
-        # commit elixir/mix.exs pins, the Merkle library at the commit the verifier pins, and
-        # credo.
+        # Hex, rebar and the dependencies of checks/: the Merkle library from GitHub at the
+        # commit checks/mix.exs pins, and credo.
         run: task setup
 
-      - name: Check that elixir/mix.lock is up to date
-        # task setup's mix deps.get rewrites a lock that no longer matches elixir/mix.exs, so
+      - name: Check that checks/mix.lock is up to date
+        # task setup's mix deps.get rewrites a lock that no longer matches checks/mix.exs, so
         # a change here means the commit left the lock stale.
-        run: git diff --exit-code -- elixir/mix.lock
+        run: git diff --exit-code -- checks/mix.lock
 
       - name: The gate (task check)
-        # Every gate, as run locally: formatting, house style, the generator's check (which
-        # also runs the reference verifier over every case and for the agent test's
-        # expected lines), the agent-test harness's self-test, both manifests, compile with
-        # warnings as errors, credo, unused dependencies, and every test, the slow
-        # generator_check ones included.
+        # Every gate, as run locally: formatting, house style, the generator's check, the
+        # agent-test harness's self-test, both manifests, compile with warnings as errors,
+        # credo, unused dependencies, and every test, the slow generator_check one included.
         run: task check
 
   test-elixir-1-19:
@@ -143,17 +140,17 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
-            elixir/deps
-            elixir/_build
-          key: ${{ runner.os }}-mix-erlang-${{ env.MISE_ERLANG_VERSION }}-elixir-${{ env.MISE_ELIXIR_VERSION }}-${{ hashFiles('elixir/mix.lock') }}
+            checks/deps
+            checks/_build
+          key: ${{ runner.os }}-mix-erlang-${{ env.MISE_ERLANG_VERSION }}-elixir-${{ env.MISE_ELIXIR_VERSION }}-${{ hashFiles('checks/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-erlang-${{ env.MISE_ERLANG_VERSION }}-elixir-${{ env.MISE_ELIXIR_VERSION }}-
 
       - name: Fetch the dependencies (task setup)
         run: task setup
 
-      - name: Check that elixir/mix.lock is up to date
-        run: git diff --exit-code -- elixir/mix.lock
+      - name: Check that checks/mix.lock is up to date
+        run: git diff --exit-code -- checks/mix.lock
 
       - name: The gate (task check)
         # Every gate, as in check.

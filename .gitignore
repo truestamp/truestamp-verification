@@ -1,4 +1,4 @@
-# Build output of every Mix project in the repository (elixir/ today).
+# Build output of every Mix project in the repository (checks/ today).
 _build/
 deps/
 cover/
@@ -12,4 +12,4 @@ __pycache__/
 
 # Scratch files.
 /tmp/
-/elixir/tmp/
+/checks/tmp/

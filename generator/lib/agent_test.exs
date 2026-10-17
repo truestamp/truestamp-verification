@@ -19,17 +19,15 @@ defmodule Generator.AgentTest do
   - `runs.txt`: each run, `<fixture>/<run> <proof> <keyring> <replay> [<constructions>]`,
     with every path relative to agent-test/, after a license comment.
 
-  The expected lines. Every line but the two window lines is the reference verifier's,
-  from `mix truestamp.agent_lines`, run as its own process (the generator shares no code with
-  the verifier), over a copy of the fixtures and mutants in a directory of its own. The two
-  window lines are the generator's: its model of the verification steps (Generator.Model)
-  run online under the run's replay, with the fixture's keyring, E_v `test` and the pins
-  every sound proof passes POLICY under, gives the edges, both null when the label is
-  `failed`.
+  The expected lines, every one the generator's own. Every line but the two window lines it
+  derives from the proof and the keyring (`own_lines/2`: its DERIVE engine's trace,
+  `proof_hash`, Verify, the keyring lookup and the marker). The two window lines come from
+  its model of the verification steps (Generator.Model) run online under the run's replay,
+  with the fixture's keyring, E_v `test` and the pins every sound proof passes POLICY under,
+  which gives the edges, both null when the label is `failed`. No verifier runs here: a
+  verifier's own tests hold its lines to these files.
 
-  The checks, whose failures stop the run before anything is written: the generator derives
-  every line but the window lines itself (its DERIVE engine's trace, `proof_hash`, Verify,
-  the keyring lookup and the marker) and they must equal the verifier's; every replay holds
+  The checks, whose failures stop the run before anything is written: every replay holds
   to the replay form (Generator.Replay); the model's run of each base proof passes with a
   submitted-before edge, and with a submitted-after edge unless the proof is a block proof,
   and its run of each mutant is `failed`; the reformatted fixture gives exactly the lines of
@@ -64,7 +62,6 @@ defmodule Generator.AgentTest do
   }
 
   @dir "agent-test"
-  @task "truestamp.agent_lines"
   @environment "test"
 
   # Each base fixture: its directory, its proofs by their names under vectors/positive/, and
@@ -93,8 +90,7 @@ defmodule Generator.AgentTest do
   @doc """
   `{files, failures}`: every file the generator writes under agent-test/, by its path from the
   root of the repository, built from `vectors`, the files under vectors/ by their paths, and
-  the failures of its checks. The expected lines need the reference verifier, which runs as
-  its own process; a run that cannot use it gives a failure and no files.
+  the failures of its checks.
   """
   def build(vectors) do
     sound = sound(vectors)
@@ -103,13 +99,15 @@ defmodule Generator.AgentTest do
     runs = Enum.flat_map(fixtures, & &1.runs)
     inputs = inputs(fixtures)
 
-    with {:ok, prompt} <- prompt(Spec.spec_md()),
-         {:ok, verifier} <- verifier_lines(inputs, runs) do
-      expected = Map.new(runs, &{&1.id, expected(&1, verifier, inputs)})
-      files = files(prompt, inputs, runs, expected)
-      {files, checks(fixtures, runs, verifier, inputs, expected)}
-    else
-      {:error, failure} -> {%{}, [failure]}
+    case prompt(Spec.spec_md()) do
+      {:ok, prompt} ->
+        derived = derived(inputs, runs)
+        expected = Map.new(runs, &{&1.id, expected(&1, derived, inputs)})
+        files = files(prompt, inputs, runs, expected)
+        {files, checks(fixtures, runs, derived, inputs, expected)}
+
+      {:error, failure} ->
+        {%{}, [failure]}
     end
   end
 
@@ -233,7 +231,7 @@ defmodule Generator.AgentTest do
   end
 
   # ---------------------------------------------------------------------------------------
-  # The files a run needs, the verifier's lines, and the expected lines
+  # The files a run needs, the lines derived, and the expected lines
 
   # Every input file under agent-test/: the fixtures' files, and each mutant's proof and
   # replay of its own.
@@ -257,90 +255,16 @@ defmodule Generator.AgentTest do
     proof ++ replay
   end
 
-  # The reference verifier's lines for every run, by id: its inputs written to a directory of
-  # their own, and `mix truestamp.agent_lines` run over them as its own process.
-  defp verifier_lines(inputs, runs) do
-    # The OS process id and random bytes, so no other run, in this VM or another, can hold it.
-    random = Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
-    dir = Path.join(System.tmp_dir!(), "truestamp-agent-test-#{System.pid()}-#{random}")
-
-    try do
-      for {path, bytes} <- inputs do
-        File.mkdir_p!(Path.dirname(Path.join(dir, path)))
-        File.write!(Path.join(dir, path), bytes)
-      end
-
-      list =
-        for run <- runs do
-          %{
-            "environment" => @environment,
-            "id" => run.id,
-            "keyring" => run.keyring,
-            "proof" => run.proof
-          }
-        end
-
-      File.write!(Path.join(dir, "runs.json"), JCS.encode(list))
-
-      with {:ok, stdout} <- command(Path.join(dir, "runs.json")),
-           {:ok, document} <- Parse.decode(stdout) |> described(),
-           do: entries(document, runs)
-    after
-      File.rm_rf!(dir)
-    end
-  end
-
-  # As Generator.Conformance runs the verifier: through sh, with standard input from
-  # /dev/null, so a Mix that asks a question reads end of file and exits.
-  defp command(runs_json) do
-    case System.find_executable("mix") do
-      nil ->
-        {:error, "agent-test: mix is not on PATH, so the reference verifier cannot run"}
-
-      mix ->
-        argv = ["-c", ~s(exec "$0" "$@" </dev/null), mix, @task, runs_json]
-        dir = Path.join(Spec.root(), "elixir")
-
-        case System.cmd("sh", argv, cd: dir, env: [{"MIX_ENV", "test"}]) do
-          {stdout, 0} ->
-            {:ok, stdout}
-
-          {_stdout, code} ->
-            {:error,
-             "agent-test: `mix #{@task}` in elixir/ exited #{code}, so the reference verifier " <>
-               "gave no lines; its standard error, above, says why (run `task setup` if its " <>
-               "dependencies are missing)"}
-        end
-    end
-  end
-
-  defp described({:ok, value}), do: {:ok, value}
-
-  defp described({:error, reason}),
-    do: {:error, "agent-test: `mix #{@task}` wrote no JSON document (#{reason})"}
-
-  defp entries(document, runs) when is_list(document) do
-    by_id = Map.new(document, &{&1["id"], &1})
-
-    Enum.reduce_while(runs, {:ok, %{}}, fn run, {:ok, acc} ->
-      case Map.get(by_id, run.id) do
-        %{"lines" => lines} when is_list(lines) ->
-          {:cont, {:ok, Map.put(acc, run.id, lines)}}
-
-        %{"error" => why} ->
-          {:halt, {:error, "agent-test: the reference verifier refused #{run.id}: #{why}"}}
-
-        _missing ->
-          {:halt, {:error, "agent-test: the reference verifier gave no lines for #{run.id}"}}
-      end
+  # The lines the generator derives for every run, by id, each once.
+  defp derived(inputs, runs) do
+    Map.new(runs, fn run ->
+      lines = own_lines(Map.fetch!(inputs, run.proof), Map.fetch!(inputs, run.keyring))
+      {run.id, Enum.uniq(lines)}
     end)
   end
 
-  defp entries(_document, _runs),
-    do: {:error, "agent-test: `mix #{@task}` wrote a document that is not an array"}
-
-  # A run's expected lines: the verifier's, and the model's window lines, sorted by bytes.
-  defp expected(run, verifier, inputs) do
+  # A run's expected lines: those it derives, and the model's window lines, sorted by bytes.
+  defp expected(run, derived, inputs) do
     report = model(run, inputs)
 
     window = [
@@ -348,7 +272,7 @@ defmodule Generator.AgentTest do
       "submitted_before " <> instant(report.submitted_before)
     ]
 
-    (Map.fetch!(verifier, run.id) ++ window) |> Enum.uniq() |> Enum.sort()
+    (Map.fetch!(derived, run.id) ++ window) |> Enum.uniq() |> Enum.sort()
   end
 
   defp instant(nil), do: "none"
@@ -433,35 +357,25 @@ defmodule Generator.AgentTest do
   # ---------------------------------------------------------------------------------------
   # The checks
 
-  defp checks(fixtures, runs, verifier, inputs, expected) do
+  defp checks(fixtures, runs, derived, inputs, expected) do
     by_id = Map.new(runs, &{&1.id, &1})
 
     List.flatten([
-      line_checks(runs, verifier, inputs, expected),
+      line_checks(runs, derived, expected),
       for {path, bytes} <- inputs, String.ends_with?(path, "replay.json") do
         Replay.validate(Parse.decode!(bytes), "agent-test/" <> path)
       end,
       base_checks(fixtures, runs),
-      mutant_checks(runs, verifier, inputs, by_id),
+      mutant_checks(runs, derived, inputs, by_id),
       for(run <- runs, do: file_form(run)),
       inventory(runs),
       truth("agent-test: every run's id is unique", map_size(by_id) == length(runs))
     ])
   end
 
-  # The generator's own lines are the verifier's, each run draws its window as it should, and
-  # fixture 2 gives the lines of fixture 1.
-  defp line_checks(runs, verifier, inputs, expected) do
+  # Each run draws its window as it should, and fixture 2 gives the lines of fixture 1.
+  defp line_checks(runs, derived, expected) do
     [
-      for run <- runs do
-        ours = own_lines(Map.fetch!(inputs, run.proof), Map.fetch!(inputs, run.keyring))
-
-        expect(
-          "agent-test #{run.id}: the generator's lines against the reference verifier's",
-          Enum.sort(Enum.uniq(ours)),
-          Enum.sort(Map.fetch!(verifier, run.id))
-        )
-      end,
       for(run <- runs, do: window_check(run, Map.fetch!(expected, run.id))),
       for run <- runs, run.fixture == "1-item" do
         same_lines(
@@ -470,7 +384,7 @@ defmodule Generator.AgentTest do
           String.replace_prefix(run.id, "1-item/", "2-item-reformatted/")
         )
       end,
-      for(run <- runs, do: gate_lines(run, Map.fetch!(verifier, run.id)))
+      for(run <- runs, do: gate_lines(run, Map.fetch!(derived, run.id)))
     ]
   end
 
@@ -493,7 +407,7 @@ defmodule Generator.AgentTest do
 
   # Each mutant differs from its base and fails with its rule's codes; the hash, signature
   # and graft mutants show their flaw in their lines.
-  defp mutant_checks(runs, verifier, inputs, by_id) do
+  defp mutant_checks(runs, derived, inputs, by_id) do
     [
       for run <- runs, run.flaw != nil do
         [
@@ -504,13 +418,13 @@ defmodule Generator.AgentTest do
           isolated(run, inputs)
         ]
       end,
-      hash_mutants(runs, verifier),
+      hash_mutants(runs, derived),
       for(
         run <- runs,
         run.flaw in ~w(signature signature_s signature_cofactor),
-        do: signature_only(run, by_id, verifier)
+        do: signature_only(run, by_id, derived)
       ),
-      for(run <- runs, run.flaw == "graft", do: grafted(run, verifier)),
+      for(run <- runs, run.flaw == "graft", do: grafted(run, derived)),
       for(run <- runs, run.flaw && kind(run.flaw) == "path.range", do: ranged(run)),
       for(run <- runs, run.flaw && kind(run.flaw) == "path.side", do: in_range(run))
     ]
@@ -667,12 +581,12 @@ defmodule Generator.AgentTest do
 
   # The hash mutants of a proof are one for each hash line of its base whose carried value is
   # a HEX64, and each one's line at its pointer differs from the value the mutant carries.
-  defp hash_mutants(runs, verifier) do
+  defp hash_mutants(runs, derived) do
     for base <- runs, base.flaw == nil do
       proof = base.envelope["proof"]
 
       wanted =
-        for line <- Map.fetch!(verifier, base.id),
+        for line <- Map.fetch!(derived, base.id),
             "/proof" <> part <- [hd(String.split(line, " "))],
             not String.ends_with?(part, "/handover_signature"),
             Spec.class?("HEX64", Pointer.get(proof, part)),
@@ -699,7 +613,7 @@ defmodule Generator.AgentTest do
 
           truth(
             "agent-test #{run.id}: its line at #{part} is not the value it carries",
-            "/proof#{part} #{carried}" not in Map.fetch!(verifier, run.id)
+            "/proof#{part} #{carried}" not in Map.fetch!(derived, run.id)
           )
         end
       ]
@@ -710,23 +624,23 @@ defmodule Generator.AgentTest do
   defp hashed_part(%{flaw: "hash" <> slug}), do: String.replace(slug, ".", "/")
 
   # A signature mutant's lines are its base's but for /signature/value.
-  defp signature_only(run, by_id, verifier) do
+  defp signature_only(run, by_id, derived) do
     base = Map.fetch!(by_id, "#{run.fixture}/#{run.name}")
     strip = &Enum.reject(&1, fn line -> String.starts_with?(line, "/signature/value ") end)
 
     expect(
       "agent-test #{run.id}: its lines but /signature/value are its base's",
-      Enum.sort(strip.(Map.fetch!(verifier, run.id))),
-      Enum.sort(strip.(Map.fetch!(verifier, base.id)))
+      Enum.sort(strip.(Map.fetch!(derived, run.id))),
+      Enum.sort(strip.(Map.fetch!(derived, base.id)))
     )
   end
 
   # The graft's walk reaches the root of its changed /block record, whose hash is not the
   # block_hash beside it: its claims_hash, item_hash and root lines are the values it carries,
   # and its block_hash line is not.
-  defp grafted(run, verifier) do
+  defp grafted(run, derived) do
     proof = run.envelope["proof"]
-    lines = Map.fetch!(verifier, run.id)
+    lines = Map.fetch!(derived, run.id)
     line = &"/proof#{&1} #{Pointer.get(proof, &1)}"
 
     carried =

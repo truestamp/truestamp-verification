@@ -34,7 +34,7 @@ for file <-
                derive parse schema model_online model cases cases/sound cases/parse cases/front
                cases/shape cases/derive known_answers corpus item_code cases/item_codes replay
                cases/online real_bitcoin consistency vectors sound mutations spec_rows positive
-               rederive worked_example conformance agent_test recorder) do
+               rederive worked_example agent_test recorder) do
   Code.require_file("../generator/lib/#{file}.exs", __DIR__)
 end
 

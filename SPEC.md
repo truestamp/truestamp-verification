@@ -1113,15 +1113,14 @@ Reason codes, rows and labels are left to the conformance cases (section 13).
 
 **The expected lines.** `agent-test/expected/<fixture>/<run>.txt` holds the lines of each
 run, one per line, each once, sorted by their bytes, where a run is a proof of a fixture
-(`<run>` is its `<name>`) or a mutant (`<name>.<flaw>`). The reference verifier (section
-13.1) gives every line but the two window lines: the generator runs it as its own process,
-`mix truestamp.agent_lines` in `elixir/`, which computes each line with the verifier's own
-functions, each whatever the others give, SHAPE's failure included, for a proof whose layout
-DERIVE can read. The generator writes the two window lines from the answers it recorded, by
-its own model of steps 0 to 14 run online under the run's replay, since
-`mix truestamp.agent_lines` computes the lines of an offline run. It also derives every other line itself, and fails,
-writing nothing, when its lines and the verifier's differ; when a fixture's run establishes
-no submitted-before edge, or a mutant's run is not `failed`; when a mutant fails with codes
+(`<run>` is its `<name>`) or a mutant (`<name>.<flaw>`). The generator derives every line
+itself, each whatever the others give, SHAPE's failure included, for a proof whose layout
+DERIVE can read: every line but the two window lines from the proof and its keyring, by its
+own DERIVE engine, and the two window lines from the answers it recorded, by its own model of
+steps 0 to 14 run online under the run's replay. A verifier's own tests hold the lines it
+computes to these files, as the reference verifier's do (section 13.1). The generator fails,
+writing nothing, when a fixture's run establishes no submitted-before edge, or a mutant's
+run is not `failed`; when a mutant fails with codes
 other than its rule's, when a mutant's lines lack the valid signature, the keyring match or
 the marker `test` that are not its flaw, or a hash mutant's line shows the value it carries;
 when the graft's lines do not show a walk that reaches its changed record, or its claims
@@ -1216,9 +1215,10 @@ also runs against a proof from Truestamp's staging environment in the staging re
 with a replay file the recorder makes from staging's sources, the staging keyring, and a
 prompt whose second paragraph names the environment `staging` and that environment's
 default pins (section 9) in place of `test` and its pins. The rehearsal is judged as a
-fixture is, on that proof alone: its expected lines are those `mix truestamp.agent_lines`
-gives under E_v `staging` with the staging keyring, and the two window lines those the
-generator's model draws run online under the recorded replay with staging's default pins;
+fixture is, on that proof alone: its expected lines are those the generator derives for
+that proof with the staging keyring, as it derives a fixture's, and the two window lines
+those the generator's model draws run online under the recorded replay with staging's
+default pins;
 a session passes when its `verify.py` exits 0 and prints exactly those lines.
 
 **The recorder.** `agent-test/record.exs` records, for any proof, the answers to the reads
@@ -2715,9 +2715,10 @@ ended:
   online case applies to a verifier that makes the chain and source reads of section
   10.4.
 - **The reference verifier** is the Elixir library `Truestamp.Verify`, in the repository
-  truestamp-verify-ex, at the commit `elixir/mix.exs` pins. It compiles in a copy of
-  `spec/` that a test holds to this repository's, and runs every case, each online case
-  with the answers of its replay file. Verifiers in other languages follow it.
+  truestamp-verify-ex. Its own tests run every case of a commit of this repository, each
+  online case with the answers of its replay file, compute the agent-sufficiency test's
+  lines of section 7.4, and hold its compiled copy of `spec/` to that commit's. This
+  repository depends on no verifier.
 - **Truestamp's own verifier** runs the cases through a test seam, which gives its engine
   the case's configuration exactly as an external verifier takes it. A keyring path or
   `test` is a supplied keyring (`keyring:<d>`), `none` is keyless mode, an absent `keyring`
@@ -2802,9 +2803,7 @@ Every path a case holds is relative to `vectors/`.
   nothing under `vectors/`: it regenerates every file in memory and compares bytes with the
   files on disk, fails on any file under `vectors/` it does not write and on any entry there
   that is neither a regular file nor a directory, and asserts that section 6.3's
-  worked example equals `worked-example.json`. `--check` also runs the reference verifier
-  over every case of `cases.json`, each online case with its replay file (section 13.1).
-  Every run also checks that each online case without `sources` gives its expected output
+  worked example equals `worked-example.json`. Every run also checks that each online case without `sources` gives its expected output
   again when each Stellar and Bitcoin network it pins is given one named source, under each
   policy, with its replay's records of that network naming it: one source behaves as no
   `sources` (section 10.4). The generator also writes, and with `--check` compares, the

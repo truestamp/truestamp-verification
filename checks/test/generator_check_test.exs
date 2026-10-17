@@ -7,8 +7,7 @@ defmodule Truestamp.Verification.GeneratorCheckTest do
   # under agent-test/expected/ are changed, the prompt every session receives is edited by
   # hand, and a file the generator does not write is added under agent-test/mutants/.
   # `elixir generator/generate.exs --check` then has to exit 1, naming each of those paths,
-  # with the closing lines for a stale file and a stray one. The verifier is untouched, so
-  # the conformance check passes.
+  # with the closing lines for a stale file and a stray one.
   #
   # It runs the whole generator, so it is slow. It is tagged, so `mix test --exclude
   # generator_check` leaves it out, and `task check` runs it.
@@ -20,23 +19,23 @@ defmodule Truestamp.Verification.GeneratorCheckTest do
   @root Path.expand("../..", __DIR__)
 
   # The copy: every entry of the repository but its version control and its ignored tmp/,
-  # and of elixir/ everything but the build, of which only this test build is copied.
+  # and of checks/ everything but the build, of which only this test build is copied.
   defp copy do
     copy = Path.join(System.tmp_dir!(), "truestamp-files-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(copy) end)
-    File.mkdir_p!(Path.join([copy, "elixir", "_build"]))
+    File.mkdir_p!(Path.join([copy, "checks", "_build"]))
 
     for entry <- File.ls!(@root),
-        entry not in ~w(.git .jj tmp elixir),
+        entry not in ~w(.git .jj tmp checks),
         do: File.cp_r!(Path.join(@root, entry), Path.join(copy, entry))
 
-    elixir = Path.join(@root, "elixir")
+    checks = Path.join(@root, "checks")
 
-    for entry <- File.ls!(elixir),
+    for entry <- File.ls!(checks),
         entry not in ~w(_build erl_crash.dump),
-        do: File.cp_r!(Path.join(elixir, entry), Path.join([copy, "elixir", entry]))
+        do: File.cp_r!(Path.join(checks, entry), Path.join([copy, "checks", entry]))
 
-    File.cp_r!(Mix.Project.build_path(), Path.join([copy, "elixir", "_build", "test"]))
+    File.cp_r!(Mix.Project.build_path(), Path.join([copy, "checks", "_build", "test"]))
     copy
   end
 
@@ -81,6 +80,5 @@ defmodule Truestamp.Verification.GeneratorCheckTest do
     assert output =~ "generate: #{stray} is not a file the generator writes", output
     assert output =~ "vectors/ or agent-test/ is stale: run `task generate`", output
     assert output =~ "vectors/ or agent-test/ holds files the generator does not write", output
-    refute output =~ "The reference verifier does not give the output cases.json expects"
   end
 end

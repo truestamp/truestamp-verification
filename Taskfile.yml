@@ -4,8 +4,7 @@
 # https://taskfile.dev
 #
 # Tool versions come from .tool-versions, which mise reads: Erlang, Elixir and this
-# runner. `task bootstrap` installs them. The Mix project in elixir/ pins the reference
-# verifier, the library Truestamp.Verify (truestamp-verify-ex), and holds this repository's
+# runner. `task bootstrap` installs them. The Mix project in checks/ holds this repository's
 # tests, so its tasks run there. Its .formatter.exs and .credo.exs also take in the scripts
 # in generator/ and agent-test/, so format, format-check and credo cover them.
 
@@ -37,9 +36,9 @@ tasks:
       - mise ls --current
 
   setup:
-    desc: Fetch the reference verifier and the other dependencies of elixir/
+    desc: Fetch the dependencies of checks/
     aliases: [deps]
-    dir: elixir
+    dir: checks
     cmds:
       - mix local.hex --force --if-missing
       - mix local.rebar --force --if-missing
@@ -50,8 +49,8 @@ tasks:
   # ===========================================================================
 
   compile:
-    desc: Compile elixir/ and the reference verifier, with warnings as errors
-    dir: elixir
+    desc: Compile checks/, with warnings as errors
+    dir: checks
     env:
       MIX_ENV: test
     cmds:
@@ -59,28 +58,27 @@ tasks:
 
   format:
     desc: Format the Elixir sources, the scripts in generator/ and agent-test/ included
-    dir: elixir
+    dir: checks
     cmds:
       - mix format
 
   format-check:
     desc: Fail if any Elixir source, generator/ and agent-test/ included, is not formatted, without changing it
-    dir: elixir
+    dir: checks
     cmds:
       - mix format --check-formatted
 
   credo:
     desc: Run credo in strict mode over the Elixir sources, generator/ and agent-test/ included
-    dir: elixir
+    dir: checks
     cmds:
       - mix credo --strict
 
   test:
-    desc: Run the repository's tests, in elixir/, against the reference verifier
-    dir: elixir
+    desc: Run the repository's tests, in checks/
+    dir: checks
     cmds:
-      # UTF-8 file names in any locale, as on macOS: a test runs the verifier in the C locale.
-      # Set in the command, since Task lets a caller's ELIXIR_ERL_OPTIONS override a task env.
+      # UTF-8 file names in any locale, as on macOS. Set in the command, since Task lets a caller's ELIXIR_ERL_OPTIONS override a task env.
       - ELIXIR_ERL_OPTIONS="+fnu ${ELIXIR_ERL_OPTIONS:-}" mix test --warnings-as-errors {{.CLI_ARGS}}
 
   style:
@@ -191,5 +189,5 @@ tasks:
       - task: manifest-check
       - task: compile
       - task: credo
-      - cd elixir && mix deps.unlock --check-unused
+      - cd checks && mix deps.unlock --check-unused
       - task: test

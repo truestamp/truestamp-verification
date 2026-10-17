@@ -4,15 +4,13 @@
 defmodule Truestamp.Verification.KeyringTest do
   # spec/keyring.production.json, the compiled pin of SPEC.md 8.3, held to the keyring form
   # and the load checks of section 10.2, step 0, which are read from SPEC.md; and
-  # spec/keys.nonproduction.json, the non-production keys the last check refuses. The pin
-  # holds no key yet, so the verifier's loader, Truestamp.Verify.Keyring.load/3, is also
-  # run on keyrings built here, ones that pass and one that breaks each check.
+  # spec/keys.nonproduction.json, the non-production keys the last check refuses. A
+  # verifier's own tests run its loader over keyrings that break each check.
   use ExUnit.Case, async: true
 
   import Bitwise
 
   alias Truestamp.Verification.Test.StrictJSON
-  alias Truestamp.Verify.Keyring
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")
@@ -74,7 +72,27 @@ defmodule Truestamp.Verification.KeyringTest do
 
   describe "keyring.production.json" do
     test "is a keyring in the form of section 10.2, step 0, and passes its load checks under prod" do
-      assert {:ok, %Keyring{}} = @keyring |> File.read!() |> Keyring.load("prod")
+      %{keys: keys_name, version: version, literal: literal, members: members} = form()
+      {:ok, pin} = @keyring |> File.read!() |> StrictJSON.decode()
+
+      assert Enum.sort(Map.keys(pin)) == Enum.sort([keys_name, version])
+      assert pin[version] == literal
+      assert is_list(pin[keys_name])
+
+      vector = "constants.json" |> read() |> Map.fetch!("VECTOR_KEY")
+      nonproduction = for key <- read("keys.nonproduction.json")["keys"], do: key["public_key"]
+
+      for key <- pin[keys_name] do
+        assert members?(key, Map.keys(members)), inspect(key)
+        assert Enum.all?(members, fn {member, class} -> class?(class, key[member]) end)
+        public = decode(key["public_key"])
+        assert key["key_id"] == key_id(public), inspect(key)
+        assert key_bytes?(public), inspect(key)
+        refute hex(public) == vector, inspect(key)
+        refute key["public_key"] in nonproduction, inspect(key)
+      end
+
+      assert unique?(Enum.map(pin[keys_name], &{&1["key_id"], &1["public_key"]}))
     end
   end
 
@@ -188,107 +206,6 @@ defmodule Truestamp.Verification.KeyringTest do
                }
              }
     end
-
-    test "pass sound keyrings in every environment" do
-      [one, two] = [key(1), key(2)]
-
-      for keyring <- [
-            keyring([]),
-            keyring([entry(one)]),
-            keyring([entry(one, active: false), entry(two, sequence: 1)]),
-            # A number's spelling changes no value (section 10.1), so 1.0 is the INT 1.
-            keyring([entry(one, sequence: 1.0)])
-          ],
-          env <- ["prod" | read("encodings.json")["ENV"]["values"]] do
-        assert load(keyring, env) == :ok, "#{env}: #{inspect(keyring)}"
-      end
-    end
-
-    test "refuse a keyring that breaks one, with that check" do
-      [one, two] = [key(1), key(2)]
-      sound = keyring([entry(one)])
-
-      vector =
-        "constants.json" |> read() |> Map.fetch!("VECTOR_KEY") |> Base.decode16!(case: :lower)
-
-      identity = "small-order-keys.json" |> read() |> hd() |> Map.fetch!("hex")
-
-      for {defect, keyring, error} <- [
-            {"a member beside keys and version", Map.put(sound, "expires", 1), :keyring_members},
-            {"no version", Map.delete(sound, "version"), :keyring_members},
-            {"a keyring that is an array", [entry(one)], :keyring_members},
-            {"version 1.0 as a number", Map.put(sound, "version", 1.0), :keyring_members},
-            {"version \"1\"", Map.put(sound, "version", "1"), :keyring_members},
-            {"keys as an object", Map.put(sound, "keys", %{}), :keyring_members},
-            {"a key with a member more", keyring([Map.put(entry(one), "revoked", false)]),
-             :key_members},
-            {"a key without its sequence", keyring([Map.delete(entry(one), "sequence")]),
-             :key_members},
-            {"active as a string", keyring([entry(one, active: "true")]), :key_members},
-            {"an uppercase key id", keyring([entry(one, key_id: String.upcase(key_id(one)))]),
-             :key_members},
-            {"a padded key", keyring([entry(one, public_key: b64u(one) <> "=")]), :key_members},
-            {"a key in standard base64", keyring([entry(one, public_key: Base.encode64(one))]),
-             :key_members},
-            {"a key with nonzero unused bits",
-             keyring([entry(one, public_key: binary_part(b64u(one), 0, 42) <> "B")]),
-             :key_members},
-            {"sequence -1", keyring([entry(one, sequence: -1)]), :key_members},
-            {"sequence 1.5", keyring([entry(one, sequence: 1.5)]), :key_members},
-            {"a key id of another key", keyring([entry(one, key_id: key_id(two))]), :key_id},
-            {"a key id hashed without the prefix byte",
-             keyring([entry(one, key_id: :sha256 |> :crypto.hash(one) |> hex8())]), :key_id},
-            {"one key twice", keyring([entry(one), entry(one, sequence: 1)]),
-             :repeated_public_key},
-            {"the identity", keyring([entry(Base.decode16!(identity, case: :lower))]),
-             :small_order_key},
-            {"a key written with y = p", keyring([entry(<<@p::little-256>>)]), :y_not_below_p},
-            {"a key written with y = p + 1", keyring([entry(<<@p + 1::little-256>>)]),
-             :y_not_below_p},
-            {"VECTOR_KEY", keyring([entry(vector)]), :vector_key},
-            {"a non-production key", keyring([entry(nonproduction("dev"))]), :nonproduction_key}
-          ] do
-        assert load(keyring, "prod") == {:error, error}, defect
-      end
-    end
-
-    test "allow a non-production key only when the verifier's environment is not prod" do
-      keyring = keyring([entry(nonproduction("dev"))])
-
-      for env <- ["prod" | read("encodings.json")["ENV"]["values"]] do
-        expected = if env == "prod", do: {:error, :nonproduction_key}, else: :ok
-        assert load(keyring, env) == expected, env
-      end
-    end
-
-    test "allow VECTOR_KEY only when the verifier's environment is test" do
-      vector =
-        "constants.json" |> read() |> Map.fetch!("VECTOR_KEY") |> Base.decode16!(case: :lower)
-
-      keyring = keyring([entry(vector)])
-
-      for env <- ["prod" | read("encodings.json")["ENV"]["values"]] do
-        expected = if env == "test", do: :ok, else: {:error, :vector_key}
-        assert load(keyring, env) == expected, env
-      end
-    end
-  end
-
-  # Truestamp.Verify.Keyring.load/3 over a keyring built here, written in canonical form:
-  # :ok, or {:error, failure} naming the first check the keyring fails.
-  defp load(keyring, env) do
-    case keyring |> StrictJSON.canonical() |> Keyring.load(env) do
-      {:ok, %Keyring{}} -> :ok
-      {:error, failure} -> {:error, failure}
-    end
-  end
-
-  # The bytes of the first key keys.nonproduction.json lists for an environment.
-  defp nonproduction(environment) do
-    read("keys.nonproduction.json")["keys"]
-    |> Enum.find(&(&1["environment"] == environment))
-    |> Map.fetch!("public_key")
-    |> decode()
   end
 
   defp members?(object, names),
@@ -360,23 +277,4 @@ defmodule Truestamp.Verification.KeyringTest do
   defp hex8(digest), do: digest |> binary_part(0, 4) |> hex()
   defp hex(bytes), do: Base.encode16(bytes, case: :lower)
   defp b64u(bytes), do: Base.url_encode64(bytes, padding: false)
-
-  defp key(n) do
-    {public, _secret} = :crypto.generate_key(:eddsa, :ed25519, :binary.copy(<<n>>, 32))
-    public
-  end
-
-  defp keyring(keys), do: %{"keys" => keys, "version" => "1.0"}
-
-  defp entry(bytes, overrides \\ []) do
-    Map.merge(
-      %{
-        "active" => true,
-        "key_id" => key_id(bytes),
-        "public_key" => b64u(bytes),
-        "sequence" => 0
-      },
-      Map.new(overrides, fn {name, value} -> {Atom.to_string(name), value} end)
-    )
-  end
 end
