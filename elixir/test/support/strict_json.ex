@@ -1,14 +1,14 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.Test.StrictJSON do
+defmodule Truestamp.Verification.Test.StrictJSON do
   @moduledoc """
   Reads a JSON text under the parsing rules J1 to J6 of SPEC.md section 10.1, for the tests
   of the files under `spec/` and `vectors/`, and prints a value in the canonical forms those
   files use.
 
   OTP's `JSON` does the syntax, and hands each number's text to the decoders here. They
-  convert it with the verifier's own `Truestamp.Verifier.Binary64.nearest/1`, never with
+  convert it with the verifier's own `Truestamp.Verify.JSON.Binary64.nearest/1`, never with
   `Float.parse/1` or `:erlang.binary_to_float/1`: those reach the C library's `strtod`, which
   on macOS 27 aborts the runtime on some long spellings, and `vectors/` holds spellings of
   more than 600 digits. Everything else here is this module's own, so the tests still
@@ -16,11 +16,11 @@ defmodule Truestamp.Verifier.Test.StrictJSON do
 
   One sign is lost on the way: OTP's tokenizer hands `-0e5` to the float decoder as
   `0.0e5`, so a zero written as `-0` followed directly by an exponent reads as `0.0` here,
-  not `-0.0`. JCS writes both as `0`, and the verifier's `Parser` reads `-0` as the integer
-  0, so no test that compares through either sees it.
+  not `-0.0`. JCS writes both as `0`, and the verifier's parser, `Truestamp.Verify.JSON`,
+  reads `-0` as the integer 0, so no test that compares through either sees it.
   """
 
-  alias Truestamp.Verifier.Binary64
+  alias Truestamp.Verify.JSON.Binary64
 
   @max_read_octets 262_144
   @max_depth 32

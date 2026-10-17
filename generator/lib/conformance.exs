@@ -4,36 +4,43 @@
 defmodule Generator.Conformance do
   @moduledoc """
   The check of --check that runs the reference verifier over cases.json (SPEC.md 13.1 and
-  13.2). The generator shares no code with the verifier, so it runs it as its own process:
-  `mix truestamp.conformance <root>/vectors/cases.json` in elixir/, under MIX_ENV=test,
-  which runs each offline case with its full configuration, network pins included, and
-  prints, as one JSON document, an array with an entry `{id, output}` per offline case in
-  the file's order. The verifier's standard error passes through to this run's.
+  13.2). The reference verifier is the library Truestamp.Verify, at the commit
+  elixir/mix.exs pins. The generator shares no code with it, so it runs it as its own
+  process: `mix truestamp.conformance <root>/vectors/cases.json` in elixir/, under
+  MIX_ENV=test, which runs every case with its full configuration, network pins included,
+  each online case answered from its replay file, and prints, as one JSON document, an
+  array with an entry `{id, output}` per case in the file's order. The verifier's standard
+  error passes through to this run's.
 
   The check reads that document with the generator's own reader (Generator.Parse), and
   holds it to cases.json and the trace files as they stand under vectors/, read the same
-  way. Each offline case, and no other, has one entry, in the file's order, whose `output`
-  is exactly what SPEC.md 13.1 compares:
+  way. Each case has one entry, in the file's order, whose `output` is exactly what SPEC.md
+  13.1 compares:
 
   - for a bare rejection, `code`, and `sub_reason` when the case has one;
-  - otherwise `label` and `rows`, every row `[code, part, status, step]`, in order, and for a
+  - otherwise `label` and `rows`, every row `[code, part, status, step]`, in order; for a
     case whose `expected` names a trace, `trace`: the rows of that trace file, in order, each
-    with every member but `inputs`.
+    with every member but `inputs`; and for an online case, `submitted_after` and
+    `submitted_before`, each `{basis, instant}` or null.
 
   A case that differs gives one failure, naming its id and the first thing that differs, in
-  the order code, sub_reason, rows, label, trace: a member, or the first row or trace row
-  that differs, by its number counted from 1, with both values. The rows come before the
-  label, since a label that differs follows from a row that does.
+  the order code, sub_reason, rows, label, trace, submitted_after, submitted_before: a
+  member, or the first row or trace row that differs, by its number counted from 1, with
+  both values. The rows come before the label, since a label that differs follows from a
+  row that does. Edges compare as section 13.1 says: the same basis, and instants that are
+  the same instant, so `2026-09-26T01:48:00Z` and `2026-09-26T01:48:00.000Z` are equal.
 
   The check proves that it can fail: once the verifier's output matches, it compares that
   output with hand-mutated copies of cases.json's expected output (a row's status, code,
   part and step, each changed alone; a row too many; a trace row's recomputed value, part
   and status, each changed alone; a label; a bare case's code changed and its code lost; a
-  sub_reason), and with the output mutated (a case left out, two cases exchanged, a member
-  added to a report that names no trace, a member dropped: a report's label, a traced
-  case's trace and a bare case's sub_reason; an entry for an id that is no offline case,
-  and an entry given twice), and each must give exactly one failure, naming the case and
-  what its name says: for a row, its number, and for a member, the member.
+  sub_reason; an edge's instant a second later, and its basis changed), and with the output
+  mutated (a case left out, two cases exchanged, a member added to a report that names no
+  trace, a member dropped: a report's label, a traced case's trace, a bare case's
+  sub_reason and an online case's edge; an entry for an id that is no case, and an entry
+  given twice), and each must give exactly one failure, naming the case and what its name
+  says: for a row, its number, and for a member, the member. An edge's instant written
+  with its milliseconds, `.000`, must give none.
 
   The mix child runs with its standard input closed, so a Mix that would ask a question
   (to install Hex, say) fails at once instead of waiting for an answer.
@@ -49,6 +56,7 @@ defmodule Generator.Conformance do
   alias Generator.{JCS, Parse}
 
   @task "truestamp.conformance"
+  @edges ~w(submitted_after submitted_before)
 
   @doc """
   The check over the vectors under `root`: `{:ok, summary}`, a line that counts what it
@@ -93,23 +101,23 @@ defmodule Generator.Conformance do
   # What cases.json expects
 
   @doc """
-  `{:ok, entries}`, each offline case of `vectors/cases.json` under `root` as
-  `{id, output}` with the output SPEC.md 13.1 compares, in the file's order, or
-  `{:error, failure}`.
+  `{:ok, entries}`, each case of `vectors/cases.json` under `root` as `{id, output}` with
+  the output SPEC.md 13.1 compares, in the file's order, or `{:error, failure}`.
   """
   def expected(root) do
     case read(root, "cases.json") do
-      {:ok, cases} when is_list(cases) -> offline(root, cases)
+      {:ok, cases} when is_list(cases) -> entries(root, cases)
       {:ok, _value} -> {:error, "vectors/cases.json is not an array of cases"}
       error -> error
     end
   end
 
-  defp offline(root, cases) do
+  defp entries(root, cases) do
     cases
-    |> Enum.reject(&Map.has_key?(&1["config"], "online"))
     |> Enum.reduce_while({:ok, []}, fn kase, {:ok, entries} ->
-      case output(root, kase["expected"]) do
+      online? = is_map(kase["config"]) and Map.has_key?(kase["config"], "online")
+
+      case output(root, kase["expected"], online?) do
         {:ok, output} -> {:cont, {:ok, [{kase["id"], output} | entries]}}
         {:error, failure} -> {:halt, {:error, "case #{kase["id"]}: #{failure}"}}
       end
@@ -120,12 +128,23 @@ defmodule Generator.Conformance do
     end
   end
 
-  defp output(_root, %{"code" => _code} = expected),
+  defp output(_root, %{"code" => _code} = expected, _online?),
     do: {:ok, Map.take(expected, ~w(code sub_reason))}
 
-  defp output(root, %{"label" => label, "rows" => rows} = expected) do
-    output = %{"label" => label, "rows" => rows}
+  defp output(root, %{"label" => label, "rows" => rows} = expected, online?) do
+    edges = if online?, do: Map.take(expected, @edges), else: %{}
 
+    if online? and map_size(edges) != 2 do
+      {:error, "an online case's expected output names both edges, and this one does not"}
+    else
+      traced(root, Map.merge(%{"label" => label, "rows" => rows}, edges), expected)
+    end
+  end
+
+  defp output(_root, _expected, _online?),
+    do: {:error, "its expected output is of no form SPEC.md 13.2 gives"}
+
+  defp traced(root, output, expected) do
     case expected do
       %{"trace" => path} ->
         with {:ok, trace} <- read(root, path),
@@ -135,9 +154,6 @@ defmodule Generator.Conformance do
         {:ok, output}
     end
   end
-
-  defp output(_root, _expected),
-    do: {:error, "its expected output is of no form SPEC.md 13.2 gives"}
 
   defp read(root, path) do
     with {:ok, bytes} <- File.read(Path.join([root, "vectors", path])),
@@ -217,7 +233,7 @@ defmodule Generator.Conformance do
 
   @doc """
   The failures of comparing the verifier's entries, `actual`, with cases.json's, `expected`:
-  one for each case left out, given twice, given that is no offline case, or out of the
+  one for each case left out, given twice, given that is no case, or out of the
   file's order, and one for each case whose output differs, naming the first difference.
   """
   def compare(actual, expected) do
@@ -233,7 +249,7 @@ defmodule Generator.Conformance do
 
     extra =
       for id <- Enum.uniq(actual_ids) -- expected_ids,
-          do: "case #{id}: the verifier gives an entry, and cases.json has no offline case #{id}"
+          do: "case #{id}: the verifier gives an entry, and cases.json has no case #{id}"
 
     order =
       if missing == [] and repeated == [] and extra == [] and actual_ids != expected_ids do
@@ -259,14 +275,22 @@ defmodule Generator.Conformance do
 
   defp difference(actual, expected) do
     names = Map.keys(actual) ++ Map.keys(expected)
+    order = ~w(code sub_reason rows label trace) ++ @edges
 
     names
     |> Enum.uniq()
-    |> Enum.sort_by(&Enum.find_index(~w(code sub_reason rows label trace), fn n -> n == &1 end))
+    |> Enum.sort_by(&Enum.find_index(order, fn n -> n == &1 end))
     |> Enum.find_value(&member(&1, Map.fetch(actual, &1), Map.fetch(expected, &1)))
   end
 
   defp member(_name, same, same), do: nil
+
+  # SPEC.md 13.1: an edge's instants compare as instants.
+  defp member(name, {:ok, actual}, {:ok, expected}) when name in @edges do
+    if same_edge?(actual, expected),
+      do: nil,
+      else: "#{name}: the verifier gives #{show(actual)}, cases.json #{show(expected)}"
+  end
 
   defp member(name, {:ok, _value}, :error),
     do: "the verifier gives #{name}, which cases.json does not"
@@ -279,6 +303,25 @@ defmodule Generator.Conformance do
 
   defp member(name, {:ok, actual}, {:ok, expected}),
     do: "#{name}: the verifier gives #{show(actual)}, cases.json #{show(expected)}"
+
+  defp same_edge?(
+         %{"basis" => basis, "instant" => a} = actual,
+         %{"basis" => basis, "instant" => e} = expected
+       )
+       when map_size(actual) == 2 and map_size(expected) == 2,
+       do: milliseconds(a) != nil and milliseconds(a) == milliseconds(e)
+
+  defp same_edge?(_actual, _expected), do: false
+
+  # An instant written as a TIME or a NISTTIME, in milliseconds, or nil.
+  defp milliseconds(text) when is_binary(text) do
+    case DateTime.from_iso8601(text) do
+      {:ok, instant, 0} -> DateTime.to_unix(instant, :millisecond)
+      _other -> nil
+    end
+  end
+
+  defp milliseconds(_value), do: nil
 
   defp first_row(noun, actual, expected) do
     count = max(length(actual), length(expected))
@@ -313,11 +356,37 @@ defmodule Generator.Conformance do
   # Each mutant, of the expected output or of the verifier's, must give exactly one failure,
   # holding every fragment listed.
   defp self_test(actual, expected) do
-    for {what, mutant_actual, mutant_expected, fragments} <- mutants(actual, expected),
-        failures = compare(mutant_actual, mutant_expected),
-        not (length(failures) == 1 and Enum.all?(fragments, &String.contains?(hd(failures), &1))) do
-      "the conformance check does not refuse #{what}: it gives #{inspect(failures)}"
-    end
+    refused =
+      for {what, mutant_actual, mutant_expected, fragments} <- mutants(actual, expected),
+          failures = compare(mutant_actual, mutant_expected),
+          not (length(failures) == 1 and
+                 Enum.all?(fragments, &String.contains?(hd(failures), &1))) do
+        "the conformance check does not refuse #{what}: it gives #{inspect(failures)}"
+      end
+
+    accepted =
+      for {what, equal_actual} <- equivalents(actual),
+          failures = compare(equal_actual, expected),
+          failures != [] do
+        "the conformance check refuses #{what}, which SPEC.md 13.1 counts as equal: " <>
+          inspect(failures)
+      end
+
+    refused ++ accepted
+  end
+
+  # An online case whose expected output has a submitted-before edge.
+  defp edged(entries), do: find(entries, &match?(%{"submitted_before" => %{}}, &1))
+
+  # Outputs that differ from the verifier's in spelling only, which must give no failure.
+  defp equivalents(actual) do
+    {id, %{"submitted_before" => %{"instant" => instant}}} = edged(actual)
+    respelled = String.replace(instant, ~r/Z\z/, ".000Z")
+
+    [
+      {"an edge's instant written with its milliseconds",
+       edit(actual, id, &put_in(&1, ["submitted_before", "instant"], respelled))}
+    ]
   end
 
   defp mutants(actual, expected) do
@@ -332,6 +401,12 @@ defmodule Generator.Conformance do
     trace_middle = div(length(traced["trace"]), 2)
     [first, second | _rest] = actual
     unknown = "no-such-case-mutant"
+    {edged_id, _edged} = edged(expected)
+    edge_fragments = [edged_id, "submitted_before:"]
+
+    edge = fn member, change ->
+      edit(expected, edged_id, &update_in(&1, ["submitted_before", member], change))
+    end
 
     row = fn column, change ->
       edit(expected, report_id, fn output ->
@@ -385,11 +460,17 @@ defmodule Generator.Conformance do
        [traced_id, "the verifier gives no trace"]},
       {"a sub_reason the verifier drops", edit(actual, bare_id, &Map.delete(&1, "sub_reason")),
        expected, [bare_id, "the verifier gives no sub_reason"]},
-      {"an entry the verifier gives for an id that is no offline case",
-       [{unknown, elem(first, 1)} | actual], expected,
-       [unknown, "cases.json has no offline case"]},
+      {"an entry the verifier gives for an id that is no case",
+       [{unknown, elem(first, 1)} | actual], expected, [unknown, "cases.json has no case"]},
       {"an entry the verifier gives twice", [first | actual], expected,
-       [elem(first, 0), "more than one entry"]}
+       [elem(first, 0), "more than one entry"]},
+      {"an expected edge's instant a second later", actual, edge.("instant", &second_later/1),
+       edge_fragments},
+      {"an expected edge's basis changed", actual, edge.("basis", &changed/1), edge_fragments},
+      {"an edge the verifier gives as null",
+       edit(actual, edged_id, &Map.put(&1, "submitted_before", nil)), expected, edge_fragments},
+      {"an edge the verifier drops", edit(actual, edged_id, &Map.delete(&1, "submitted_before")),
+       expected, [edged_id, "the verifier gives no submitted_before"]}
     ]
   end
 
@@ -402,6 +483,11 @@ defmodule Generator.Conformance do
         {^id, output} -> {id, fun.(output)}
         entry -> entry
       end)
+
+  defp second_later(instant) do
+    {:ok, time, 0} = DateTime.from_iso8601(instant)
+    time |> DateTime.add(1, :second) |> DateTime.to_iso8601()
+  end
 
   defp flip("pass"), do: "fail"
   defp flip(_status), do: "pass"
@@ -425,8 +511,18 @@ defmodule Generator.Conformance do
       |> Enum.map(fn {_id, output} -> Map.get(output, "trace") end)
       |> Enum.reject(&is_nil/1)
 
-    "The reference verifier gives the expected output of every offline case, all " <>
+    edges =
+      for {_id, output} <- expected, name <- @edges, is_map(output[name]), reduce: 0 do
+        count -> count + 1
+      end
+
+    online =
+      Enum.count(expected, fn {_id, output} -> Map.has_key?(output, "submitted_before") end)
+
+    "The reference verifier gives the expected output of every case, all " <>
       "#{length(expected)}: #{bare} bare rejections, #{length(expected) - bare} reports of " <>
-      "#{rows} rows, and #{length(traces)} traces of #{traces |> Enum.map(&length/1) |> Enum.sum()} rows."
+      "#{rows} rows, #{length(traces)} traces of " <>
+      "#{traces |> Enum.map(&length/1) |> Enum.sum()} rows, and the edges of #{online} " <>
+      "online reports, #{edges} of them drawn."
   end
 end

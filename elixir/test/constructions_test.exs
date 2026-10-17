@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.ConstructionsTest do
+defmodule Truestamp.Verification.ConstructionsTest do
   # The accepted constructions texts, spec/constructions/<d>.json (SPEC.md 7 and 9). Each file
   # holds a text's exact JCS bytes (spec_files_test.exs checks that form) and is named by their
   # SHA-256, the digest d that section 7.2 checks. The last two describes are the checks
@@ -9,7 +9,7 @@ defmodule Truestamp.Verifier.ConstructionsTest do
   # the registry's byte and preimage, and the set of rows is the spec's.
   use ExUnit.Case, async: true
 
-  alias Truestamp.Verifier.Test.StrictJSON
+  alias Truestamp.Verification.Test.StrictJSON
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")

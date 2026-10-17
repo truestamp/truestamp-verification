@@ -76,8 +76,9 @@ jobs:
             ${{ runner.os }}-mix-${{ hashFiles('.tool-versions') }}-
 
       - name: Fetch the dependencies (task setup)
-        # Hex, rebar and the reference verifier's dependencies, among them the Merkle library
-        # from GitHub at the commit elixir/mix.exs pins.
+        # Hex, rebar and the checks' dependencies: the reference verifier from GitHub at the
+        # commit elixir/mix.exs pins, the Merkle library at the commit the verifier pins, and
+        # credo.
         run: task setup
 
       - name: Check that elixir/mix.lock is up to date
@@ -87,7 +88,7 @@ jobs:
 
       - name: The gate (task check)
         # Every gate, as run locally: formatting, house style, the generator's check (which
-        # also runs the reference verifier over every offline case and for the agent test's
+        # also runs the reference verifier over every case and for the agent test's
         # expected lines), the agent-test harness's self-test, both manifests, compile with
         # warnings as errors, credo, unused dependencies, and every test, the slow
         # generator_check ones included.

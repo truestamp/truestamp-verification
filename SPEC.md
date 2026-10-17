@@ -409,8 +409,8 @@ has a test that it gives every one of them.
 ## 4. The byte-prefix registry
 
 The table of section 4.3 is canonical here, and is also published as `spec/prefixes.json`.
-Truestamp's implementations (its server, its CLI and the reference verifiers here) hold it
-as compiled constants, each with a test that they equal that file.
+Truestamp's implementations (its server, its CLI and the reference verifier of section 13.1)
+hold it as compiled constants, each with a test that they equal that file.
 The constructions text names prefix bytes only as the table assigns them; its other bytes,
 0x6a and 0x20 in the `bitcoin` row, are script bytes. A proof never carries a prefix as
 data, and a verifier MUST NOT take a prefix from a document.
@@ -801,8 +801,9 @@ CONFIGURATION (section 10.2, step 0), before the document is read:
 
 - Truestamp's server uses its own environment, and takes no override. Only the test seam
   of its test builds sets E_v (section 13.1).
-- The CLI and the reference verifiers in this repository use `prod`, unless the run is
-  given `--environment` naming another environment. The option applies to that run only.
+- The CLI and the reference verifier use `prod`, unless the run is given another
+  environment: `--environment` on a command line, or the reference verifier's
+  `environment` option. The option applies to that run only.
 - A verifier MUST NOT take E_v from its configuration files, from environment variables,
   from `--base-url` or from the document.
 
@@ -830,7 +831,7 @@ signature over an unmarked proof fails key binding against a production keyring.
   of `spec/keys.nonproduction.json`, so no run whose E_v is `prod` can bind a
   non-production key. It also refuses any keyring that holds VECTOR_KEY when E_v is not
   `test`. Keyless mode binds no key, so it treats VECTOR_KEY as any other key.
-- A run of the CLI or of a reference verifier in this repository whose E_v is not `prod`
+- A run of the CLI or of the reference verifier whose E_v is not `prod`
   MUST NOT use the compiled production keyring or the keyring at www.truestamp.com. Its
   keyring is a supplied keyring (section 8.3): a keyring file (in the CLI,
   `--keyring FILE`), a configured keyring, or, in the CLI, the keyring read from the origin
@@ -1112,13 +1113,13 @@ Reason codes, rows and labels are left to the conformance cases (section 13).
 
 **The expected lines.** `agent-test/expected/<fixture>/<run>.txt` holds the lines of each
 run, one per line, each once, sorted by their bytes, where a run is a proof of a fixture
-(`<run>` is its `<name>`) or a mutant (`<name>.<flaw>`). The reference verifier gives every
-line but the two window lines: the generator runs it as its own process, `mix
-truestamp.agent_lines` in `elixir/`, which computes each line with the verifier's own
+(`<run>` is its `<name>`) or a mutant (`<name>.<flaw>`). The reference verifier (section
+13.1) gives every line but the two window lines: the generator runs it as its own process,
+`mix truestamp.agent_lines` in `elixir/`, which computes each line with the verifier's own
 functions, each whatever the others give, SHAPE's failure included, for a proof whose layout
 DERIVE can read. The generator writes the two window lines from the answers it recorded, by
-its own model of steps 0 to 14 run online under the run's replay, since the reference
-verifier is offline (section 8.3). It also derives every other line itself, and fails,
+its own model of steps 0 to 14 run online under the run's replay, since
+`mix truestamp.agent_lines` computes the lines of an offline run. It also derives every other line itself, and fails,
 writing nothing, when its lines and the verifier's differ; when a fixture's run establishes
 no submitted-before edge, or a mutant's run is not `failed`; when a mutant fails with codes
 other than its rule's, when a mutant's lines lack the valid signature, the keyring match or
@@ -1293,8 +1294,8 @@ its APIs.
 
 ### 8.3 External verifiers
 
-Every other verifier is external: Truestamp's CLI, the reference verifiers in this
-repository, and any verifier someone else writes. Before it reads the document, an external
+Every other verifier is external: Truestamp's CLI, the reference verifier of section 13.1,
+and any verifier someone else writes. Before it reads the document, an external
 verifier fixes one keyring for the run:
 
 | Keyring | Used | `trust_root.kind` | When K is not in it |
@@ -1330,12 +1331,12 @@ verifier fixes one keyring for the run:
   document carries. Its label is `unattributed` unless a row fails.
 - **Environments.** A run whose E_v is not `prod` uses a supplied keyring or keyless mode
   (section 6.4), so its best label is `supplied-keyring`.
-- **The reference verifiers** in this repository are offline: they make no chain or source
-  read (section 10.4). Each compiles in the pin and offers the supplied and keyless modes.
-  They confirm that a proof is intact and signed by a key they trust, and draw no
-  submission window, so their label for a sound production proof signed by a pinned key is
-  `internally-consistent`. The CLI makes those reads online and draws both edges
-  (section 11).
+- **The reference verifier** (section 13.1) compiles in the pin and offers the supplied
+  and keyless modes. Offline, it makes no chain or source read (section 10.4): it confirms
+  that a proof is intact and signed by a key it trusts, and draws no submission window, so
+  its label for a sound production proof signed by a pinned key is
+  `internally-consistent`. Given a reader, it makes those reads online and draws both edges
+  (section 11), as the CLI does.
 - **Trusting the download.** Online, an external verifier trusts the keyring as the origin
   serves it, so whoever can change that response can add a key. A verifier that must not
   depend on the origin runs offline, where the pin governs, or supplies its own keyring.
@@ -1346,8 +1347,8 @@ verifier fixes one keyring for the run:
 The pins are a verifier's trust policy, and each is published as a file under `spec/`.
 
 - **Keys:** Truestamp's own verifier uses its verified key chain.
-  `spec/keyring.production.json` is compiled into the CLI and the reference verifiers in
-  this repository, and the keyring downloaded from www.truestamp.com replaces it online
+  `spec/keyring.production.json` is compiled into the CLI and the reference verifier, and
+  the keyring downloaded from www.truestamp.com replaces it online
   (section 10.2, step 0).
   `spec/keys.nonproduction.json` lists the public keys of the dev, test and staging
   environments, with VECTOR_KEY, every other key whose seed this section or the generator
@@ -2682,8 +2683,8 @@ The table lists the codes in step order. 36 codes.
 ### 12.2 Exit codes
 
 `spec/exit-codes.json` holds this table. A verifier with a command line, such as
-Truestamp's CLI and the reference verifiers in this repository, exits with the code for how
-its run ended:
+Truestamp's CLI and the reference verifier's command, exits with the code for how its run
+ended:
 
 | Code | The run |
 |---|---|
@@ -2712,7 +2713,11 @@ its run ended:
 - A verifier conforms to this document when it gives the expected output for every case in
   `vectors/cases.json` that applies to it. Every offline case applies to every verifier. An
   online case applies to a verifier that makes the chain and source reads of section
-  10.4, so the reference verifiers in this repository run the offline cases only.
+  10.4.
+- **The reference verifier** is the Elixir library `Truestamp.Verify`, in the repository
+  truestamp-verify-ex, at the commit `elixir/mix.exs` pins. It compiles in a copy of
+  `spec/` that a test holds to this repository's, and runs every case, each online case
+  with the answers of its replay file. Verifiers in other languages follow it.
 - **Truestamp's own verifier** runs the cases through a test seam, which gives its engine
   the case's configuration exactly as an external verifier takes it. A keyring path or
   `test` is a supplied keyring (`keyring:<d>`), `none` is keyless mode, an absent `keyring`
@@ -2797,13 +2802,13 @@ Every path a case holds is relative to `vectors/`.
   nothing under `vectors/`: it regenerates every file in memory and compares bytes with the
   files on disk, fails on any file under `vectors/` it does not write and on any entry there
   that is neither a regular file nor a directory, and asserts that section 6.3's
-  worked example equals `worked-example.json`. `--check` also runs the reference verifiers
-  in this repository over the offline cases of `cases.json` (section 13.1). Every run also
-  checks that each online case without `sources` gives its expected output again when each
-  Stellar and Bitcoin network it pins is given one named source, under each policy, with its
-  replay's records of that network naming it: one source behaves as no `sources` (section
-  10.4). The generator also writes, and with `--check` compares, the files of the
-  agent-sufficiency test under `agent-test/` (section 7.4), whose digests
+  worked example equals `worked-example.json`. `--check` also runs the reference verifier
+  over every case of `cases.json`, each online case with its replay file (section 13.1).
+  Every run also checks that each online case without `sources` gives its expected output
+  again when each Stellar and Bitcoin network it pins is given one named source, under each
+  policy, with its replay's records of that network naming it: one source behaves as no
+  `sources` (section 10.4). The generator also writes, and with `--check` compares, the
+  files of the agent-sufficiency test under `agent-test/` (section 7.4), whose digests
   `agent-test/MANIFEST.sha256` holds, not `MANIFEST.sha256`.
 
 **The corpus.** These are the files under `corpus/`. Each is in the canonical form of

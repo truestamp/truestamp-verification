@@ -1,18 +1,18 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.KeyringTest do
+defmodule Truestamp.Verification.KeyringTest do
   # spec/keyring.production.json, the compiled pin of SPEC.md 8.3, held to the keyring form
   # and the load checks of section 10.2, step 0, which are read from SPEC.md; and
   # spec/keys.nonproduction.json, the non-production keys the last check refuses. The pin
-  # holds no key yet, so the verifier's loader, Truestamp.Verifier.Keyring.load/3, is also
+  # holds no key yet, so the verifier's loader, Truestamp.Verify.Keyring.load/3, is also
   # run on keyrings built here, ones that pass and one that breaks each check.
   use ExUnit.Case, async: true
 
   import Bitwise
 
-  alias Truestamp.Verifier.Keyring
-  alias Truestamp.Verifier.Test.StrictJSON
+  alias Truestamp.Verification.Test.StrictJSON
+  alias Truestamp.Verify.Keyring
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")
@@ -274,7 +274,7 @@ defmodule Truestamp.Verifier.KeyringTest do
     end
   end
 
-  # Truestamp.Verifier.Keyring.load/3 over a keyring built here, written in canonical form:
+  # Truestamp.Verify.Keyring.load/3 over a keyring built here, written in canonical form:
   # :ok, or {:error, failure} naming the first check the keyring fails.
   defp load(keyring, env) do
     case keyring |> StrictJSON.canonical() |> Keyring.load(env) do

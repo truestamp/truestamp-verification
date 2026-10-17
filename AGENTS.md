@@ -13,8 +13,10 @@ change it.
 It defines a Truestamp proof and how to verify one. It is written so that an agent can
 build a working verifier, or a library for verification, in almost any language from
 `SPEC.md`, the data under `spec/` and the known answers under `vectors/`, and prove that
-code against the conformance cases before anyone relies on it. The reference verifier
-under `elixir/` is an example to consult, not a source to translate.
+code against the conformance cases before anyone relies on it. The reference verifier, the
+Elixir library `Truestamp.Verify` in
+[truestamp-verify-ex](https://github.com/truestamp/truestamp-verify-ex), is an example to
+consult, not a source to translate.
 
 ## Sources, in order of authority
 
@@ -31,27 +33,30 @@ under `elixir/` is an example to consult, not a source to translate.
    `spec/` and `vectors/`: `shasum -a 256 -c MANIFEST.sha256`, run from the repository
    root, checks your copy. `agent-test/MANIFEST.sha256` does the same for `agent-test/`,
    run there.
-4. `elixir/` is the reference verifier, an offline one. Read it to settle a question the
-   text leaves you unsure of, after reading the section of `SPEC.md` that governs it.
-   `elixir/lib/truestamp/verifier.ex` names the module for each step it makes. Run in
-   `elixir/`, `mix truestamp.verify FILE` verifies a proof offline. Its standard output is
-   exactly one JSON document, even on a run that compiles first: the report of section
-   10.5, with exactly that section's members, or a bare rejection's
-   `{code, message, sub_reason}`; on exit 1 or 2 it is empty. `--trace FILE` writes the run's trace to FILE, in the
-   form of `vectors/positive/<name>.trace.json`. With no option the run is under the
-   environment `prod`, so every vector fails `environment_mismatch`; give a vector its
-   case's options, such as `--environment test --keyring ../vectors/keyring.test.json`.
-   The command takes no network pins. Of the 20 offline cases whose `networks` differ from
-   their environment's defaults, 6, the `policy-*-entropy_*` cases, give other rows through
-   it; the other 14 give the same rows. To run the cases with their full
-   configuration, network pins included, run `MIX_ENV=test mix truestamp.conformance
-   ../vectors/cases.json` in `elixir/`. Its standard output is one JSON document: an array
-   with an entry `{id, output}` for each offline case, in the file's order, where `output`
-   is what section 13.1 compares, a bare rejection's `code` and `sub_reason`, or the
-   `label` and every row as `[code, part, status, step]`, with the trace rows but `inputs`
-   for a case that names a trace. It compares nothing itself; `task check` compares it
-   with `cases.json`. `mix help truestamp.verify` lists the command's options, and
-   `mix help truestamp.conformance` describes the entry point.
+4. The reference verifier is the library `Truestamp.Verify`, in truestamp-verify-ex, at
+   the commit `elixir/mix.exs` pins. Read it to settle a question the text leaves you unsure
+   of, after reading the section of `SPEC.md` that governs it. After `task setup` its source
+   is under `elixir/deps/truestamp_verify/`, where `lib/truestamp/verify/steps/` holds one
+   module for each step of section 10.2, and its guides and walkthrough notebook are in its
+   own repository. Run in `elixir/`, `mix truestamp.verify FILE` verifies a proof offline.
+   Its standard output is exactly one JSON document, even on a run that compiles first: the
+   report of section 10.5, with exactly that section's members, or a bare rejection's
+   `{code, message, sub_reason}`; on exit 1 or 2 it is empty. `--trace FILE` writes the
+   run's trace to FILE, in the form of `vectors/positive/<name>.trace.json`. With no option
+   the run is under the environment `prod`, so every vector fails `environment_mismatch`;
+   give a vector its case's options, such as `--environment test --keyring
+   ../vectors/keyring.test.json`. The command takes no network pins. Of the 20 offline cases
+   whose `networks` differ from their environment's defaults, 6, the `policy-*-entropy_*`
+   cases, give other rows through it; the other 14 give the same rows. To run the cases
+   with their full configuration, network pins included, run `MIX_ENV=test mix
+   truestamp.conformance ../vectors/cases.json` in `elixir/`. It runs every case, each
+   online case answered from its replay file. Its standard output is one JSON document: an
+   array with an entry `{id, output}` for each case, in the file's order, where `output` is
+   what section 13.1 compares, a bare rejection's `code` and `sub_reason`, or the `label`
+   and every row as `[code, part, status, step]`, with the trace rows but `inputs` for a
+   case that names a trace, and an online case's two edges. It compares nothing itself;
+   `task check` compares it with `cases.json`. `mix help truestamp.verify` lists the
+   command's options, and `mix help truestamp.conformance` describes the entry point.
 
 ## Building a verifier or library
 
@@ -71,10 +76,11 @@ under `elixir/` is an example to consult, not a source to translate.
   - Read every JSON number as its nearest binary64 value with a correctly rounded
     conversion (section 10.1, J5). A few proofs under `vectors/negative/` hold number
     literals hundreds of digits long, and the C library's `strtod` on macOS 27 aborts on
-    some of them. `elixir/lib/truestamp/verifier/binary64.ex` shows an exact conversion.
+    some of them. The reference verifier's `lib/truestamp/verify/json/binary64.ex` shows
+    an exact conversion.
   - A stock JSON Schema validator can tell whether SHAPE's schema check passes, but not
     the part its row names, which section 10.2, step 7 fixes.
-    `elixir/lib/truestamp/verifier/schema.ex` is a checker that gives it.
+    The reference verifier's `lib/truestamp/verify/schema.ex` is a checker that gives it.
 - Test the building blocks before the whole:
   - `vectors/corpus/`: JCS under `jcs/`, `ed25519.json`, `base64url.json`, and real
     Bitcoin transactions and merkleblocks under `bitcoin/`;
@@ -88,9 +94,9 @@ under `elixir/` is an example to consult, not a source to translate.
     `online` and `trace` when present (the member table of section 13.2). `keyring` may
     instead be `test` (the test keyring), `none` (keyless mode) or `unavailable`. A case
     is online exactly when it has `online`. Cases share files, so never build a path from
-    a case's id. `elixir/test/support/cases.ex` is one harness, and the reference
-    verifier's output for every offline case, from `mix truestamp.conformance` (above), is
-    one to diff yours against.
+    a case's id. The reference verifier's `Truestamp.Verify.Conformance` is one harness,
+    and its output for every case, from `mix truestamp.conformance` (above), is one to diff
+    yours against.
   - Give your verifier each proof and keyring file as the bytes you read, never as a
     value your harness parsed and wrote again: many cases concern the bytes themselves.
   - `cases.json` is larger than MAX_READ_OCTETS, so read it with an ordinary data reader,
@@ -109,10 +115,12 @@ under `elixir/` is an example to consult, not a source to translate.
     step), in order, passes and skips included; for an online case, also each edge's
     instant and basis, compared as instants. Messages, `values` and exit codes are never
     compared.
-- `elixir/walkthrough.livemd`, a Livebook notebook (open it with `livebook server` or the
-  Livebook desktop app), runs the reference verifier over one proof and prints every value
-  the trace holds, each declared value beside the value the verifier recomputes, step by
-  step; it computes nothing itself.
+- The reference verifier's `livebooks/walkthrough.livemd`, a Livebook notebook, runs the
+  verifier over one proof and prints every value the trace holds, each declared value
+  beside the value the verifier recomputes, step by step, then the reads and the submission
+  window of an online run answered from a replay file; it computes nothing itself. The
+  **Run in Livebook** button in the verifier's README opens it in your own Livebook, and
+  its first cell installs the verifier and these vectors, each at a pinned commit.
 - Each sound proof under `vectors/positive/` has a trace, `<name>.trace.json` (section
   10.6): one row for each DERIVE row whose part is a CHECKED value, other than a row of
   LINK_HEAD, LINK_KEY_EVENT or LINK_CHAIN_ORDER, with its construction,
@@ -163,19 +171,20 @@ script, not an answer key, and no session receives it.
 ## Changing this repository
 
 - Work in a git clone, with git installed: `task style` lists files with `git ls-files`,
-  and `task setup` fetches the Merkle library with git. Install the tools in
+  and `task setup` fetches the reference verifier and the Merkle library with git. Install the tools in
   `.tool-versions` with `MISE_ERLANG_COMPILE=false mise install`, then run `task setup`.
 - `task check` is the gate: formatting, house style, the vectors and the generated files
   under `agent-test/`, the agent-test harness's self-test, the manifest, compile, credo in
   strict mode, unused dependencies, and the tests. Its check of the vectors also runs the
-  reference verifier over every offline case, through `mix truestamp.conformance`, and
-  fails on any case whose output differs from `cases.json`, and runs it again through
+  reference verifier over every case, through `mix truestamp.conformance`, and fails on any
+  case whose output differs from `cases.json`, and runs it again through
   `mix truestamp.agent_lines` for the agent test's expected lines, so it needs the
   verifier's dependencies (`task setup`) and `python3` for the harness's self-test. Its last
   line says which kind of failure it met. It passes before any change is done. Two tests,
   `elixir/test/conformance_check_test.exs` and `elixir/test/generator_check_test.exs`, run
-  that whole check on a broken copy of the repository, of the verifier and of the files it
-  checks; `task test -- --exclude generator_check` leaves them out.
+  that whole check on a broken copy of the repository, of the verifier (in the copy's
+  `elixir/deps/`) and of the files it checks; `task test -- --exclude generator_check`
+  leaves them out.
 - Never edit `vectors/`, the generated files under `agent-test/` (`PROMPT.md`, `runs.txt`,
   `fixtures/`, `mutants/` and `expected/`) or either manifest by hand. After changing
   `generator/`, anything under `spec/`, which the generator reads, or the prompt in
@@ -185,10 +194,16 @@ script, not an answer key, and no session receives it.
   no longer writes, so delete a stale one yourself.
 - The generator and the reference verifier share no code, and neither is written from the
   other, so each checks the other. Keep it that way.
+- The reference verifier compiles in a copy of `spec/`, and
+  `elixir/test/spec_mirror_test.exs` fails while that copy differs from this repository's.
+  So a change under `spec/` lands with a commit of truestamp-verify-ex that mirrors it: in
+  a checkout of the library, set `TRUESTAMP_VERIFICATION` to this checkout, run `task
+  spec-sync` and `task check` there, commit, and move `@verify_ref` in `elixir/mix.exs` to
+  that commit.
 - A change to `SPEC.md` that changes what a verifier does comes with a case in
-  `vectors/cases.json` that shows it. When it touches a step the reference verifier makes,
-  it also comes with the reference verifier's test of it; an online change comes with its
-  replay file.
+  `vectors/cases.json` that shows it, and an online change with its replay file. When it
+  touches a step the reference verifier makes, it also comes with a change to
+  truestamp-verify-ex that makes it, with its test, and `@verify_ref` moved to it.
 - `task style` enforces the house style: no em dashes, "commit" and "commitment" for what
   a chain records, "submission window" for the interval a proof establishes, no version
   number in a format's name, and the BCP 14 key words in capitals only in `SPEC.md`.

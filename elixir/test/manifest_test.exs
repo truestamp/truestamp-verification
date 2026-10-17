@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.ManifestTest do
+defmodule Truestamp.Verification.ManifestTest do
   # MANIFEST.sha256 at the root covers the conformance data alone (SPEC.md 9 and 13.1): one
   # line per file under spec/ and vectors/, and no other, in the grammar the app's sync
   # reads, sorted by path, each with the SHA-256 of the file's bytes. agent-test/ has a

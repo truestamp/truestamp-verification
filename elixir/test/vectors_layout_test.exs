@@ -1,14 +1,14 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.VectorsLayoutTest do
+defmodule Truestamp.Verification.VectorsLayoutTest do
   # SPEC.md 13.2's tables of the paths under vectors/ against the files there, as
   # spec_files_test.exs holds section 9's table to spec/: the first table names each entry at
   # the top of vectors/, and the corpus table each entry under vectors/corpus/, and every file
   # is named as the row that holds it says.
   use ExUnit.Case, async: true
 
-  alias Truestamp.Verifier.Test.StrictJSON
+  alias Truestamp.Verification.Test.StrictJSON
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")

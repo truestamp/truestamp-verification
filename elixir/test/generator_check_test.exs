@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.GeneratorCheckTest do
+defmodule Truestamp.Verification.GeneratorCheckTest do
   # The generator's check of the files it writes, end to end (SPEC.md 13.2 and 7.4): in a copy
   # of this repository, dependencies and test build included, a file under vectors/ and one
   # under agent-test/expected/ are changed, the prompt every session receives is edited by

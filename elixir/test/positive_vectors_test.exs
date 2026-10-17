@@ -1,14 +1,14 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.PositiveVectorsTest do
+defmodule Truestamp.Verification.PositiveVectorsTest do
   # The sound proofs under vectors/positive/ (SPEC.md 13.2), which generator/generate.exs
   # writes and checks. These tests hold each proof to spec/schema.json with the test suite's
   # own interpreter, independent of the generator's, read it under the parsing rules, and pair
   # it with its trace. The generator's --check rederives everything else.
   use ExUnit.Case, async: true
 
-  alias Truestamp.Verifier.Test.{SchemaSubset, StrictJSON}
+  alias Truestamp.Verification.Test.{SchemaSubset, StrictJSON}
 
   @root Path.expand("../..", __DIR__)
   @dir Path.join(@root, "vectors/positive")

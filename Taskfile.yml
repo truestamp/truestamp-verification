@@ -4,9 +4,10 @@
 # https://taskfile.dev
 #
 # Tool versions come from .tool-versions, which mise reads: Erlang, Elixir and this
-# runner. `task bootstrap` installs them. The Elixir reference verifier is the Mix
-# project in elixir/, so its tasks run there. Its .formatter.exs and .credo.exs also take in
-# the scripts in generator/ and agent-test/, so format, format-check and credo cover them.
+# runner. `task bootstrap` installs them. The Mix project in elixir/ pins the reference
+# verifier, the library Truestamp.Verify (truestamp-verify-ex), and holds this repository's
+# tests, so its tasks run there. Its .formatter.exs and .credo.exs also take in the scripts
+# in generator/ and agent-test/, so format, format-check and credo cover them.
 
 version: "3"
 
@@ -36,7 +37,7 @@ tasks:
       - mise ls --current
 
   setup:
-    desc: Fetch the reference verifier's dependencies
+    desc: Fetch the reference verifier and the other dependencies of elixir/
     aliases: [deps]
     dir: elixir
     cmds:
@@ -49,7 +50,7 @@ tasks:
   # ===========================================================================
 
   compile:
-    desc: Compile the reference verifier, with warnings as errors
+    desc: Compile elixir/ and the reference verifier, with warnings as errors
     dir: elixir
     env:
       MIX_ENV: test
@@ -75,7 +76,7 @@ tasks:
       - mix credo --strict
 
   test:
-    desc: Run the reference verifier's tests
+    desc: Run the repository's tests, in elixir/, against the reference verifier
     dir: elixir
     cmds:
       # UTF-8 file names in any locale, as on macOS: a test runs the verifier in the C locale.

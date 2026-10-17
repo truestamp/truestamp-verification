@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.SpecFilesTest do
+defmodule Truestamp.Verification.SpecFilesTest do
   # The files under spec/ are SPEC.md's data. These tests hold each one to the text: every file
   # reads under the parsing rules and is in canonical form, every table agrees with SPEC.md's,
   # the key values are recomputed, and schema.json and value-classes.json are
@@ -10,7 +10,7 @@ defmodule Truestamp.Verifier.SpecFilesTest do
 
   import Bitwise
 
-  alias Truestamp.Verifier.Test.{Samples, SchemaSubset, StrictJSON}
+  alias Truestamp.Verification.Test.{Samples, SchemaSubset, StrictJSON}
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")

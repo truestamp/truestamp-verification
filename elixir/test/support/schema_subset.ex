@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.Test.SchemaSubset do
+defmodule Truestamp.Verification.Test.SchemaSubset do
   @moduledoc """
   Validates a JSON value against `spec/schema.json` by interpreting only the JSON Schema
   (draft 2020-12) keywords SPEC.md section 9 allows. Any other keyword raises, so the schema

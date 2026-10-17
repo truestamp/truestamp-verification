@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.ItemCodesTest do
+defmodule Truestamp.Verification.ItemCodesTest do
   # The known answers of vectors/item-codes.json (SPEC.md 13.2) for the item code of SPEC.md
   # 3.9, recomputed by this test's own reading of that section: the derivation, and a reader
   # that takes every permission 3.9 gives. The generator writes the file and shares no code
@@ -10,8 +10,8 @@ defmodule Truestamp.Verifier.ItemCodesTest do
 
   import Bitwise
 
-  alias Truestamp.Verifier.{Parser, RecordHash}
-  alias Truestamp.Verifier.Test.StrictJSON
+  alias Truestamp.Verification.Test.StrictJSON
+  alias Truestamp.Verify.{Hash, JSON}
 
   @root Path.expand("../..", __DIR__)
   @spec_md Path.join(@root, "SPEC.md")
@@ -142,10 +142,10 @@ defmodule Truestamp.Verifier.ItemCodesTest do
     named =
       for %{"proof" => path, "item_hash" => hash} <- file()["derive"] do
         {:ok, %{"proof" => proof}} =
-          @root |> Path.join("vectors/" <> path) |> File.read!() |> Parser.decode()
+          @root |> Path.join("vectors/" <> path) |> File.read!() |> JSON.decode()
 
         assert proof["type"] == "item"
-        assert RecordHash.hash_hex(:item_hash, proof["subject"]["record"]) == hash, path
+        assert Hash.hash_hex(:item_hash, proof["subject"]["record"]) == hash, path
         path
       end
 

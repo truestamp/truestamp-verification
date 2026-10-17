@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.Test.Samples do
+defmodule Truestamp.Verification.Test.Samples do
   @moduledoc """
   Envelopes that satisfy SPEC.md part 1's layouts, for testing the files under `spec/`: one
   of every type, and variants that put every kind of key event at every block position. Their

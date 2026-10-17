@@ -1,18 +1,21 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.ConformanceCheckTest do
+defmodule Truestamp.Verification.ConformanceCheckTest do
   # The generator's conformance check end to end (SPEC.md 13.2, generator/lib/conformance.exs):
-  # in a copy of this repository, dependencies and test build included, the verifier is
-  # broken so that the conformance entry point runs every case under its environment's
-  # default network pins, and `elixir generator/generate.exs --check` then has to exit 1,
-  # naming the policy-*-entropy_* cases, the ones whose rows those pins change, and closing
-  # with the line for an output that differs. The vectors of the copy are untouched, so no
+  # in a copy of this repository, dependencies and test build included, the reference
+  # verifier (the library Truestamp.Verify, from the copy's deps/) is broken so that its
+  # conformance entry point runs every case under its environment's default network pins, and `elixir generator/generate.exs --check` then has to exit 1,
+  # naming only cases whose pins are not their environment's defaults, the policy-*-entropy_*
+  # cases among them, whose rows those pins change, and closing with the line for an output
+  # that differs. The vectors of the copy are untouched, so no
   # other check of the generator fails.
   #
   # It runs the whole generator, so it is slow. It is tagged, so `mix test --exclude
   # generator_check` leaves it out, and `task check` runs it.
   use ExUnit.Case, async: true
+
+  alias Truestamp.Verification.Test.StrictJSON
 
   @moduletag :generator_check
   @moduletag timeout: 600_000
@@ -40,16 +43,30 @@ defmodule Truestamp.Verifier.ConformanceCheckTest do
     copy
   end
 
-  # The mutant: Conformance.config passes the default pins of the case's environment in
-  # place of the case's own.
+  # The mutant: the reference verifier's conformance entry point, the library's
+  # Truestamp.Verify.Conformance.options/2 in the copy's deps/, passes no network pins, so
+  # every case runs under the default pins of its environment in place of its own. The
+  # library's build is removed from the copy, so Mix compiles the mutated source.
   defp ignore_network_pins(copy) do
-    path = Path.join([copy, "elixir", "lib", "truestamp", "verifier", "conformance.ex"])
+    library = Path.join([copy, "elixir", "deps", "truestamp_verify"])
+    path = Path.join([library, "lib", "truestamp", "verify", "conformance.ex"])
     source = File.read!(path)
-    pins = "             networks: networks,\n"
+    pins = "[environment: environment, networks: networks, expected_hash:"
     assert length(String.split(source, pins)) == 2, "the mutant's line is not in #{path}"
 
-    defaults = ~s[             networks: Config.default_pins(Map.get(config, "environment")),\n]
+    defaults = "[environment: environment, networks: %{}, expected_hash:"
     File.write!(path, String.replace(source, pins, defaults))
+    File.rm_rf!(Path.join([copy, "elixir", "_build", "test", "lib", "truestamp_verify"]))
+  end
+
+  # The ids of the cases whose network pins are not the defaults of their environment.
+  defp pinned_cases(copy) do
+    defaults = StrictJSON.read_data!(Path.join([copy, "spec", "network-pins.json"]))
+
+    for %{"id" => id, "config" => config} <-
+          StrictJSON.read_data!(Path.join([copy, "vectors", "cases.json"])),
+        config["networks"] != defaults[config["environment"]],
+        do: id
   end
 
   test "generate.exs --check fails on a verifier that ignores network pins, naming the cases" do
@@ -79,8 +96,14 @@ defmodule Truestamp.Verifier.ConformanceCheckTest do
       |> Regex.scan(output, capture: :all_but_first)
       |> List.flatten()
 
-    assert length(named) == 6, output
-    assert Enum.all?(named, &(&1 =~ ~r/\Apolicy-[a-z]+-entropy_[a-z]+\z/)), output
+    # Every case named runs under pins other than its environment's defaults, and among them
+    # are the six policy-*-entropy_* cases, whose POLICY rows those pins change. The check
+    # runs the online cases too, so online cases whose pins differ are named as well.
+    pinned = pinned_cases(copy)
+    policy = Enum.filter(pinned, &(&1 =~ ~r/\Apolicy-[a-z]+-entropy_[a-z]+\z/))
+    assert length(policy) == 6
+    assert named != [] and Enum.all?(named, &(&1 in pinned)), output
+    assert Enum.all?(policy, &(&1 in named)), output
     assert output =~ "The reference verifier does not give the output cases.json expects"
 
     # Only the conformance check fails: generate.exs closes with none of the lines it gives

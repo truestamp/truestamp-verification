@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Truestamp, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-defmodule Truestamp.Verifier.MerkleWalkTest do
+defmodule Truestamp.Verification.MerkleWalkTest do
   # The pinned truestamp_merkle walks an inclusion proof as RFC 9162 section 2.1.3.2
   # does. The case is the last entry of the "leaf-3" tree in the library's
   # vectors/merkle.json, recomputed here with :crypto so the library's root is not taken
