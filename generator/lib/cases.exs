@@ -45,9 +45,10 @@ defmodule Generator.Case do
   - `label`: the label the case says its report has, checked when given.
   - `trace`: the path of the trace file the report's trace must equal, for a sound proof, for
     its reformatted copies, and for a passing case that runs a sound proof unchanged (the
-    keyring cases `key_binding-inactive_key` and `key_binding-none`, and the expected-hash
-    cases `expected_hash-md5` and `expected_hash-capitals`); it becomes the `trace` member of
-    the case's `expected`, and SPEC.md 13.1 compares the trace of each case that names one.
+    keyring cases `key_binding-inactive_key` and `key_binding-none`, the expected-hash cases
+    `expected_hash-md5` and `expected_hash-capitals`, and the POLICY case
+    `policy-block-genesis-staging_pins-regtest`); it becomes the `trace` member of the case's
+    `expected`, and SPEC.md 13.1 compares the trace of each case that names one.
   - `same_as`: the id of a case whose rows this case's rows must equal, as SPEC.md 13.3's
     sameness cases say; or `{id, except: steps}`, where the rows of the steps named may differ
     and every other row must equal that case's, each step keeping its number of rows, as for

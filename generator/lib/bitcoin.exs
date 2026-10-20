@@ -86,13 +86,14 @@ defmodule Generator.Bitcoin do
 
   @doc """
   The BIP 37 merkleblock of a block whose header is `header` and whose transactions have
-  `txids`, matching only the transaction at `index`: the header, total_txs, the hashes and the
-  flag bits of CPartialMerkleTree's TraverseAndBuild.
+  `txids`, matching only the transaction at `index`, or each of the transactions at the
+  indexes of a list, which may be empty: the header, total_txs, the hashes and the flag bits
+  of CPartialMerkleTree's TraverseAndBuild.
   """
   def merkleblock(header, txids, index) do
     total = length(txids)
     tree = List.to_tuple(txids)
-    {bits, hashes} = traverse(tree_height(total), 0, {tree, total, index})
+    {bits, hashes} = traverse(tree_height(total), 0, {tree, total, List.wrap(index)})
     flags = pack(bits)
 
     IO.iodata_to_binary([
@@ -110,8 +111,9 @@ defmodule Generator.Bitcoin do
   defp tree_height(total), do: Enum.find(0..32, &(width(total, &1) == 1))
 
   # One node: its flag bit, then its hash when the walk stops here, or else its children.
-  defp traverse(height, pos, {_tree, total, index} = block) do
-    parent_of_match = pos <<< height <= index and index < min((pos + 1) <<< height, total)
+  defp traverse(height, pos, {_tree, total, indexes} = block) do
+    parent_of_match =
+      Enum.any?(indexes, &(pos <<< height <= &1 and &1 < min((pos + 1) <<< height, total)))
 
     if height == 0 or not parent_of_match do
       {[parent_of_match], [node(height, pos, block)]}
@@ -122,13 +124,13 @@ defmodule Generator.Bitcoin do
     end
   end
 
-  defp right(height, pos, {_tree, total, _index} = block) do
+  defp right(height, pos, {_tree, total, _indexes} = block) do
     if pos < width(total, height), do: traverse(height, pos, block), else: {[], []}
   end
 
-  defp node(0, pos, {tree, _total, _index}), do: elem(tree, pos)
+  defp node(0, pos, {tree, _total, _indexes}), do: elem(tree, pos)
 
-  defp node(height, pos, {_tree, total, _index} = block) do
+  defp node(height, pos, {_tree, total, _indexes} = block) do
     left = node(height - 1, pos * 2, block)
 
     right =

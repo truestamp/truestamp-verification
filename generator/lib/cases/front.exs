@@ -18,8 +18,9 @@ defmodule Generator.Cases.Front do
     in the standard alphabet, with its unused bits set, and with a newline on its end
     (`public_key`, `value`), the newline written escaped, as JCS writes it; each of
     SMALL_ORDER_KEYS as K, `envelope-public_key-small_order-<i>` for the key at index i of
-    spec/small-order-keys.json, and K with y = 2^255 - 19 + 1, the identity written with y
-    at p or above, each with the signature (identity, 0) (`public_key`). The signature covers
+    spec/small-order-keys.json, and K with y = 2^255 - 19 + 3, not below p, which read as
+    y = 3 is a point on the curve and not of small order, so only the check that y is below p
+    refuses it, each with the signature (identity, 0) (`public_key`). The signature covers
     only `proof`, so no ENVELOPE case signs again.
   - **CONFIGURATION**, offline, each the bare rejection `configuration_error`, decided before
     the file is read: the keyring `test`, which holds VECTOR_KEY, under `staging`, over the
@@ -28,11 +29,11 @@ defmodule Generator.Cases.Front do
     and signed by that key; under `test`, no keyring option, which is no keyring source
     (`keyring` absent), over the sound item; and under `test`, over the sound item, keyrings
     that hold VECTOR_KEY and break one load check of SPEC.md 10.2 step 0: a repeated key, a
-    wrong `key_id`, a small-order key (the identity), a key whose y is not below 2^255 - 19,
-    an extra member in the keyring and in a key, a `version` other than `"1.0"`, and a file
-    with a duplicate member name, which breaks J4. So a verifier that let a keyring through
-    would bind K and pass the proof, which is sound under that keyring. The online cases are
-    in Generator.Cases.Online.
+    wrong `key_id`, a small-order key (the identity), a key whose y is not below 2^255 - 19
+    (y = p + 3, as in the ENVELOPE case), an extra member in the keyring and in a key, a
+    `version` other than `"1.0"`, and a file with a duplicate member name, which breaks J4. So
+    a verifier that let a keyring through would bind K and pass the proof, which is sound
+    under that keyring. The online cases are in Generator.Cases.Online.
   - **ENVIRONMENT**, `environment_mismatch` at `/environment`, each proof the sound item with
     its marker changed and signed again with VECTOR_KEY. A run whose E_v is not `test` cannot
     load a keyring holding VECTOR_KEY, so it is keyless, where KEY_BINDING and SIGNATURE would
@@ -104,6 +105,10 @@ defmodule Generator.Cases.Front do
   @p Integer.pow(2, 255) - 19
   @l Integer.pow(2, 252) + 27_742_317_777_372_353_535_851_937_790_883_648_493
 
+  # A public key whose y is p + 3, not below p: read as y = 3, it is a point on the curve and
+  # not of small order, so only the check that y is below p refuses it.
+  @y_not_below_p <<@p + 3::little-256>>
+
   # The files that several cases share, each written by the first case named here.
   @staging "negative/configuration-vector_key-under-staging.proof.json"
   @other_keyring "negative/configuration-nonproduction_key-under-prod.keyring.json"
@@ -161,7 +166,7 @@ defmodule Generator.Cases.Front do
          Case.envelope(proof, Bytes.b64u(Bytes.unhex(hex)), identity)}
       end,
       {"public_key-y_not_below_p", "public_key",
-       Case.envelope(proof, Bytes.b64u(<<@p + 1::little-256>>), identity)}
+       Case.envelope(proof, Bytes.b64u(@y_not_below_p), identity)}
     ])
     |> Enum.map(fn {id, sub_reason, file} ->
       Case.new("envelope-" <> id,
@@ -248,7 +253,7 @@ defmodule Generator.Cases.Front do
       {"repeated_key", {:value, keyring([vector, %{vector | "sequence" => 1}])}},
       {"wrong_key_id", {:value, keyring([%{vector | "key_id" => Keys.key_id(other)}])}},
       {"small_order_key", {:value, keyring([vector, key(<<1, 0::248>>, 1)])}},
-      {"y_not_below_p", {:value, keyring([vector, key(<<@p + 1::little-256>>, 1)])}},
+      {"y_not_below_p", {:value, keyring([vector, key(@y_not_below_p, 1)])}},
       {"extra_member", {:value, Map.put(one, "comment", "a member no keyring has")}},
       {"key_extra_member", {:value, keyring([Map.put(vector, "environment", "test")])}},
       {"version", {:value, %{one | "version" => "2.0"}}},

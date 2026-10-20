@@ -46,8 +46,8 @@ consult, not a source to translate.
    no option the run is under the environment `prod`, so every vector fails
    `environment_mismatch`; give a vector its case's options, such as `--environment test
    --keyring deps/truestamp_verification/vectors/keyring.test.json`. The command takes no
-   network pins. Of the 20 offline cases whose `networks` differ from their environment's
-   defaults, 6, the `policy-*-entropy_*` cases, give other rows through it; the other 14 give
+   network pins. Of the 22 offline cases whose `networks` differ from their environment's
+   defaults, 6, the `policy-*-entropy_*` cases, give other rows through it; the other 16 give
    the same rows. To run the cases with their full configuration, network pins included,
    run `MIX_ENV=test mix truestamp.conformance
    deps/truestamp_verification/vectors/cases.json`. It runs every case, each online case
@@ -127,9 +127,9 @@ consult, not a source to translate.
   declared value, inputs, part, recomputed value and status. When a sound proof fails,
   compare your derivation with the trace to find the first value that differs. A verifier
   that gives a trace matches it in order, every member but `inputs`, for each case whose
-  expected output names a trace: the sound cases, their reformatted copies, and four
-  passing cases that run a sound proof unchanged (two keyring cases and two expected-hash
-  cases).
+  expected output names a trace: the sound cases, their reformatted copies, and five
+  passing cases that run a sound proof unchanged (two keyring cases, two expected-hash
+  cases and one POLICY case).
 - A claim of conformance names the commit of this repository and the digest of
   `MANIFEST.sha256` (`shasum -a 256 MANIFEST.sha256`) whose cases the verifier passed.
 

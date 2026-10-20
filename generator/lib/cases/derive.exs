@@ -65,7 +65,11 @@ defmodule Generator.Cases.Derive do
     `public_key` (packet C3). At a genesis event (h0, k0): a wrong `key_id`; a record
     `signing_key_id` that is not the key id of its `public_key`; and, beyond 13.3's list, at
     /block and /witnesses/block, an event that introduces the identity, at its `public_key` (at
-    /signing_key_event that also fails LINK_KEY_EVENT). At the prerotation h3: an
+    /signing_key_event that also fails LINK_KEY_EVENT). At the rotation h5 and the emergency
+    rotation h2, each at the /block of its block proof: an incoming `public_key` that fails the
+    checks of a key's bytes, the identity and a key whose y is not below 2^255 - 19, at that
+    `public_key`, with its ids made to agree and h5's handover signed again (D221 item 1). At
+    the prerotation h3: an
     `active_key_id` of VECTOR_KEY's id, at the record's `signing_key_id`. And a
     /signing_key_event/block whose genesis event introduces G, not K (LINK_KEY_EVENT), at that
     event's `public_key`.
@@ -91,14 +95,23 @@ defmodule Generator.Cases.Derive do
     /commitments, `bitcoin_evidence_invalid` at `raw_transaction`: a transaction of exactly
     64 octets (one input, and one output of a 4-octet script that is no OP_RETURN, since no
     64-octet transaction has room for the 34-octet OP_RETURN script), one with no input, one
-    with a second OP_RETURN output, and one whose OP_RETURN pushes the hash with OP_PUSHDATA1
-    (packet C6); and at `txoutproof`: the epoch transaction, the last of three, repeated as its
-    own right sibling, which keeps the block's root (CVE-2012-2459), an unused hash, an unused
-    flag bit, `total_txs` of 0 and of BITCOIN_MAX_TOTAL_TXS + 1, a header whose hash is above
-    its target, and an nBits that overflows and one that is negative (Bitcoin Core's
-    0xff123456 and 0x04923456), each of the last three with `header_hash` made to agree with
-    the edited header. Beyond 13.3's list, a transaction the merkleblock does not
-    match, with its `transaction_hash` recomputed: `derivation_mismatch` at `txoutproof`.
+    with a second OP_RETURN output, one whose OP_RETURN pushes the hash with OP_PUSHDATA1
+    (packet C6), one whose 34-octet OP_RETURN script pushes it with 0x1f, the transaction
+    serialized with a witness (BIP 144), and one whose 252-octet script signature has its
+    compact size in three octets; and at `txoutproof`: the epoch transaction, the last of
+    three, repeated as its own right sibling, which keeps the block's root (CVE-2012-2459), an
+    unused hash, the last unused flag bit set and the first, a second flag octet of zero, the
+    count of hashes in three octets, a merkleblock that matches the second transaction and
+    the epoch transaction and one that matches none, `total_txs` of 0 and of
+    BITCOIN_MAX_TOTAL_TXS + 1, a header whose hash is above its target, an nBits that
+    overflows and one that is negative (Bitcoin Core's 0xff123456 and 0x04923456), and
+    regtest's nBits with its sign bit set, 0x20ffffff, under a header whose hash meets the
+    target it gives read without its sign, each of the last four with `header_hash` made to
+    agree with the edited header (D225 items 7 and 8). The epoch transaction as the last of
+    BITCOIN_MAX_TOTAL_TXS in its block, the others standing as hashes, with the block's root,
+    its header, `header_hash` and `header_merkle_root` made to agree, passes. Beyond 13.3's
+    list, a transaction the merkleblock does not match, with its `transaction_hash`
+    recomputed: `derivation_mismatch` at `txoutproof`.
 
   A case is written here as `{id, the sound proof's name, what it asserts, the edit}`, with the
   case's options after the edit where it has any. What it asserts is `{code, part}`, the one
@@ -125,6 +138,10 @@ defmodule Generator.Cases.Derive do
 
   # The public key of 32 bytes 0x01 and 0x00 after it: the identity, a small-order key.
   @identity Bytes.b64u(<<1, 0::248>>)
+
+  # A public key whose y is 2^255 - 19 + 3, not below p: read as y = 3, it is a point on the
+  # curve and not of small order, so only the check that y is below p refuses it.
+  @y_not_below_p Bytes.b64u(<<Integer.pow(2, 255) - 19 + 3::little-256>>)
 
   # The sound item whose /block, h6, is alone in its epoch, E3, committed to Stellar only.
   @alone "item-rotation-witness"
@@ -485,6 +502,7 @@ defmodule Generator.Cases.Derive do
     List.flatten([
       Enum.map(@rotations, &rotation_events/1),
       Enum.map(@geneses, &genesis_events/1),
+      incoming_keys(),
       prerotations(),
       link_key_event()
     ])
@@ -548,6 +566,25 @@ defmodule Generator.Cases.Derive do
        wrong.(r <> "/signing_key_id")}
       | small_order
     ]
+  end
+
+  # The rotation h5 and the emergency rotation h2, each at /block of its block proof, made to
+  # bring in a key that fails the checks of a key's bytes (SPEC.md 6.2), in two forms for each
+  # event: the identity, which is one of SMALL_ORDER_KEYS, and a key whose y is not below p.
+  # The event's `key_id` and the record's `signing_key_id` are made to agree with that key, and
+  # the rotation's handover is signed again by its outgoing key, so only the check of the
+  # incoming key's bytes fails.
+  defp incoming_keys do
+    for {kind, name} <- [
+          {"rotation", "block-rotation"},
+          {"emergency_rotation", "block-emergency-rotation"}
+        ],
+        {words, key} <- [{"small_order", @identity}, {"y_not_below_p", @y_not_below_p}] do
+      e = "/block/record/metadata/key_event"
+
+      {"key_events-public_key_#{words}-#{kind}-block", name, {@kem, e <> "/public_key"},
+       &(&1 |> introduce("/block", key) |> resign(e) |> recommit("/block"))}
+    end
   end
 
   # The prerotation h3, at /block of the empty beacon and as the item's witness block, naming
@@ -667,9 +704,15 @@ defmodule Generator.Cases.Derive do
       for {words, malform} <- transactions() do
         {"bitcoin-raw_transaction_" <> words, "block", {@bei, raw}, &retransact(&1, malform)}
       end,
+      for {words, malform} <- transaction_bytes() do
+        {"bitcoin-raw_transaction_" <> words, "block", {@bei, raw},
+         &reblock(&1, @btc, malform.(raw(&1, @btc)))}
+      end,
       for {words, malform} <- merkleblocks() do
         {"bitcoin-txoutproof_" <> words, "block", {@bei, txoutproof}, &remerkle(&1, malform)}
       end,
+      {"bitcoin-txoutproof_total_txs_max", "block",
+       {:passes, [{"pass", nil, txoutproof, "DERIVE"}]}, &largest_block/1},
       {"bitcoin-unmatched_transaction", "block", {@dm, txoutproof},
        &(&1 |> relock(raw) |> retxid(@btc))}
     ])
@@ -703,7 +746,18 @@ defmodule Generator.Cases.Derive do
       {"64_octets", &sixty_four/1},
       {"no_input", &%{&1 | inputs: []}},
       {"two_op_returns", &second_op_return/1},
-      {"op_return_pushdata", &pushdata/1}
+      {"op_return_pushdata", &pushdata/1},
+      {"op_return_other_push", &other_push/1}
+    ]
+  end
+
+  # Transactions made malformed over their bytes, where the builder writes only the
+  # serialization SPEC.md 10.2 step 9 (d) allows: the transaction serialized with a witness
+  # (BIP 144), and one whose compact size is not in its shortest form.
+  defp transaction_bytes do
+    [
+      {"witness", &witness/1},
+      {"compact_size_not_shortest", &longer_compact_size/1}
     ]
   end
 
@@ -731,6 +785,38 @@ defmodule Generator.Cases.Derive do
     %{transaction | outputs: outputs}
   end
 
+  # The transaction whose OP_RETURN script is 34 octets, 0x6a and the 32 bytes, as it should be,
+  # but pushes them with another opcode, 0x1f, which pushes 31.
+  defp other_push(transaction) do
+    outputs =
+      Enum.map(transaction.outputs, fn
+        {value, <<0x6A, 0x20, hash::binary-32>>} -> {value, <<0x6A, 0x1F, hash::binary>>}
+        output -> output
+      end)
+
+    %{transaction | outputs: outputs}
+  end
+
+  # The transaction serialized with its witness (BIP 144): the marker 0x00 and the flag 0x01
+  # after the version, and before the lock time a witness for its one input, of one item of 32
+  # octets.
+  defp witness(<<version::binary-4, rest::binary>>) do
+    size = byte_size(rest) - 4
+    <<body::binary-size(^size), locktime::binary-4>> = rest
+    item = :crypto.hash(:sha256, "truestamp vectors a witness item")
+    version <> <<0x00, 0x01>> <> body <> <<1, 32>> <> item <> locktime
+  end
+
+  # The transaction with a script signature of 252 octets, whose compact size, 0xfc, is
+  # written in three octets, 0xfd 0xfc 0x00: the shortest form of 252 is one octet.
+  defp longer_compact_size(raw) do
+    %{inputs: [{txid, vout, <<>>, sequence}]} = transaction = parse(raw)
+    script = :binary.copy(<<0x51>>, 252)
+    bytes = Bitcoin.transaction(%{transaction | inputs: [{txid, vout, script, sequence}]})
+    <<head::binary-41, 0xFC, tail::binary>> = bytes
+    head <> <<0xFD, 0xFC, 0x00>> <> tail
+  end
+
   # E1's merkleblock at /commitments made malformed by `malform`, over its bytes, with
   # `header_hash` made to agree with the header it then carries, which only the header cases
   # change.
@@ -751,11 +837,17 @@ defmodule Generator.Cases.Derive do
       {"duplicate_pair", &duplicate_pair/1},
       {"unused_hash", &unused_hash/1},
       {"unused_flag_bit", &unused_flag_bit/1},
+      {"first_unused_flag_bit", &first_unused_flag_bit/1},
+      {"extra_flag_octet", &extra_flag_octet/1},
+      {"compact_size_not_shortest", &longer_hash_count/1},
+      {"two_matches", &matching(&1, [1, 2])},
+      {"no_match", &matching(&1, [])},
       {"total_txs_0", &total_txs(&1, 0)},
       {"total_txs_above_max", &total_txs(&1, max + 1)},
       {"header_above_target", &header_above_target/1},
       {"nbits_overflow", &nbits(&1, 0xFF123456)},
-      {"nbits_negative", &nbits(&1, 0x04923456)}
+      {"nbits_negative", &nbits(&1, 0x04923456)},
+      {"nbits_negative_unsigned_target_met", &negative_met/1}
     ]
   end
 
@@ -763,10 +855,24 @@ defmodule Generator.Cases.Derive do
   # with the last repeated, which keeps the block's Merkle root, and matching the third: its
   # walk meets a right child equal to its left (CVE-2012-2459).
   defp duplicate_pair(<<header::binary-80, _rest::binary>>) do
-    block = regtest() |> Map.values() |> Enum.find(&(&1[:header] == header))
-    txids = Enum.map(block.txs, &Bitcoin.txid/1)
+    txids = txids(header)
     3 = length(txids)
     Bitcoin.merkleblock(header, txids ++ [List.last(txids)], 2)
+  end
+
+  # The txids of the regtest block whose header is `header`.
+  defp txids(header) do
+    block = regtest() |> Map.values() |> Enum.find(&(&1[:header] == header))
+    Enum.map(block.txs, &Bitcoin.txid/1)
+  end
+
+  # The merkleblock of E1's block, whose three transactions end with Truestamp's, matching the
+  # transactions at `indexes`: the second and Truestamp's, or none, whose walk takes the root
+  # alone. Its root is still the header's Merkle root field.
+  defp matching(<<header::binary-80, _rest::binary>>, indexes) do
+    txids = txids(header)
+    3 = length(txids)
+    Bitcoin.merkleblock(header, txids, indexes)
   end
 
   # A merkleblock's parts: its header, total_txs, hashes and flag octets, each compact size
@@ -800,6 +906,34 @@ defmodule Generator.Cases.Derive do
     join({header, total, hashes, <<0x8D>>})
   end
 
+  # The first unused bit of the one flag octet, bit 4 after the walk's four, set: 0x1d.
+  defp first_unused_flag_bit(merkleblock) do
+    {header, total, hashes, <<0x0D>>} = split(merkleblock)
+    join({header, total, hashes, <<0x1D>>})
+  end
+
+  # A second flag octet, all zero, which the walk does not reach.
+  defp extra_flag_octet(merkleblock) do
+    {header, total, hashes, flags} = split(merkleblock)
+    join({header, total, hashes, flags <> <<0>>})
+  end
+
+  # The count of hashes written in three octets, 0xfd and the count little-endian, where its
+  # shortest form is one octet.
+  defp longer_hash_count(merkleblock) do
+    {header, total, hashes, flags} = split(merkleblock)
+    longer = <<0xFD, length(hashes)::little-16>>
+
+    IO.iodata_to_binary([
+      header,
+      <<total::little-32>>,
+      longer,
+      hashes,
+      Bitcoin.compact_size(byte_size(flags)),
+      flags
+    ])
+  end
+
   defp total_txs(merkleblock, total) do
     {header, _total, hashes, flags} = split(merkleblock)
     join({header, total, hashes, flags})
@@ -823,6 +957,53 @@ defmodule Generator.Cases.Derive do
       split(merkleblock)
 
     join({<<head::binary, bits::little-32, nonce::binary>>, total, hashes, flags})
+  end
+
+  # The header with regtest's nBits, 0x207fffff, given its sign bit, 0x20ffffff, which SPEC.md
+  # 10.2 step 9 (d) reads as negative, and the first nonce, from 0, whose hash meets the target
+  # that nBits gives read without its sign, 0x7fffff x 256^29 (Generator.Bitcoin.target/1).
+  defp negative_met(merkleblock) do
+    {<<fields::binary-72, _bits::binary-4, _nonce::binary-4>>, total, hashes, flags} =
+      split(merkleblock)
+
+    header =
+      Enum.find_value(Stream.iterate(0, &(&1 + 1)), fn nonce ->
+        header = <<fields::binary, 0x20FFFFFF::little-32, nonce::little-32>>
+        if Bitcoin.meets_target?(header), do: header
+      end)
+
+    join({header, total, hashes, flags})
+  end
+
+  # E1's transaction at /commitments in a block of BITCOIN_MAX_TOTAL_TXS transactions, the
+  # most a merkleblock may count, as the last of them, after hashes that stand for the others:
+  # the block's Merkle root, its header ground again at its own nBits, the merkleblock, and
+  # `header_hash` and `header_merkle_root` made to agree. Its merkleblock is well formed.
+  defp largest_block(proof) do
+    max = Spec.read("constants.json")["BITCOIN_MAX_TOTAL_TXS"]
+    txoutproof = @btc <> "/txoutproof"
+    <<header::binary-80, _rest::binary>> = proof |> get(txoutproof) |> Bytes.unhex()
+    others = for i <- 1..(max - 1), do: :crypto.hash(:sha256, "truestamp vectors tx #{i}")
+    txids = others ++ [Bitcoin.txid(raw(proof, @btc))]
+    root = Bitcoin.merkle_root(txids)
+
+    <<version::little-32, previous::binary-32, _root::binary-32, time::little-32, bits::little-32,
+      _nonce::binary-4>> = header
+
+    header =
+      Bitcoin.grind(%{
+        version: version,
+        previous: previous,
+        merkle_root: root,
+        time: time,
+        bits: bits,
+        nonce: 0
+      })
+
+    proof
+    |> put(txoutproof, Bytes.hex(Bitcoin.merkleblock(header, txids, max - 1)))
+    |> put(@btc <> "/header_hash", Bitcoin.display(Bitcoin.sha256d(header)))
+    |> put(@btc <> "/header_merkle_root", Bitcoin.display(root))
   end
 
   # Edits Generator.Edit does not give.

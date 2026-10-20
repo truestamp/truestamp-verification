@@ -1380,7 +1380,14 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   of that chain's production network, and one that does not serves the chain's other
   pins. So where a run pins one chain to two networks, as `dev` and `staging` pin Bitcoin
   commitments to `regtest` and Bitcoin entropy to `mainnet`, each source serves the pin its
-  network matches, and a pin that no source serves has none.
+  network matches, and a pin that no source serves has none. A source configured for one
+  network, a compiled-in default or one the operator named for it, serves that network's
+  pins: when its identity read gets no usable answer, its outcome on each of their rows is
+  `skip source_unreachable`, which section 10.4 combines with the network's other sources.
+  A source configured for no network that gets no usable answer serves each pin of its
+  chain the run pins that no other source serves; of two such sources, the first in the
+  verifier's order of its source options serves it. No compiled-in default is read in such
+  a source's place, so an outage is never `configuration_error` (section 10.2, step 0).
 
 | Constant | Value |
 |---|---|
@@ -1838,8 +1845,9 @@ A `txoutproof` is well formed when:
   hashes; a compact size and that many flag octets; and nothing after, with every compact
   size in its shortest form;
 - its partial Merkle tree walks as Bitcoin Core's CPartialMerkleTree walks one: the walk
-  uses every hash and every flag bit, the bits after the last one used in the final flag
-  octet are zero, and no node has a right child equal to its left (CVE-2012-2459);
+  uses every hash and reaches every flag octet (the number of flag octets is (b + 7) / 8,
+  rounded down, for b the number of flag bits it uses), the bits after the last one used
+  are zero, and no node has a right child equal to its left (CVE-2012-2459);
 - the walk matches exactly one transaction, and the root it gives equals the header's
   Merkle root field;
 - the header meets the target its nBits field encodes.
@@ -1865,8 +1873,8 @@ when DERIVE ends: it is open when the caller did not ask for an offline run and 
 far is `fail`. When it is open, both steps run, and a failure at CHAIN does not close it
 for SOURCES. When it is closed, each of their rows is `skip prior_failure` when a row so
 far is `fail`, or else `skip offline`. Only the caller opens this gate, and
-nothing in the document can. A verifier that makes no reads, such as the reference
-verifiers in this repository (section 8.3), always runs offline.
+nothing in the document can. A verifier that makes no reads, as the reference verifier of
+section 13.1 does when it is given no reader (section 8.3), always runs offline.
 
 **10. CHAIN**, online. The chain reads of section 10.4, for each commitment entry at
 `/commitments` and `/signing_key_event/commitments`, and for each `metadata.genesis.bitcoin`
@@ -2085,7 +2093,11 @@ the edges rest on the value the transaction holds, whoever sent it.
   `skip source_unreachable`, and no cache keeps the answer.
 
 An answer that shows a contradiction fails the row, even when it lacks a field that another
-check uses.
+check uses. The fields a read uses are those its rule reads at that point, not every field
+of its kind (section 13.2). So an answer that holds each of them, in its form, is judged
+on them, whatever else it lacks or gives in another form: the best-chain block at h of
+item 3 of the Bitcoin rule below is judged without its median time past, and a Stellar
+ledger read after a transaction not found is judged on being found.
 
 **Caches.** Every not-found answer MUST come from a live read, never from a cache. A found
 answer MAY come from a cache of answers read on the same chain and network, and only when
@@ -2869,8 +2881,11 @@ same `source` or both without one, in an order that carries no meaning.
 | `keyring` | `url` (`https://<host>/.well-known/keyring.json`) | `keyring` (any JSON value the canonical form of section 9 can hold: the keyring read, which the load checks of section 10.2, step 0, then judge) |
 
 - `network` is a network of the read's chain in `spec/networks.json`. The `<host>` of a
-  keyring read's `url` is the host of the origin the keyring is read from: www.truestamp.com,
-  or the origin `--base-url` names (section 10.2, step 0).
+  keyring read's `url` is the host of the origin the keyring is read from. A case's `config`
+  names no origin, so every keyring read a case makes is of www.truestamp.com (section 8.3).
+  A verifier's option to read the keyring from another origin, such as the CLI's
+  `--base-url`, gives a supplied keyring (section 8.3); no case's `config` can name one,
+  so each verifier that offers such an option tests it in its own tests.
 - A keyring answered from a replay is a value with no bytes of its own, so its digest, the
   `digest` of `trust_root` (section 10.5), is never compared (section 13.1).
 - Bitcoin hashes are in display order, and Bitcoin times are Unix seconds.
@@ -2990,14 +3005,20 @@ section 10 reports that check. Each class below says what its cases assert.
   `handover_signature` of the right length with one character off their classes (a
   capital, a lowercase letter, and a last character that sets an unused bit); any OPTIONAL
   member other than `environment` as `null`; an observation whose source differs from its
-  type or its name; `witnesses` names that differ from `witness_hashes`; a rotation of
-  `sequence` 0; a prerotation and a revocation at `/signing_key_event/block`, at the key
-  event's `type`; the genesis pairing of section 3.3 broken each way, a genesis event
-  without `metadata.genesis` and `metadata.genesis` beside a rotation, each at the key
-  event's `type`, and `metadata.genesis` with no key event, at the missing
-  `metadata.key_event`; a TIME of `24:00:00`, of February 30, with 60 seconds, or of
-  February 29 in 1900 or 2100; and a `path` of 33 nodes. A TIME of `0000-02-29T00:00:00Z`
-  passes SHAPE.
+  type or its name; `witnesses` names that differ from `witness_hashes`, one name fewer, one
+  more, and as many but not the same; an extra member in a closed object whose name holds
+  `~` and `/`, at its pointer, which escapes both; `subject` in a block proof, as an object
+  and as `null`, at `/subject`; a rotation of `sequence` 0; a prerotation and a revocation
+  at `/signing_key_event/block`, at the key event's `type`; the genesis pairing of section
+  3.3 broken each way, a genesis event without `metadata.genesis` and `metadata.genesis`
+  beside a rotation, each at the key event's `type`, and `metadata.genesis` with no key
+  event, at the missing `metadata.key_event`; a TIME of `24:00:00`, of February 30, with
+  60 seconds, or of February 29 in 1900 or 2100; and a `path` of 33 nodes. A TIME of
+  `0000-02-29T00:00:00Z` passes SHAPE. Two extra members in one closed object, with names
+  either side of U+FFFF, so that their JCS order, by UTF-16 code unit, differs from their
+  order by code point, fail at the one first in document order; that case is left to each
+  verifier's own tests, since its part names a member that is not ASCII, and `cases.json`,
+  in the canonical form of section 9, is ASCII.
 - **Several failures at SHAPE (section 10.2, step 7).** Four cases each carry two failures
   of one check, and the row is the one whose part comes first in document order. At check
   3, an item's `/witnesses/block` record with `leaf_count` 1 under the empty root and its
@@ -3018,7 +3039,9 @@ section 10 reports that check. Each class below says what its cases assert.
   none needs a walk or a chain read to be rejected.
 - **POLICY.** One `network_mismatch` case for each `network` member: in each commitment
   entry at both positions, in each entropy object, and in `genesis.bitcoin`, each against
-  the case's pins.
+  the case's pins. Under the default pins of `staging`, whose Bitcoin entropy pin differs
+  from its Bitcoin commitment pin, a `genesis.bitcoin` of `mainnet` fails and one of
+  `regtest` passes, since it is compared with the commitment pin.
 - **Declared values.** One case for each CHECKED value that no key-event check of section
   10.3 covers: the value replaced fails `derivation_mismatch` at its own pointer. So do one
   character of `claims` changed, at `/subject/record/claims_hash`, and a beacon observation
@@ -3055,8 +3078,11 @@ section 10 reports that check. Each class below says what its cases assert.
   `signing_key_id`; a prerotation whose `active_key_id` differs from the record's
   `signing_key_id`, at the record's `signing_key_id`; a rotation whose
   `previous_public_key` is the identity, with the handover (identity, 0), at the event's
-  `handover_signature`; and a `/signing_key_event/block` whose event introduces a key other
-  than K (LINK_KEY_EVENT), at that event's `public_key`.
+  `handover_signature`; a rotation and an emergency rotation whose incoming `public_key`
+  fails the checks of a key's bytes, each in two forms, as the identity, which is one of
+  SMALL_ORDER_KEYS, and as a key whose y is not below 2^255 - 19, at that `public_key`;
+  and a `/signing_key_event/block` whose event introduces a key other than K
+  (LINK_KEY_EVENT), at that event's `public_key`.
 - **A handover whose position differs (section 3.3).** A rotation event whose handover
   signature is valid, carried in a block record whose `height`, or whose
   `previous_block_hash`, differs from the event's. Each of the two fails
@@ -3076,14 +3102,21 @@ section 10 reports that check. Each class below says what its cases assert.
   recomputed, fails `derivation_mismatch` at `/commitments/bitcoin/raw_transaction`, and in
   a separate case at `/signing_key_event/commitments/bitcoin/raw_transaction`.
   `bitcoin_evidence_invalid`: a transaction of exactly 64 octets; a transaction with no
-  input; a transaction with two output scripts that begin with 0x6a, and one whose only
-  such script is not exactly 0x6a 0x20 and 32 bytes, each at its `raw_transaction`; bytes
-  after the transaction or after the merkleblock; a duplicate sibling pair in the partial
-  tree; an unused hash or flag bit; `total_txs` of 0 and of BITCOIN_MAX_TOTAL_TXS + 1; a
-  header hash above the target its nBits encodes; and an nBits that overflows or is
-  negative. A transaction with an input and an exact OP_RETURN output is at least 94
-  octets, so the OP_RETURN rule implies the 64-octet rule, and the 64-octet case also lacks
-  an OP_RETURN. The 64-octet rule stays, as the guard against CVE-2017-12842.
+  input; a transaction serialized with its witness (BIP 144); a transaction with two output
+  scripts that begin with 0x6a, one whose only such script pushes the 32 bytes with
+  OP_PUSHDATA1, and one whose script is 34 octets with another push opcode before the 32
+  bytes, each at its `raw_transaction`; a compact size not in its shortest form, 252 in
+  three octets in a transaction and a count of hashes in three octets in a merkleblock;
+  bytes after the transaction or after the merkleblock; a duplicate sibling pair in the
+  partial tree; an unused hash; a set bit after the last one used, the first such bit and
+  the last; a flag octet, all zero, after the last one the walk reaches; a merkleblock that
+  matches two transactions, and one that matches none; `total_txs` of 0 and of
+  BITCOIN_MAX_TOTAL_TXS + 1; a header hash above the target its nBits encodes; and an nBits
+  that overflows or is negative, and a negative nBits whose header meets the target it
+  gives read without its sign. A `total_txs` of exactly BITCOIN_MAX_TOTAL_TXS passes. A
+  transaction with an input and an exact OP_RETURN output is at least 94 octets, so the
+  OP_RETURN rule implies the 64-octet rule, and the 64-octet case also lacks an OP_RETURN.
+  The 64-octet rule stays, as the guard against CVE-2017-12842.
 - **Chain and source reads.** Online, each outcome of section 10.4 from a replay: a Stellar
   entry found and matching, which passes and gives its candidate edge; a memo that
   differs, a transaction that did not succeed, and another ledger (`chain_mismatch`); a
@@ -3101,9 +3134,11 @@ section 10 reports that check. Each class below says what its cases assert.
   KEY_EVENT_COMMITMENT passing, giving `info not_attributable` when the run is not
   attributed to Truestamp, and failing or skipping with its first input's code. That an
   HTTP 429 or 503, an answer that does not parse and an answer that lacks a field the read
-  uses are each an unreachable answer, and that an answer that shows a contradiction fails
-  its row even when it lacks another field (section 10.4), are tested in each verifier's own
-  tests, since a replay holds answers, not a service's exchanges (section 13.2).
+  uses are each an unreachable answer, that an answer that shows a contradiction fails its
+  row even when it lacks another field, and that an answer is judged on the fields its
+  read uses at that point, whatever else it lacks (section 10.4), are tested in each
+  verifier's own tests, since a replay holds answers, not a service's exchanges
+  (section 13.2).
 - **Several sources (section 10.4).** Online, with two or three sources for one network,
   named in the case's `sources`, each answering from its own records of the replay. Under
   `all`: every source passing alike, so that both edges rest on two sources; one source

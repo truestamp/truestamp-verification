@@ -42,7 +42,12 @@ defmodule Generator.Cases.Shape do
       SPEC.md 13.3's list, an item's witness entropy object whose `source` differs from its
       name, the third place the schema checks a `source`;
     - `shape_invalid` at `/witnesses` for an item missing a witness that `witness_hashes`
-      names, and for one with a witness that `witness_hashes` does not name;
+      names, for one with a witness that `witness_hashes` does not name, and for one with as
+      many witnesses as `witness_hashes` names but not the same (D218 item 5);
+    - `shape_invalid` for an extra member in a closed object, a Stellar commitment entry,
+      whose name `a~b/c` holds `~` and `/`, at `/commitments/stellar/a~0b~1c`; and for
+      `subject`, which the type block forbids, in a block proof, as an object and as null, at
+      `/subject` (D217 item 3);
     - `shape_invalid` at the key event's `type` for a prerotation and for a revocation at
       `/signing_key_event/block`, which holds only a genesis event or a rotation, and at its
       `sequence` for a rotation of `sequence` 0;
@@ -72,7 +77,10 @@ defmodule Generator.Cases.Shape do
     network of a commitment entry, which no hash covers, and of each `genesis.bitcoin`, with
     the genesis `previous_block_hash` and the hashes above it made to agree, is changed in the
     proof. An entropy object keeps its network, and the case's entropy pin for its source
-    changes instead, since in each proof that pin covers that object alone.
+    changes instead, since in each proof that pin covers that object alone. Under the default
+    pins of `staging`, the genesis block's `genesis.bitcoin` of mainnet fails and the sound
+    one, of regtest, passes, since it is compared with the Bitcoin commitment pin, regtest,
+    and not the entropy pin, mainnet (D218 item 5).
   - **Gates** (`gates-`), each run given an expected hash, so that the row of EXPECTED_HASH
     shows whether that step ran. After a failure at ENVIRONMENT (the sound item under
     `staging`, keyless), KEY_BINDING (under the keyring of
@@ -186,6 +194,9 @@ defmodule Generator.Cases.Shape do
     ],
     # The missing witness leaves its `witness_hashes` entry nothing to hash.
     "shape-witnesses-missing" => [
+      {"derivation_mismatch", "/subject/record/witness_hashes/entropy_nist", "DERIVE"}
+    ],
+    "shape-witnesses-swapped" => [
       {"derivation_mismatch", "/subject/record/witness_hashes/entropy_nist", "DERIVE"}
     ],
     # A walk of more than MAX_PATH_STEPS nodes gives no root.
@@ -308,6 +319,7 @@ defmodule Generator.Cases.Shape do
       characters(sound),
       nulls(sound),
       sources(sound),
+      members(sound),
       witnesses(sound),
       key_events(sound),
       genesis_pairing(sound),
@@ -580,10 +592,43 @@ defmodule Generator.Cases.Shape do
     ]
   end
 
+  # Member sets (check 3): an extra member, in a closed object, whose name holds `~` and `/`,
+  # at its pointer, where each is escaped (`~0` and `~1`, in that order); and `subject`, which
+  # the type block forbids, in a block proof, as an object and as null, at `/subject`. The
+  # extra member is in a Stellar commitment entry, which no hash covers.
+  defp members(sound) do
+    item = sound["item"].proof
+    block = sound["block"].proof
+    entry = Edit.get(item, "/commitments/stellar")
+
+    [
+      invalid(
+        "shape-extra_member-escaped_name",
+        Edit.put(item, "/commitments/stellar", Map.put(entry, "a~b/c", "a member no entry has")),
+        "/commitments/stellar/a~0b~1c"
+      ),
+      invalid(
+        "shape-forbidden_member-object",
+        Map.put(block, "subject", item["subject"]),
+        "/subject"
+      ),
+      invalid("shape-forbidden_member-null", Map.put(block, "subject", nil), "/subject")
+    ]
+  end
+
   defp witnesses(sound) do
     item = sound["item"].proof
     nist = Edit.get(item, "/witnesses/entropy_nist")
     extra = Edit.put(sound["item-genesis-witness"].proof, "/witnesses/entropy_nist", nist)
+
+    # As many witnesses as `witness_hashes` names, but not the same: the item without its NIST
+    # witness, and with its Stellar witness's entry taken out of `witness_hashes`, the hashes
+    # above its record made to agree.
+    swapped =
+      item
+      |> Edit.delete("/witnesses/entropy_nist")
+      |> Edit.delete("/subject/record/witness_hashes/entropy_stellar")
+      |> Edit.reitem()
 
     [
       invalid(
@@ -591,7 +636,8 @@ defmodule Generator.Cases.Shape do
         Edit.delete(item, "/witnesses/entropy_nist"),
         "/witnesses"
       ),
-      invalid("shape-witnesses-extra", extra, "/witnesses")
+      invalid("shape-witnesses-extra", extra, "/witnesses"),
+      invalid("shape-witnesses-swapped", swapped, "/witnesses")
     ]
   end
 
@@ -713,15 +759,45 @@ defmodule Generator.Cases.Shape do
   end
 
   defp genesis(sound) do
-    for {id, name, b} <- [
-          {"block-genesis", "block", "/block"},
-          {"witnesses_block-genesis", "item-genesis-witness", @w},
-          {"signing_key_event_block-genesis", "item-genesis-witness", @k}
-        ] do
-      pointer = b <> "/record/metadata/genesis/bitcoin/network"
-      proof = sound[name].proof |> Edit.put(pointer, "mainnet") |> agree({:genesis, b})
-      signed("policy-" <> id, proof, mismatch(pointer))
-    end
+    cases =
+      for {id, name, b} <- [
+            {"block-genesis", "block", "/block"},
+            {"witnesses_block-genesis", "item-genesis-witness", @w},
+            {"signing_key_event_block-genesis", "item-genesis-witness", @k}
+          ] do
+        pointer = b <> "/record/metadata/genesis/bitcoin/network"
+        proof = sound[name].proof |> Edit.put(pointer, "mainnet") |> agree({:genesis, b})
+        signed("policy-" <> id, proof, mismatch(pointer))
+      end
+
+    cases ++ staging_genesis(sound)
+  end
+
+  # `genesis.bitcoin` under the default pins of `staging` (SPEC.md 9), whose Bitcoin entropy
+  # pin, mainnet, differs from its Bitcoin commitment pin, regtest, against which POLICY
+  # compares it: the genesis block's `genesis.bitcoin` of mainnet, the file of
+  # `policy-block-genesis`, fails, and the sound one, of regtest, passes with the sound
+  # proof's rows and names its trace. The block proof has no entropy object, so the entropy
+  # pin governs no row.
+  defp staging_genesis(sound) do
+    pins = Spec.read("network-pins.json")["staging"]
+    pointer = "/block/record/metadata/genesis/bitcoin/network"
+
+    [
+      Case.new("policy-block-genesis-staging_pins-mainnet",
+        proof: {:path, "negative/policy-block-genesis.proof.json"},
+        networks: pins,
+        defect: mismatch(pointer)
+      ),
+      Case.new("policy-block-genesis-staging_pins-regtest",
+        proof: {:path, sound["block"].path},
+        networks: pins,
+        label: "supplied-keyring",
+        trace: Case.trace_path(sound["block"].path),
+        same_as: "sound-block",
+        defect: {:passes, [{"pass", nil, pointer, "POLICY"}]}
+      )
+    ]
   end
 
   # Gates.

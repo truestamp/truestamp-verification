@@ -139,9 +139,10 @@ defmodule Generator.BitcoinParse do
   @doc """
   A well-formed merkleblock's header and the one hash it matches, as `{:ok, header, hash}`, or
   `:error`: it parses completely, with total_txs from 1 to BITCOIN_MAX_TOTAL_TXS; its walk
-  uses every hash and every flag bit, leaves the bits after the last one used at zero, finds
-  no right child equal to its left, matches exactly one transaction and reaches the header's
-  Merkle root field; and the header meets the target its nBits encodes.
+  uses every hash and reaches every flag octet (the number of flag octets is (b + 7) / 8,
+  rounded down, for b the number of flag bits it uses), leaves the bits after the last one
+  used at zero, finds no right child equal to its left, matches exactly one transaction and
+  reaches the header's Merkle root field; and the header meets the target its nBits encodes.
   """
   def merkleblock(<<header::binary-80, total::little-32, rest::binary>>)
       when total in 1..@max_total_txs do
