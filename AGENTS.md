@@ -111,8 +111,9 @@ consult, not a source to translate.
     combine the outcomes as section 10.4 says. A case without `sources` has one source per
     network, which every policy treats alike.
   - Section 13.1 says what is compared. For a bare rejection: `code`, and `sub_reason`
-    when the code has one. Otherwise: the `label` and every row as (code, part, status,
-    step), in order, passes and skips included; for an online case, also each edge's
+    when the code has one. Otherwise: the `label`, the `code` when the case's `expected`
+    gives one, and every row as (code, part, status, step), in order, passes and skips
+    included; for an online case, also each edge's
     instant and basis, compared as instants. Messages, `values` and exit codes are never
     compared.
 - The reference verifier's `livebooks/walkthrough.livemd`, a Livebook notebook, runs the

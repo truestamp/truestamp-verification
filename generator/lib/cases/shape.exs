@@ -4,7 +4,7 @@
 defmodule Generator.Cases.Shape do
   @moduledoc """
   The cases of SHAPE and POLICY, the gates, and EXPECTED_HASH: SPEC.md 13.3's SHAPE, the
-  empty-root rule, POLICY, Gates (its offline cases) and EXPECTED_HASH.
+  empty-root rule, POLICY, Gates (its offline cases), failures at two steps and EXPECTED_HASH.
 
   Each case changes a sound proof, makes the values that depend on the change agree again
   (Generator.Edit), up to each epoch's hash and a Bitcoin entry's evidence, and signs the result
@@ -92,6 +92,13 @@ defmodule Generator.Cases.Shape do
     `item_hash` changed), each
     CHAIN and SOURCES row, KEY_EVENT_COMMITMENT included, and WINDOW are `skip prior_failure`,
     while EXPECTED_HASH still compares. Every case of SHAPE and POLICY shows the same.
+  - **Failures at two steps** (`two_steps-`): the item with its /commitments Bitcoin `network`
+    mainnet, the defect of `policy-commitments-bitcoin`, and its `item_hash` changed, that of
+    `declared-item_hash`, signed again. A failure at POLICY does not end the run, so DERIVE
+    runs and fails too: two failing rows, `network_mismatch` at POLICY and then
+    `derivation_mismatch` at DERIVE, so the run's code, its first failing step's, is
+    `network_mismatch` (SPEC.md 10.2), which the case's `expected` gives. It is not a
+    single-defect case.
   - **EXPECTED_HASH** (`expected_hash-`), at `/subject/claims/hash`: a different hash, one two
     characters too long and one a character short, a hash given for a block proof and for an
     entropy proof, and for an item whose claims have no `hash` and one whose `hash_type` is not
@@ -240,6 +247,7 @@ defmodule Generator.Cases.Shape do
         empty_root(sound),
         policy(sound),
         gates(sound),
+        two_steps(sound),
         expected_hash(sound)
       ])
 
@@ -845,6 +853,28 @@ defmodule Generator.Cases.Shape do
         proof: {:path, "negative/declared-item_hash.proof.json"},
         expected_hash: md5,
         defect: {:fail, "derivation_mismatch", "/subject/item_hash", "DERIVE"}
+      )
+    ]
+  end
+
+  # Failures at two steps.
+
+  defp two_steps(sound) do
+    network = "/commitments/bitcoin/network"
+    item_hash = "/subject/item_hash"
+    edited = sound["item"].proof |> Edit.put(network, "mainnet") |> Edit.flip(item_hash)
+
+    [
+      signed(
+        "two_steps-policy-derive",
+        edited,
+        {:fails,
+         [
+           {"network_mismatch", network, "POLICY"},
+           {"derivation_mismatch", item_hash, "DERIVE"}
+         ]},
+        label: "failed",
+        code: "network_mismatch"
       )
     ]
   end

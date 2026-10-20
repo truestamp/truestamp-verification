@@ -43,6 +43,9 @@ defmodule Generator.Case do
     reads it. The check of Generator.Cases holds the run past the stop to exactly these rows
     beyond the one it stops at, so no second defect hides behind the stop.
   - `label`: the label the case says its report has, checked when given.
+  - `code`: the run's code the case says its report has, stated by hand, for a case whose
+    point is which failing row decides it (SPEC.md 13.2); it becomes the `code` member of the
+    case's `expected`, and SPEC.md 13.1 compares it.
   - `trace`: the path of the trace file the report's trace must equal, for a sound proof, for
     its reformatted copies, and for a passing case that runs a sound proof unchanged (the
     keyring cases `key_binding-inactive_key` and `key_binding-none`, the expected-hash cases
@@ -88,6 +91,7 @@ defmodule Generator.Case do
     :defect,
     :expected_hash,
     :label,
+    :code,
     :trace,
     :same_as,
     :class,
@@ -218,8 +222,8 @@ defmodule Generator.Cases do
     `networks`, `{"commitment": {chain: network}, "entropy": {chain: network}}`, and for an
     online case `online`, the path of its replay file, and `sources` when it names several
     sources for a network. `expected` holds, for a bare rejection, `code`, and `sub_reason`
-    when the code has one; otherwise the report's `label`, its
-    `rows`, each `[code, part, status, step]` in the order of SPEC.md 10.2, passes and skips
+    when the code has one; otherwise the report's `label`, its `code` for a case that states
+    one, its `rows`, each `[code, part, status, step]` in the order of SPEC.md 10.2, passes and skips
     included, for a sound proof, its reformatted copies and a passing case that runs a sound
     proof unchanged `trace`, the path of the trace file, and for an online case `submitted_after` and `submitted_before`, each null or
     `{basis, instant}`. Every path is relative to vectors/.
@@ -376,7 +380,7 @@ defmodule Generator.Cases do
 
     %{
       "config" => config,
-      "expected" => expected(output, definition.trace),
+      "expected" => expected(output, definition),
       "id" => definition.id,
       "proof" => proof
     }
@@ -395,8 +399,11 @@ defmodule Generator.Cases do
     |> Map.new()
   end
 
-  defp expected(output, nil), do: Model.expected(output)
-  defp expected(output, trace), do: Map.put(Model.expected(output), "trace", trace)
+  defp expected(output, definition) do
+    [{"trace", definition.trace}, {"code", definition.code && Model.code(output)}]
+    |> Enum.reject(fn {_name, value} -> value == nil end)
+    |> Enum.into(Model.expected(output))
+  end
 
   @doc """
   `{failures, report}` of the checks over `files`, every file about to be written under
@@ -1062,7 +1069,7 @@ defmodule Generator.Cases do
         same(
           "#{label}: its expected output, derived again",
           json["expected"],
-          expected(output, definition.trace)
+          expected(output, definition)
         ),
         defect(label, definition.defect, output),
         past(label, definition, {json, output}, files),
@@ -1149,6 +1156,10 @@ defmodule Generator.Cases do
         do: expect("#{label}: its label", report.label, definition.label),
         else: []
       ),
+      if(definition.code,
+        do: expect("#{label}: its code", Model.code({:report, report}), definition.code),
+        else: []
+      ),
       if(definition.trace,
         do:
           expect(
@@ -1169,6 +1180,7 @@ defmodule Generator.Cases do
   defp report_checks(label, definition, _bare, _context) do
     for {option, value} <- [
           label: definition.label,
+          code: definition.code,
           trace: definition.trace,
           same_as: definition.same_as,
           present: if(definition.present != [], do: definition.present),

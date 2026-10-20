@@ -132,6 +132,16 @@ defmodule Generator.Model do
       else: expected
   end
 
+  @doc """
+  The run's code of a report (SPEC.md 10.2): that of its first failing step, whose code is
+  that of its first failing row, so the code of its first failing row, as its rows are in step
+  order; nil for a report with no failing row, and for a bare rejection, which has no report.
+  """
+  def code({:report, report}),
+    do: Enum.find_value(report.rows, fn row -> if row.status == "fail", do: row.code end)
+
+  def code(_bare), do: nil
+
   @doc "An edge as SPEC.md 13.1 compares it: nil, or its `basis` and `instant`."
   def edge(nil), do: nil
   def edge(%{basis: basis, instant: instant}), do: %{"basis" => basis, "instant" => instant}

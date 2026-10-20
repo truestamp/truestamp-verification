@@ -1386,8 +1386,10 @@ The pins are a verifier's trust policy, and each is published as a file under `s
   `skip source_unreachable`, which section 10.4 combines with the network's other sources.
   A source configured for no network that gets no usable answer serves each pin of its
   chain the run pins that no other source serves; of two such sources, the first in the
-  verifier's order of its source options serves it. No compiled-in default is read in such
-  a source's place, so an outage is never `configuration_error` (section 10.2, step 0).
+  verifier's order of its source options serves it. Of two sources configured for no
+  network whose identity reads show the same network, likewise only the first serves that
+  network's pins. No compiled-in default is read in such a source's place, so an outage is
+  never `configuration_error` (section 10.2, step 0).
 
 | Constant | Value |
 |---|---|
@@ -2099,6 +2101,22 @@ on them, whatever else it lacks or gives in another form: the best-chain block a
 item 3 of the Bitcoin rule below is judged without its median time past, and a Stellar
 ledger read after a transaction not found is judged on being found.
 
+An answer in JSON parses only when it meets J2 to J6 (section 10.1) in every member, whether
+or not the read uses that member. This is deliberate: a Bitcoin block whose `difficulty` is
+past MAX_INTEGER is no usable answer, though no read uses `difficulty`.
+
+A read made of several calls, the best-chain block at a height (the hash at that height,
+then the block with that hash: two rows of the informative table below), whose later call
+answers not found or gives no usable answer, one that does not parse included, is found
+with the fields its earlier calls gave, and judged on them as above. So a `genesis.bitcoin`
+row, which uses only the hash, is still judged when its read was the whole block, and a
+hash that differs still fails it; a commitment entry's row whose hash matches is `skip
+source_unreachable`, since the transaction count is not given.
+
+A verifier MAY treat as unreachable an answer that does not name the object asked for: one
+whose index, sequence or hash differs from the one asked for, or that names none where the
+source's answers carry one.
+
 **Caches.** Every not-found answer MUST come from a live read, never from a cache. A found
 answer MAY come from a cache of answers read on the same chain and network, and only when
 the answer can no longer change: a read by hash, by Stellar ledger sequence or by NIST
@@ -2243,7 +2261,10 @@ KEY_EVENT_COMMITMENT, from one source or from several, has these members in its 
   `first`, and the number of sources under `all`;
 - `outcomes`: an array of one object for each source the row asked, in the order of the
   network's sources, each `{cached, candidate, code, fetched_at, reads, source, status}`:
-  - `source`: the source, as the operator configured it;
+  - `source`: the source, as the operator configured it; here and in the edges of section
+    11.5, a verifier MAY give only its scheme, host and port, leaving out its path, query
+    and credentials, and it then tells several sources of one network apart by their place
+    in the network's order;
   - `status` and `code`: that source's outcome, with `code` absent exactly when `status` is
     `pass`;
   - `candidate`: `{basis, instant}` (section 11.5), present exactly when that source passed
@@ -2609,7 +2630,9 @@ operator can give the network a full-history Horizon after the default one, unde
   after" and "Submitted before", and MUST NOT show a window for a run whose label is
   `failed`.
 - The edge names each source in `sources`: "read from <source> in this run" when its
-  `cached` is false, and otherwise "read from <source> at <fetched_at>".
+  `cached` is false, and otherwise "read from <source> at <fetched_at>". A <source> given by
+  its scheme, host and port alone (section 10.4) also names its place in its network's order
+  when that network has several sources.
 - Every other time appears only under "Recorded by Truestamp, not confirmed in this run"
   when `attribution` is `truestamp`, or "Declared by the signer (not attributed to
   Truestamp)" otherwise, and never with a pass status or in an edge's place.
@@ -2739,9 +2762,10 @@ ended:
   Truestamp deploys, no request, configuration file or environment variable can replace
   the key chain, choose keyless mode, supply a keyring or set E_v (section 8.2).
 - **What is compared.** For a bare rejection, `code`, and `sub_reason` when the code has
-  one; each such case breaks one rule, so its `sub_reason` is fixed. Otherwise, the report's `label`, and its
-  rows, each reduced to `(code, part, status, step)`, in order: all of them, passes and
-  skips included. For an online case, also each edge's instant and basis, or the edge's
+  one; each such case breaks one rule, so its `sub_reason` is fixed. Otherwise, the
+  report's `label`, its `code` when the case's `expected` gives one, and its rows, each
+  reduced to `(code, part, status, step)`, in order: all of them, passes and skips
+  included. For an online case, also each edge's instant and basis, or the edge's
   absence; instants compare as instants (section 11.3), so `2026-09-26T01:48:00Z` and
   `2026-09-26T01:48:00.000Z` are the same instant. Messages and `values` are never
   compared, and neither is an exit code, which each command-line verifier tests itself
@@ -2786,7 +2810,7 @@ holds:
 | Member | Holds |
 |---|---|
 | `config` | `environment`: the verifier's environment; `expected_hash`, OPTIONAL; `keyring`, OPTIONAL: `test` (`keyring.test.json`), `none` (keyless mode), `unavailable`, or the path of a keyring file, and absent when neither a keyring nor keyless mode is asked for; `networks`: `{commitment, entropy}`, the commitment pin per chain and the entropy pin per source, each an object from the chain's or the source's name to its network, which the case's run takes in place of the default pins of section 9; `online`, OPTIONAL: the path of a replay file under `corpus/replay/`; `sources`, OPTIONAL, only beside `online`: the several sources of each Stellar or Bitcoin network the case pins that has them (section 9), `{<chain>: {<network>: {policy, required, sources}}}`, where `sources` holds the names of that network's sources in their order, one or more, each an ASCII16 and no two the same, `policy` is `first`, `at_least` or `all`, and `required`, the n of `at_least n`, an INT from 1 to the number of sources, is present exactly when `policy` is `at_least`; a network it does not name has one source, under the policy `first` |
-| `expected` | for a bare rejection, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges, `submitted_after` and `submitted_before`, each null or `{basis, instant}` (section 11.5) |
+| `expected` | for a bare rejection, which has no `label`, `code`, and `sub_reason` when the code has one; otherwise the report's `label` and `rows`, with `code`, the report's code, for a case whose point is which failing row decides it, `trace`, the path of a trace file, for a case that gives a sound proof's trace, and for an online case its two edges, `submitted_after` and `submitted_before`, each null or `{basis, instant}` (section 11.5) |
 | `id` | a name unique in the file |
 | `proof` | the path of its proof |
 
@@ -3133,11 +3157,12 @@ section 10 reports that check. Each class below says what its cases assert.
   entropy source, a value that differs (`entropy_mismatch`) and a value not found; and
   KEY_EVENT_COMMITMENT passing, giving `info not_attributable` when the run is not
   attributed to Truestamp, and failing or skipping with its first input's code. That an
-  HTTP 429 or 503, an answer that does not parse and an answer that lacks a field the read
-  uses are each an unreachable answer, that an answer that shows a contradiction fails its
-  row even when it lacks another field, and that an answer is judged on the fields its
-  read uses at that point, whatever else it lacks (section 10.4), are tested in each
-  verifier's own tests, since a replay holds answers, not a service's exchanges
+  HTTP 429 or 503, an answer that does not parse, even in a member no read uses, and an
+  answer that lacks a field the read uses are each an unreachable answer, that an answer
+  that shows a contradiction fails its row even when it lacks another field, that an
+  answer is judged on the fields its read uses at that point, whatever else it lacks, and
+  that a read of several calls keeps what its earlier calls gave (section 10.4), are tested
+  in each verifier's own tests, since a replay holds answers, not a service's exchanges
   (section 13.2).
 - **Several sources (section 10.4).** Online, with two or three sources for one network,
   named in the case's `sources`, each answering from its own records of the replay. Under
@@ -3166,6 +3191,10 @@ section 10 reports that check. Each class below says what its cases assert.
 - **Gates.** After a failure at steps 4 to 6, or at SHAPE, each later step is one row
   `skip prior_failure` with part null. After a failure in POLICY or DERIVE, each online row
   is `skip prior_failure`.
+- **Failures at two steps (section 10.2).** A failure at POLICY does not end the run, so an
+  item with a Bitcoin commitment entry's `network` that differs from its pin and with its
+  `item_hash` changed fails `network_mismatch` at POLICY and then `derivation_mismatch` at
+  DERIVE, and the run's code, which the case compares, is the first, `network_mismatch`.
 - **EXPECTED_HASH.** A different hash, a hash of the wrong length, and a hash given for a
   proof that is not an item or for an item whose claims have no `hash` of a listed type,
   each fail `expected_hash_mismatch` at `/subject/claims/hash`. A matching hash in capitals
