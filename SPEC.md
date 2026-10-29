@@ -317,7 +317,7 @@ A verifier MUST treat each value as its class says.
 | PREIMAGE | every block record's `leaf_count`, and every epoch's `record.leaf_count`; `/block/record/merkle_root` in a `block` proof and in a `beacon` proof with no observations, and the `merkle_root` at `/witnesses/block` and `/signing_key_event/block` (the empty-root rule of section 5.4); the key-event `type` and `public_key`, and a prerotation's `active_key_id`; `raw_transaction`, `txoutproof`; every entropy `source`, and the payload values SOURCES compares (NIST `outputValue`, `timeStamp`; Stellar `hash`, `closed_at`; Bitcoin entropy `height`, `time`) | input to a CHECKED hash or a named check; a payload value is compared with its source only after a read |
 | CHAIN POINTER | Stellar `transaction_hash`, `ledger`; Bitcoin commitment `height`; every `network`; NIST `chainIndex`, `pulseIndex`; Stellar `sequence`; Bitcoin entropy `hash`; `genesis.bitcoin` | may cause an offline rejection (POLICY, LINK_CHAIN_ORDER), but supports a pass or an edge only after a read made during verification |
 | BLOCK HEIGHT | every other `record.height` | used only by LINK_HEAD and by a rotation's `height` check |
-| SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with bidirectional and zero-width characters escaped |
+| SUBMITTED | `subject.claims` | bound by `claims_hash`; shown only as the submitter's statement, with at least U+061C, U+200B to U+200F, U+202A to U+202E, U+2060 to U+2064, U+2066 to U+2069 and U+FEFF escaped |
 | RECORDED | ids and their times; the other `previous_block_hash` and `signing_key_id` values; `prerotation_commitment`, `previous_public_key` (only an input to the handover check), `sequence`, `reason`, `revoked_key_id`; NIST `version`; which observation a beacon carries | never a verdict input except where a row above uses it; shown under a provenance heading chosen by attribution |
 
 No value is opaque, and no record contains its own hash. SOURCES and POLICY are steps of
@@ -348,8 +348,9 @@ keys and no whitespace. The envelope adds 217 octets to |JCS(proof)|.
   1,024-octet txoutproofs; `emergency_rotation` events with every optional member and a
   128-character reason at all three block positions; every `leaf_count` 2^32 and every
   other integer 16 digits; a 16-character NIST `version`; `testnet` on both chains. This is
-  a ceiling over what the schema admits, not a proof Truestamp makes: a key-event block has
-  no leaves (section 5.4), so it is never the `/block` of an item or observation proof.
+  a ceiling over what the schema admits for trees of at most 2^32 leaves (section 5.1), not
+  a proof Truestamp makes: a key-event block has no leaves (section 5.4), so it is never the
+  `/block` of an item or observation proof.
 
 | Proof | Typical, full | Typical, reference | Typical, none | Worst, full |
 |---|---|---|---|---|
@@ -2270,8 +2271,10 @@ KEY_EVENT_COMMITMENT, from one source or from several, has these members in its 
   - `candidate`: `{basis, instant}` (section 11.5), present exactly when that source passed
     with a candidate;
   - `cached` and `fetched_at`: those of the read whose answer settled that source's
-    outcome: its candidate read when it has a candidate, and its identity read when it was
-    asked nothing else;
+    outcome: its candidate read when it has a candidate, its last read when it ends `skip
+    source_unreachable`, and its identity read when it was asked nothing else. A read with
+    no usable answer, here and in `reads`, has `cached` false and as `fetched_at` the time
+    it was tried, by the verifier's clock;
   - `reads`: every read the rule made of that source, in the order made, each
     `{answer, cached, fetched_at, read}`, with `read` and `answer` in the form of a replay
     record (section 13.2);
@@ -2625,7 +2628,9 @@ operator can give the network a full-history Horizon after the default one, unde
   - `sources`: the sources the edge rests on, in the order of their network's sources, each
     `{cached, fetched_at, source}` for its read that gave the candidate: the one source
     whose outcome the row took under `first`, and under `at_least n` or `all` every source
-    that passed, at least n (section 10.4). With one source, it is that source alone.
+    that passed, at least n (section 10.4). With one source, it is that source alone. The
+    k-th is the source of the k-th object of the row's `outcomes` whose `status` is `pass`,
+    and so has that object's place in its network's order (section 10.4).
 - Every surface MUST draw the edges only from these two objects, captioned "Submitted
   after" and "Submitted before", and MUST NOT show a window for a run whose label is
   `failed`.
@@ -2646,7 +2651,9 @@ operator can give the network a full-history Horizon after the default one, unde
 - A surface MAY show an item proof's item code (section 3.9), computed only from the
   recomputed `item_hash` and captioned as the item code. It appears beside `item_hash`,
   never in its place and never with a pass status. It is never a member or row of a report.
-  Equal item codes are never read as the same item; only equal `item_hash` values are.
+  Equal item codes are never read as the same item; only equal `item_hash` values are. This
+  section governs an item code shown as part of a verification result; naming a stored item
+  by its item code in a title or a link, outside every status, is outside it.
 
 ## 12. Reason codes and exit codes
 
@@ -3170,23 +3177,25 @@ section 10 reports that check. Each class below says what its cases assert.
   passing and another failing, and two passing with candidates a second apart
   (`sources_disagree`); one passing beside one that times out (`sources_incomplete`); of
   three, two that conflict beside one that times out (`sources_disagree`); every source
-  failing (`chain_mismatch`); every Bitcoin tip below `height` (`not_yet_indexed`); Bitcoin
-  tips a block apart, both at least `height` + BITCOIN_FINALITY, which pass; and an entropy
-  ledger whose hash one source gives otherwise (`sources_disagree` at SOURCES). Under
-  `at_least 2` of three: two passing beside one unreachable, which passes, and two failing
-  beside one unreachable (`chain_mismatch`). Under `first`: a first source whose transaction
-  read is unreachable, one that keeps less history and does not hold the ledgers, and one
-  whose identity read is unreachable, each followed by a source that passes; a first source
-  that fails, which settles the row, beside a second whose replay holds only its identity
-  read; every source unreachable (`source_unreachable`); and a tip below `height` on the
-  first source and below `height` + BITCOIN_FINALITY on the second (`sources_incomplete`).
-  Every other online case has one source for each network.
+  failing (`chain_mismatch`); one failing beside one that times out (`sources_incomplete`);
+  every Bitcoin tip below `height` (`not_yet_indexed`); Bitcoin tips a block apart, both at
+  least `height` + BITCOIN_FINALITY, which pass; and an entropy ledger whose hash one source
+  gives otherwise (`sources_disagree` at SOURCES). Under `at_least 2` of three: two passing
+  beside one unreachable, which passes, and two failing beside one unreachable
+  (`chain_mismatch`). Under `first`: a first source whose transaction read is unreachable,
+  one that keeps less history and does not hold the ledgers, and one whose identity read is
+  unreachable, each followed by a source that passes; a first source that fails, which
+  settles the row, beside a second whose replay holds only its identity read; every source
+  unreachable (`source_unreachable`); and a tip below `height` on the first source and below
+  `height` + BITCOIN_FINALITY on the second (`sources_incomplete`). Every other online case
+  has one source for each network.
 - **The window (section 11).** Online: both edges drawn, each case giving their instants
   and bases; the submitted-after edge later than the submitted-before edge
   (`window_inverted`), whose report, labelled `failed`, carries neither edge; the time in a
   subject's id outside an established window (`info recorded_time_outside_window`), once
-  by 250 ms, an id time of 01:49:00.250 against a submitted-before edge of 01:49:00; and a
-  block proof, which has no submitted-after edge. Offline, every sound case gives
+  by 250 ms, an id time of 01:49:00.250 against a submitted-before edge of 01:49:00; two
+  candidates at one instant for each edge, the first in row order giving it; and a block
+  proof, which has no submitted-after edge. Offline, every sound case gives
   `info window_not_established`.
 - **Gates.** After a failure at steps 4 to 6, or at SHAPE, each later step is one row
   `skip prior_failure` with part null. After a failure in POLICY or DERIVE, each online row

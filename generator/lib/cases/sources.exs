@@ -24,8 +24,9 @@ defmodule Generator.Cases.Sources do
     sources, `b`'s memo differing (a pass beside a fail) and `b`'s ledger 1,000,267 closing a
     second later (two candidates at different instants), each `skip sources_disagree`, `b`'s
     transaction read timing out (`skip sources_incomplete`), of three, `b`'s memo differing
-    and `c`'s transaction read timing out (`skip sources_disagree`), and both memos differing
-    (`fail chain_mismatch`); over the item with two regtest sources, both tips below height
+    and `c`'s transaction read timing out (`skip sources_disagree`), both memos differing
+    (`fail chain_mismatch`), and `a`'s memo differing beside `b`'s transaction read timing out
+    (`skip sources_incomplete`); over the item with two regtest sources, both tips below height
     222 (`skip not_yet_indexed`) and tips of 233 and 232, a block apart and both final, which
     pass with one candidate; and over the item with two Stellar sources, `b`'s ledger
     1,000,222, an entropy witness, with another hash (`skip sources_disagree` at SOURCES).
@@ -140,6 +141,12 @@ defmodule Generator.Cases.Sources do
       mismatch("sources-all-every_fail", alone_path,
         sources: %{@stellar => {"all", two}},
         replay: on_alone.(two, %{{"a", t3} => memo, {"b", t3} => memo})
+      ),
+      # One fail, below the two that `all` asks for, and no pass: neither a disagreement nor a
+      # failure (SPEC.md 10.4).
+      no_edge("sources-all-fail_and_unreachable", alone_path, "sources_incomplete",
+        sources: %{@stellar => {"all", two}},
+        replay: on_alone.(two, %{{"a", t3} => memo, {"b", t3} => unreachable("timeout")})
       ),
       passes("sources-all-every_not_yet_indexed", item_path,
         sources: %{@regtest => {"all", two}},

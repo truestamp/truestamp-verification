@@ -291,10 +291,9 @@ defmodule Generator.RealBitcoin do
       time: "2026-01-17T16:15:30Z",
       total_txs: 3228,
       source:
-        "A test of Truestamp's app, test/truestamp/bitcoin/explorer_verification_test.exs, " <>
-          "which keeps a mainnet transaction and the txoutproof a public block explorer gave " <>
-          "for it; mempool.space's Esplora API placed the transaction in this block, at this " <>
-          "height, on 2026-09-27.",
+        "A mainnet transaction and the txoutproof a public block explorer gave for it, " <>
+          "kept by a test of Truestamp's app; mempool.space's Esplora API placed the " <>
+          "transaction in this block, at this height, on 2026-09-27.",
       files: [
         {"transaction-witness", :transaction, Bytes.unhex(@block_932662_transaction),
          %{
@@ -331,8 +330,7 @@ defmodule Generator.RealBitcoin do
       source:
         "The regtest chain of Truestamp's staging environment, mined by its Bitcoin Core " <>
           "node: the raw_transaction and txoutproof of the Bitcoin commitment at " <>
-          "/commitments/0 of a staging proof, which truestamp-cli keeps as " <>
-          "testdata/staging-2026-09-03/proof-complete.json.",
+          "/commitments/0 of a staging proof of 2026-09-03, in the layout proofs had then.",
       files: [
         {"transaction-witness", :transaction, Bytes.unhex(@staging_56062_transaction),
          %{

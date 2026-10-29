@@ -127,9 +127,11 @@ defmodule Generator.Cases.Online do
     01:48:00, the instant of its NIST pulse, so that the two edges are one instant, which is
     not inverted; and block 232's median time past at 01:51:15, the close of ledger
     1,000,255, so that the two candidates of the submitted-before edge tie and the first in
-    row order, /commitments/bitcoin's, gives it. Six of these cases hold answers that could
-    not come from a real chain (the millisecond case holds two), and each case says so where
-    it is built.
+    row order, /commitments/bitcoin's, gives it; and block 215's median time past at
+    01:48:30, the close of ledger 1,000,222, so that the two latest candidates of the
+    submitted-after edge tie and the first in row order, /witnesses/entropy_bitcoin's, gives
+    it. Seven of these cases hold answers that could not come from a real chain (the
+    millisecond case holds two), and each case says so where it is built.
   - **Gates** (`gates-online-`): a CHAIN failure (beacon, /commitments/stellar's memo) with
     every SOURCES row still read and passing; and the files of `gates-policy`'s POLICY
     failure and `gates-derive`'s DERIVE failure, run online, whose every CHAIN and SOURCES
@@ -819,6 +821,15 @@ defmodule Generator.Cases.Online do
       passes("window-submitted_before_tie", item_path,
         replay: replay(world, item, median.(b232, "2026-09-26T01:51:15Z")),
         edges: {@s222, {"bitcoin_median_time_read", "2026-09-26T01:51:15Z"}},
+        rows: [@kec_info]
+      ),
+      # Deliberately impossible on a real chain, as above: block 215's median time past,
+      # 01:48:30, the close of ledger 1,000,222, is later than its own time. The two latest
+      # candidates of the submitted-after edge tie, and the first in row order,
+      # /witnesses/entropy_bitcoin's, gives the edge and its basis (SPEC.md 11.2).
+      passes("window-submitted_after_tie", item_path,
+        replay: replay(world, item, median.(b215, "2026-09-26T01:48:30Z")),
+        edges: {{"bitcoin_median_time_read", "2026-09-26T01:48:30Z"}, @s255},
         rows: [@kec_info]
       )
     ]
