@@ -24,10 +24,10 @@ consult, not a source to translate.
    is right and the other is a bug.
 2. `spec/` holds the data `SPEC.md` defines: the byte-prefix registry, constants, pattern
    and value classes, the JSON Schema of a proof, networks and their default pins, the
-   small-order keys, the production keyring (which holds no key yet), the public keys of
-   the non-production environments, the accepted constructions text, and the reason and
-   exit codes. Read these files rather than copying their values, or test that your
-   copies equal them.
+   small-order keys, the production keyring (which holds the production key), the public
+   keys of the non-production environments, the accepted constructions text, and the
+   reason and exit codes. Read these files rather than copying their values, or test that
+   your copies equal them.
 3. `vectors/` holds the conformance cases and known answers, among them the test keyring
    `vectors/keyring.test.json`. `MANIFEST.sha256` holds the SHA-256 of every file under
    `spec/` and `vectors/`: `shasum -a 256 -c MANIFEST.sha256`, run from the repository

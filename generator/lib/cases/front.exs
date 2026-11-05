@@ -42,21 +42,23 @@ defmodule Generator.Cases.Front do
     the keyring `test`, null, the number 1, and `test` with a newline on its end. A marker that
     is no ENV value would fail SHAPE too, its knock-on failure, but ENVIRONMENT sees it first
     and ends the run.
-  - **A precedence case**, `environment-staging-under-prod-compiled_pin`: the proof marked
-    `staging` under `prod` again, with no keyring option, where the compiled pin governs and
-    holds no key, so KEY_BINDING would fail too. It carries two defects, and shows that
-    ENVIRONMENT, which comes first (SPEC.md 10.2), is the one that reports. It is not a
-    single-defect case, and the check of every code does not count it.
+  - **A precedence case**, `environment-staging-under-prod-compiled_pin`: the proof
+    marked `staging` under `prod` again, with no keyring option, where the compiled
+    pin governs and holds only the production key, not VECTOR_KEY, so KEY_BINDING
+    would fail too. It carries two defects, and shows that ENVIRONMENT, which comes
+    first (SPEC.md 10.2), is the one that reports. It is not a single-defect case, and
+    the check of every code does not count it.
   - **KEY_BINDING**, offline: `key_binding_failed` for the sound item under a keyring that
     holds only the other key, for the sound item without `signing_key_event` signed by the
     other key under the keyring `test`, and, under `prod` with no keyring option, for the
-    sound item unmarked, where the compiled pin governs and holds no key. The keyring `none`
-    gives `skip key_binding_not_performed`, the label `unattributed`, and otherwise the sound
-    item's rows under the keyring `test`, every one of them, which its `same_as` holds it to
-    (`key_binding-none`), and the sound item's trace. A supplied keyring holding VECTOR_KEY with `"active": false`,
-    sequence 0, beside the other key, active, sequence 1, as a routine rotation leaves it,
-    binds K over the sound item: KEY_BINDING passes, the label is `supplied-keyring`, and
-    every row is the sound item's, which its `same_as` holds it to, and so is the trace
+    sound item unmarked, where the compiled pin governs and holds only the production key,
+    not VECTOR_KEY. The keyring `none` gives `skip key_binding_not_performed`, the label
+    `unattributed`, and otherwise the sound item's rows under the keyring `test`, every one
+    of them, which its `same_as` holds it to (`key_binding-none`), and the sound item's
+    trace. A supplied keyring holding VECTOR_KEY with `"active": false`, sequence 0, beside
+    the other key, active, sequence 1, as a routine rotation leaves it, binds K over the
+    sound item: KEY_BINDING passes, the label is `supplied-keyring`, and every row is the
+    sound item's, which its `same_as` holds it to, and so is the trace
     (`key_binding-inactive_key`), since a key binds active or not (SPEC.md 6.1). The keyring
     `unavailable` is online (Generator.Cases.Online).
   - **SIGNATURE**, `signature_invalid`, K VECTOR_KEY: V a signature by VECTOR_KEY over M
@@ -284,7 +286,8 @@ defmodule Generator.Cases.Front do
     # A marker that is no ENV value also fails SHAPE's schema, at the marker.
     not_env = [knock_on: [{"shape_invalid", "/environment", "SHAPE"}]]
 
-    # The compiled pin holds no key, so KEY_BINDING would fail too.
+    # The compiled pin holds only the production key, not VECTOR_KEY, so KEY_BINDING would
+    # fail too.
     precedence = [defect: {:precedes, mismatch, [{"key_binding_failed", nil, "KEY_BINDING"}]}]
 
     [
